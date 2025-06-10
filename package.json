@@ -1,0 +1,39 @@
+{
+  "name": "kanban-mbb-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "migrate": "node scripts/run-migration.js all",
+    "migrate:single": "node scripts/run-migration.js",
+    "migrate:kanban": "npm run migrate:single 001_create_kanban_enums.sql && npm run migrate:single 002_create_tasks_table.sql && npm run migrate:single 003_add_tasks_triggers_and_rls.sql"
+  },
+  "dependencies": {
+    "@hello-pangea/dnd": "^16.5.0",
+    "@heroicons/react": "^2.0.18",
+    "@supabase/supabase-js": "^2.39.0",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.16.16",
+    "lucide-react": "^0.294.0",
+    "next": "^14.2.29",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.38",
+    "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^9.0.7",
+    "autoprefixer": "^10.4.16",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "14.0.4",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6"
+  }
+}
