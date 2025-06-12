@@ -3,6 +3,7 @@
 import React from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
+import PrioritySelector from '../ui/PrioritySelector'
 
 interface TaskCardProps {
   task: Task
@@ -20,10 +21,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
     })
   }
 
-  const priorityColors = {
-    low: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
-    high: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+  const isOverdue = (dueDateString: string) => {
+    const dueDate = new Date(dueDateString)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return dueDate < today
   }
 
   return (
@@ -56,9 +58,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
             </h3>
             
             {task.priority && (
-              <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${priorityColors[task.priority]}`}>
-                {task.priority}
-              </span>
+              <PrioritySelector
+                value={task.priority}
+                onChange={() => {}} // Read-only in card view
+                disabled={true}
+                variant="compact"
+              />
             )}
           </div>
 
@@ -71,11 +76,18 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <div className="flex items-center space-x-1 sm:space-x-2">
               {task.due_date && (
-                <div className="flex items-center space-x-1">
+                <div className={`flex items-center space-x-1 ${
+                  isOverdue(task.due_date) 
+                    ? 'text-red-600 dark:text-red-400' 
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}>
                   <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-xs">{formatDate(task.due_date)}</span>
+                  <span className="text-xs font-medium">
+                    {formatDate(task.due_date)}
+                    {isOverdue(task.due_date) && ' (Overdue)'}
+                  </span>
                 </div>
               )}
             </div>

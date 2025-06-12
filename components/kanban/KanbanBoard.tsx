@@ -1,115 +1,58 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import SwimLane from './SwimLane'
 import TaskModal from './TaskModal'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
+import { useKanban } from '../../hooks/useKanban'
 
 interface KanbanBoardProps {
   className?: string
 }
 
-interface TasksByStatus {
-  backlog: Task[]
-  todo: Task[]
-  doing: Task[]
-  done: Task[]
-}
-
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
-  const [tasks, setTasks] = useState<TasksByStatus>({
-    backlog: [],
-    todo: [],
-    doing: [],
-    done: []
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
+  // Use centralized kanban hook for all task management
+  const {
+    tasks,
+    isLoading,
+    error,
+    stats,
+    createTask,
+    updateTask,
+    deleteTask,
+    moveTask,
+    clearError,
+    refetchTasks
+  } = useKanban()
+
   // Task Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [modalInitialStatus, setModalInitialStatus] = useState<Task['status']>('backlog')
 
-  // Fetch tasks on component mount
-  useEffect(() => {
-    fetchTasks()
-  }, [])
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
 
-  const fetchTasks = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const response = await fetch('/api/kanban/tasks')
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tasks: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch tasks')
-      }
-
-      // Group tasks by status
-      const tasksByStatus: TasksByStatus = {
-        backlog: [],
-        todo: [],
-        doing: [],
-        done: []
-      }
-
-      result.data.forEach((task: Task) => {
-        if (tasksByStatus[task.status]) {
-          tasksByStatus[task.status].push(task)
-        }
-      })
-
-      // Sort tasks by order_index within each status
-      Object.keys(tasksByStatus).forEach(status => {
-        tasksByStatus[status as Task['status']].sort((a, b) => a.order_index - b.order_index)
-      })
-
-      setTasks(tasksByStatus)
-    } catch (err) {
-      console.error('Error fetching tasks:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch tasks')
-    } finally {
-      setIsLoading(false)
-    }
+  // Handle optimistic updates for drag and drop
+  const handleOptimisticUpdate = (updatedTasks: typeof tasks) => {
+    // For now, we'll rely on the server state and refetch
+    // Could implement optimistic updates later for better UX
   }
 
+  // Wrapper functions to match SwimLane interface expectations
   const handleTaskMove = async (taskId: string, newStatus: Task['status'], newOrderIndex: number) => {
-    try {
-      const response = await fetch(`/api/kanban/tasks/${taskId}/move`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          order_index: newOrderIndex
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to move task')
-      }
-
-      // Refresh tasks to get the latest state from server
-      await fetchTasks()
-    } catch (err) {
-      console.error('Error moving task:', err)
-      setError('Failed to move task')
-      // Re-throw to let useDragAndDrop handle the error
-      throw err
-    }
+    await moveTask(taskId, newStatus, newOrderIndex)
   }
 
-  const handleOptimisticUpdate = (updatedTasks: TasksByStatus) => {
-    setTasks(updatedTasks)
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+    await updateTask(taskId, updates)
+  }
+
+  const handleTaskDelete = async (taskId: string) => {
+    await deleteTask(taskId)
   }
 
   // Initialize drag and drop hook
@@ -146,75 +89,48 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
   const handleModalSave = async (taskData: Partial<Task>) => {
     if (editingTask) {
       // Updating existing task
-      await handleTaskUpdate(editingTask.id, taskData)
+      await updateTask(editingTask.id, taskData)
     } else {
       // Creating new task
-      await handleTaskCreate(taskData)
+      await createTask(taskData)
     }
   }
 
-  const handleTaskCreate = async (taskData: Partial<Task>) => {
-    try {
-      const response = await fetch('/api/kanban/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(taskData)
-      })
+  // Delete confirmation functions
+  const openDeleteConfirm = (task: Task) => {
+    setTaskToDelete(task)
+    setDeleteConfirmOpen(true)
+  }
 
-      if (!response.ok) {
-        throw new Error('Failed to create task')
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmOpen(false)
+    setTaskToDelete(null)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (taskToDelete) {
+      try {
+        await deleteTask(taskToDelete.id)
+        closeDeleteConfirm()
+      } catch (error) {
+        // Error is already handled by the hook
+        console.error('Delete failed:', error)
       }
-
-      // Refresh tasks
-      await fetchTasks()
-    } catch (err) {
-      console.error('Error creating task:', err)
-      setError('Failed to create task')
-      throw err // Re-throw for modal error handling
     }
   }
 
-  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-    try {
-      const response = await fetch(`/api/kanban/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates)
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update task')
-      }
-
-      // Refresh tasks
-      await fetchTasks()
-    } catch (err) {
-      console.error('Error updating task:', err)
-      setError('Failed to update task')
-      throw err // Re-throw for modal error handling
+  // Enhanced task delete wrapper with confirmation
+  const handleTaskDeleteWithConfirm = async (taskId: string) => {
+    const task = Object.values(tasks).flat().find(t => t.id === taskId)
+    if (task) {
+      openDeleteConfirm(task)
     }
   }
 
-  const handleTaskDelete = async (taskId: string) => {
-    try {
-      const response = await fetch(`/api/kanban/tasks/${taskId}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete task')
-      }
-
-      // Refresh tasks
-      await fetchTasks()
-    } catch (err) {
-      console.error('Error deleting task:', err)
-      setError('Failed to delete task')
-    }
+  // Retry function for error handling
+  const handleRetry = () => {
+    clearError()
+    refetchTasks()
   }
 
   if (isLoading) {
@@ -248,7 +164,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           </h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{error}</p>
           <button
-            onClick={fetchTasks}
+            onClick={handleRetry}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Try Again
@@ -274,6 +190,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             Manage your tasks across four swim lanes
           </p>
           
+          {/* Task stats display */}
+          <div className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+            Total tasks: {stats.total} • Completed: {stats.done} • In progress: {stats.doing}
+          </div>
+          
           {/* Drag status indicator */}
           {dragDropState.isDragging && (
             <div className="mt-2 text-xs sm:text-sm text-blue-600 dark:text-blue-400 animate-pulse">
@@ -292,7 +213,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onOpenCreateModal={() => openCreateModal('backlog')}
             onTaskEdit={openEditModal}
             onTaskUpdate={handleTaskUpdate}
-            onTaskDelete={handleTaskDelete}
+            onTaskDelete={handleTaskDeleteWithConfirm}
             color="gray"
           />
           
@@ -304,7 +225,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onOpenCreateModal={() => openCreateModal('todo')}
             onTaskEdit={openEditModal}
             onTaskUpdate={handleTaskUpdate}
-            onTaskDelete={handleTaskDelete}
+            onTaskDelete={handleTaskDeleteWithConfirm}
             color="blue"
           />
           
@@ -316,7 +237,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onOpenCreateModal={() => openCreateModal('doing')}
             onTaskEdit={openEditModal}
             onTaskUpdate={handleTaskUpdate}
-            onTaskDelete={handleTaskDelete}
+            onTaskDelete={handleTaskDeleteWithConfirm}
             color="yellow"
           />
           
@@ -328,7 +249,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onOpenCreateModal={() => openCreateModal('done')}
             onTaskEdit={openEditModal}
             onTaskUpdate={handleTaskUpdate}
-            onTaskDelete={handleTaskDelete}
+            onTaskDelete={handleTaskDeleteWithConfirm}
             color="green"
           />
         </div>
@@ -336,19 +257,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
         {/* Task Statistics */}
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-gray-600">{tasks.backlog.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-600">{stats.backlog}</div>
             <div className="text-xs sm:text-sm text-gray-500">Backlog</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{tasks.todo.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.todo}</div>
             <div className="text-xs sm:text-sm text-gray-500">To Do</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{tasks.doing.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.doing}</div>
             <div className="text-xs sm:text-sm text-gray-500">Doing</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{tasks.done.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.done}</div>
             <div className="text-xs sm:text-sm text-gray-500">Done</div>
           </div>
         </div>
@@ -361,6 +282,66 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           task={editingTask}
           initialStatus={modalInitialStatus}
         />
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirmOpen && taskToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Delete Task
+                </h2>
+                <button
+                  onClick={closeDeleteConfirm}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L3.316 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2">
+                      Are you sure you want to delete this task?
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <strong>"{taskToDelete.title}"</strong>
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      This action cannot be undone. This will permanently delete the task and all associated data.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={closeDeleteConfirm}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                >
+                  Delete Task
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DragDropContext>
   )

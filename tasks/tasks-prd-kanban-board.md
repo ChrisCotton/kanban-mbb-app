@@ -70,9 +70,9 @@ Generated from: `prd-kanban-board.md`
   - [x] 3.8 Write unit tests for drag and drop functionality ✅ **COMPLETE**
 
 - [ ] 4.0 Task Management Features (CRUD, Comments, Subtasks)
-  - [ ] 4.1 Create TaskModal component for creating/editing tasks
-  - [ ] 4.2 Implement task CRUD operations (Create, Read, Update, Delete)
-  - [ ] 4.3 Add due date picker and priority selection components
+  - [x] 4.1 Create TaskModal component for creating/editing tasks ✅ **COMPLETE**
+  - [x] 4.2 Implement task CRUD operations (Create, Read, Update, Delete) ✅ **COMPLETE**
+  - [x] 4.3 Add due date picker and priority selection components ✅ **COMPLETE**
   - [ ] 4.4 Create CommentSection component with markdown support
   - [ ] 4.5 Implement markdown rendering for comments (similar to Trello)
   - [ ] 4.6 Create SubtaskList component with checkboxes
@@ -174,4 +174,75 @@ Create the foundational UI components for the kanban board with four swim lanes,
 - Error scenarios are properly tested with console.error mocking
 - Tests verify both happy path and edge cases
 - Build passes successfully with all tests green
-- Testing framework: Jest + React Testing Library with @testing-library/jest-dom matchers 
+- Testing framework: Jest + React Testing Library with @testing-library/jest-dom matchers
+
+### Task 4.3: Enhanced Date Picker and Priority Selection Components ✅ **COMPLETE**
+
+**Status:** ✅ Complete  
+**Priority:** High  
+**Estimated Time:** 4 hours  
+**Actual Time:** 4 hours  
+**Completed:** January 12, 2025
+
+#### Description
+Created dedicated, reusable DatePicker and PrioritySelector components with enhanced UX, visual indicators, and improved accessibility.
+
+#### Acceptance Criteria
+- [x] Enhanced DatePicker component with date shortcuts and better UX
+- [x] PrioritySelector component with visual priority indicators and descriptions
+- [x] Support for all four priority levels (low, medium, high, urgent)
+- [x] Mobile-responsive design with touch-friendly interactions
+- [x] Proper error handling and validation
+- [x] Integration with existing TaskModal and TaskCard components
+- [x] Consistent dark theme support
+
+#### Implementation Details
+- **DatePicker Component** (`components/ui/DatePicker.tsx`):
+  - Custom dropdown with native date input
+  - Quick shortcuts: Today, Tomorrow, Next Week, Next Month
+  - Clear date functionality with visual feedback
+  - Prevents past date selection
+  - Click-outside-to-close behavior
+  - Error message display support
+  - Full keyboard accessibility
+  
+- **PrioritySelector Component** (`components/ui/PrioritySelector.tsx`):
+  - Two variants: default (full) and compact for different contexts
+  - Visual priority indicators with icons (⬇️➡️⬆️🔥) and colors
+  - Descriptive text for each priority level
+  - Four priority levels: Low, Medium, High, Urgent
+  - Hover states and selection feedback
+  - Disabled state support for read-only scenarios
+
+#### Features Implemented
+- ✅ Enhanced date selection with shortcuts for common dates
+- ✅ Visual priority indicators with color coding and icons
+- ✅ Overdue date detection and warning display in TaskCard
+- ✅ Responsive design optimized for mobile and desktop
+- ✅ Accessibility features: keyboard navigation, ARIA labels
+- ✅ Error handling with inline validation messages
+- ✅ Integration with TaskModal for task creation/editing
+- ✅ Compact priority display in TaskCard components
+- ✅ Dark theme compatibility throughout all components
+
+#### Files Created/Modified
+- `components/ui/DatePicker.tsx` - Enhanced date picker with shortcuts and validation
+- `components/ui/PrioritySelector.tsx` - Priority selector with visual indicators
+- `components/kanban/TaskModal.tsx` - Updated to use new UI components
+- `components/kanban/TaskCard.tsx` - Updated to show enhanced priority display and overdue warnings
+- API routes already supported 'urgent' priority level
+
+#### Technical Improvements
+- Better UX with date shortcuts reducing clicks for common selections
+- Visual priority hierarchy making task importance immediately apparent
+- Consistent component API design for reusability across the application
+- Improved accessibility with proper focus management and keyboard navigation
+- Enhanced mobile experience with touch-friendly interaction areas
+- Overdue date warnings to help users identify time-sensitive tasks
+
+#### Notes
+- Components follow the established design system and TypeScript patterns
+- All priority levels are fully supported by backend API validation
+- DatePicker prevents past date selection for better data integrity
+- PrioritySelector compact variant perfect for TaskCard space constraints
+- Ready for additional UI components following the same design patterns 

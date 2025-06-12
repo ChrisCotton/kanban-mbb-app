@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { Task } from '../../lib/database/kanban-queries'
+import DatePicker from '../ui/DatePicker'
+import PrioritySelector from '../ui/PrioritySelector'
 
 interface TaskModalProps {
   isOpen: boolean
@@ -126,7 +128,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onKeyDown={handleKeyDown}
       >
         {/* Modal Header */}
@@ -191,7 +193,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
           </div>
 
           {/* Status and Priority Row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Status Field */}
             <div>
               <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -213,42 +215,29 @@ const TaskModal: React.FC<TaskModalProps> = ({
 
             {/* Priority Field */}
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Priority
               </label>
-              <select
-                id="priority"
+              <PrioritySelector
                 value={formData.priority}
-                onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Task['priority'] }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(priority) => setFormData(prev => ({ ...prev, priority }))}
                 disabled={isLoading}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
+              />
             </div>
           </div>
 
           {/* Due Date Field */}
           <div>
-            <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Due Date
             </label>
-            <input
-              type="date"
-              id="due_date"
-              value={formData.due_date || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.due_date ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
+            <DatePicker
+              value={formData.due_date}
+              onChange={(date) => setFormData(prev => ({ ...prev, due_date: date }))}
               disabled={isLoading}
-              min={new Date().toISOString().split('T')[0]} // Prevent past dates
+              error={errors.due_date}
+              placeholder="Select due date..."
             />
-            {errors.due_date && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.due_date}</p>
-            )}
           </div>
 
           {/* Submit Error */}
