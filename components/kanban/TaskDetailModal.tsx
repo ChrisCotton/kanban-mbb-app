@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Task } from '../../lib/database/kanban-queries'
 import { useComments } from '../../hooks/useComments'
 import CommentSection from './CommentSection'
+import SubtaskList from './SubtaskList'
 import PrioritySelector from '../ui/PrioritySelector'
 import { formatDistanceToNow, format } from 'date-fns'
 
@@ -249,6 +250,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Subtasks Section */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <SubtaskList taskId={task.id} />
               </div>
 
               {/* Task ID (for debugging/reference) */}

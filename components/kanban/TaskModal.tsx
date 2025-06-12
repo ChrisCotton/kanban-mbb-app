@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Task } from '../../lib/database/kanban-queries'
 import DatePicker from '../ui/DatePicker'
 import PrioritySelector from '../ui/PrioritySelector'
+import SubtaskList from './SubtaskList'
 
 interface TaskModalProps {
   isOpen: boolean
@@ -239,6 +240,18 @@ const TaskModal: React.FC<TaskModalProps> = ({
               placeholder="Select due date..."
             />
           </div>
+
+          {/* Subtasks Section - Only for existing tasks */}
+          {task && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Subtasks
+              </label>
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50">
+                <SubtaskList taskId={task.id} />
+              </div>
+            </div>
+          )}
 
           {/* Submit Error */}
           {errors.submit && (

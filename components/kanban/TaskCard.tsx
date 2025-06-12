@@ -4,6 +4,7 @@ import React from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
+import { useSubtaskProgress } from '../../hooks/useSubtaskProgress'
 
 interface TaskCardProps {
   task: Task
@@ -14,6 +15,8 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView }) => {
+  const { total, completed, loading } = useSubtaskProgress(task.id)
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -93,9 +96,20 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView
               )}
             </div>
 
-            <span className="text-gray-400 dark:text-gray-500 text-xs">
-              {formatDate(task.created_at)}
-            </span>
+            {/* Subtask Progress Indicator */}
+            {!loading && total > 0 && (
+              <div className="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
+                <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span className="text-xs">
+                  {completed}/{total}
+                </span>
+                {completed === total && (
+                  <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action buttons on hover */}
