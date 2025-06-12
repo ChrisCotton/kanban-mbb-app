@@ -10,8 +10,8 @@ const { createClient } = require('@supabase/supabase-js')
 const fs = require('fs')
 const path = require('path')
 
-// Load environment variables
-require('dotenv').config()
+// Load environment variables from .env.local (Next.js convention)
+require('dotenv').config({ path: '.env.local' })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -30,8 +30,15 @@ async function runMigration(migrationFile) {
   try {
     console.log(`🚀 Running migration: ${migrationFile}`)
     
-    // Read the migration file
-    const migrationPath = path.join(__dirname, '..', 'database', 'migrations', migrationFile)
+    // Read the migration file - handle both full path and filename
+    let migrationPath
+    if (migrationFile.includes('database/migrations/')) {
+      // Full path provided
+      migrationPath = path.join(__dirname, '..', migrationFile)
+    } else {
+      // Just filename provided
+      migrationPath = path.join(__dirname, '..', 'database', 'migrations', migrationFile)
+    }
     
     if (!fs.existsSync(migrationPath)) {
       throw new Error(`Migration file not found: ${migrationPath}`)
@@ -39,13 +46,34 @@ async function runMigration(migrationFile) {
     
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
     
-    // Execute the migration
-    const { error } = await supabase.rpc('exec_sql', {
-      sql: migrationSQL
+    // Execute the migration using REST API
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/exec`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseServiceKey
+      },
+      body: JSON.stringify({ sql: migrationSQL })
     })
     
-    if (error) {
-      throw error
+    if (!response.ok) {
+      // If exec RPC doesn't exist, try direct SQL execution via PostgREST
+      const sqlResponse = await fetch(`${supabaseUrl}/rest/v1/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/sql',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Accept': 'application/json'
+        },
+        body: migrationSQL
+      })
+      
+      if (!sqlResponse.ok) {
+        const errorText = await sqlResponse.text()
+        throw new Error(`HTTP ${sqlResponse.status}: ${errorText}`)
+      }
     }
     
     console.log(`✅ Migration completed successfully: ${migrationFile}`)

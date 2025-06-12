@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { KanbanProvider } from '../lib/hooks/useKanban'
+import KanbanBoard from '../components/kanban/KanbanBoard'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -43,12 +44,7 @@ export default function Dashboard() {
           </h1>
           
           <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8">
-            <p className="text-white text-lg">
-              Welcome to your Mental Bank Balance Kanban Board!
-            </p>
-            <p className="text-gray-300 mt-2">
-              Your Kanban board components will be loaded here.
-            </p>
+            <KanbanBoard className="w-full" />
           </div>
         </div>
       </div>

@@ -9,10 +9,15 @@
     "lint": "next lint",
     "migrate": "node scripts/run-migration.js all",
     "migrate:single": "node scripts/run-migration.js",
-    "migrate:kanban": "npm run migrate:single 001_create_kanban_enums.sql && npm run migrate:single 002_create_tasks_table.sql && npm run migrate:single 003_add_tasks_triggers_and_rls.sql"
+    "migrate:kanban": "npm run migrate:single 001_create_kanban_enums.sql && npm run migrate:single 002_create_tasks_table.sql && npm run migrate:single 003_add_tasks_triggers_and_rls.sql",
+    "show-migration": "node scripts/show-migration.js",
+    "sample-data": "node scripts/add-sample-tasks.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@hello-pangea/dnd": "^16.5.0",
+    "@hello-pangea/dnd": "^16.6.0",
     "@heroicons/react": "^2.0.18",
     "@supabase/supabase-js": "^2.39.0",
     "date-fns": "^2.30.0",
@@ -25,15 +30,21 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.38",
     "@types/react-dom": "^18.2.17",
     "@types/uuid": "^9.0.7",
     "autoprefixer": "^10.4.16",
-    "dotenv": "^16.3.1",
+    "dotenv": "^16.5.0",
     "eslint": "^8.55.0",
     "eslint-config-next": "14.0.4",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6"
+    "tailwindcss": "^3.3.6",
+    "ts-jest": "^29.3.4"
   }
 }
