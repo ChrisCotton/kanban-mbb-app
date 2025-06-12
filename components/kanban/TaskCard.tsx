@@ -10,9 +10,10 @@ interface TaskCardProps {
   index: number
   onTaskMove?: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => void
   onTaskEdit?: (task: Task) => void
+  onTaskView?: (task: Task) => void
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -35,15 +36,15 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          onClick={onTaskEdit ? () => onTaskEdit(task) : undefined}
-          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-2 sm:p-3 cursor-move hover:shadow-md transition-all duration-200 select-none ${
+          onClick={onTaskView ? () => onTaskView(task) : (onTaskEdit ? () => onTaskEdit(task) : undefined)}
+          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-2 sm:p-3 cursor-move hover:shadow-md transition-all duration-200 select-none group ${
             snapshot.isDragging 
               ? 'opacity-90 rotate-1 scale-105 shadow-lg ring-2 ring-blue-400 ring-opacity-60' 
               : 'hover:shadow-md'
           } ${
             snapshot.isDropAnimating ? 'transition-transform duration-200' : ''
           } ${
-            onTaskEdit ? 'hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' : ''
+            onTaskView || onTaskEdit ? 'hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' : ''
           }`}
           style={{
             ...provided.draggableProps.style,
@@ -97,12 +98,49 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit }) => {
             </span>
           </div>
 
-          {/* Visual indicator for drag handle */}
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity duration-200">
-            <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-            </svg>
-          </div>
+          {/* Action buttons on hover */}
+          {(onTaskView || onTaskEdit) && (
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-1">
+              {onTaskView && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTaskView(task)
+                  }}
+                  className="p-1 rounded-md bg-white dark:bg-gray-600 shadow-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  title="View details"
+                >
+                  <svg className="w-3 h-3 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              )}
+              {onTaskEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTaskEdit(task)
+                  }}
+                  className="p-1 rounded-md bg-white dark:bg-gray-600 shadow-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  title="Edit task"
+                >
+                  <svg className="w-3 h-3 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Visual indicator for drag handle when no actions */}
+          {!(onTaskView || onTaskEdit) && (
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity duration-200">
+              <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </div>
+          )}
         </div>
       )}
     </Draggable>

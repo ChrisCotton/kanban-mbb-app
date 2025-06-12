@@ -13,6 +13,7 @@ interface SwimLaneProps {
   onTaskCreate?: (taskData: Partial<Task>) => Promise<void>
   onOpenCreateModal?: () => void
   onTaskEdit?: (task: Task) => void
+  onTaskView?: (task: Task) => void
   onTaskUpdate?: (taskId: string, updates: Partial<Task>) => Promise<void>
   onTaskDelete?: (taskId: string) => Promise<void>
   color: 'gray' | 'blue' | 'yellow' | 'green'
@@ -58,6 +59,7 @@ const SwimLane: React.FC<SwimLaneProps> = ({
   onTaskCreate,
   onOpenCreateModal,
   onTaskEdit,
+  onTaskView,
   onTaskUpdate,
   onTaskDelete,
   color
@@ -144,6 +146,7 @@ const SwimLane: React.FC<SwimLaneProps> = ({
                   index={index}
                   onTaskMove={onTaskMove}
                   onTaskEdit={onTaskEdit}
+                  onTaskView={onTaskView}
                 />
               ))}
               {provided.placeholder}

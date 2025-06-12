@@ -7,22 +7,4 @@
   - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1504ms
- ○ Compiling /dashboard ...
- ✓ Compiled /dashboard in 1968ms (466 modules)
- GET /_next/static/webpack/19dd7d3df9f7058e.webpack.hot-update.json 404 in 2100ms
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /dashboard 200 in 2074ms
- GET /dashboard 200 in 9ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 13ms
- ✓ Compiled /api/kanban/tasks in 174ms (143 modules)
- GET /api/kanban/tasks 200 in 400ms
- ✓ Compiled in 362ms (464 modules)
- ✓ Compiled /api/kanban/tasks/[id] in 114ms (142 modules)
- PUT /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d 200 in 457ms
- ✓ Compiled /api/kanban/tasks in 33ms (144 modules)
- GET /api/kanban/tasks 200 in 99ms
- PUT /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2 200 in 136ms
- GET /api/kanban/tasks 200 in 63ms
- PUT /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd 200 in 126ms
- GET /api/kanban/tasks 200 in 61ms
+ ✓ Ready in 22.3s

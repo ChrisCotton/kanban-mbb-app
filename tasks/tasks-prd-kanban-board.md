@@ -73,8 +73,8 @@ Generated from: `prd-kanban-board.md`
   - [x] 4.1 Create TaskModal component for creating/editing tasks ✅ **COMPLETE**
   - [x] 4.2 Implement task CRUD operations (Create, Read, Update, Delete) ✅ **COMPLETE**
   - [x] 4.3 Add due date picker and priority selection components ✅ **COMPLETE**
-  - [ ] 4.4 Create CommentSection component with markdown support
-  - [ ] 4.5 Implement markdown rendering for comments (similar to Trello)
+  - [x] 4.4 Create CommentSection component with markdown support ✅ **COMPLETE**
+  - [x] 4.5 Implement markdown rendering for comments (similar to Trello) ✅ **COMPLETE**
   - [ ] 4.6 Create SubtaskList component with checkboxes
   - [ ] 4.7 Add label/tag system for task categorization
   - [ ] 4.8 Implement task search and filtering functionality
@@ -246,3 +246,103 @@ Created dedicated, reusable DatePicker and PrioritySelector components with enha
 - DatePicker prevents past date selection for better data integrity
 - PrioritySelector compact variant perfect for TaskCard space constraints
 - Ready for additional UI components following the same design patterns 
+
+### Task 4.4: CommentSection Component with Markdown Support ✅ **COMPLETE**
+
+**Status:** ✅ Complete  
+**Priority:** High  
+**Estimated Time:** 4 hours  
+**Actual Time:** 4 hours  
+**Completed:** January 12, 2025
+
+#### Description
+Created a comprehensive commenting system with full markdown support, similar to Trello's functionality, including comment creation, editing, deletion, and advanced markdown rendering with syntax highlighting.
+
+#### Acceptance Criteria
+- [x] CommentSection component with full CRUD operations for comments
+- [x] Markdown support with GitHub Flavored Markdown (GFM)
+- [x] Syntax highlighting for code blocks
+- [x] Preview mode for markdown rendering
+- [x] Comment editing with keyboard shortcuts (Ctrl/Cmd+Enter to save)
+- [x] Delete confirmation for comments
+- [x] Integration with existing API routes and database
+- [x] Responsive design with dark theme support
+- [x] TaskDetailModal for viewing tasks with comments
+- [x] Enhanced task cards with view/edit action buttons
+
+#### Implementation Details
+- **CommentSection Component** (`components/kanban/CommentSection.tsx`):
+  - Full CRUD operations with optimistic updates
+  - Write/Preview toggle for markdown editing
+  - Auto-expanding text areas with auto-height adjustment
+  - Keyboard shortcuts: Esc to cancel, Ctrl/Cmd+Enter to save/submit
+  - Hover action buttons for edit/delete with confirmation modal
+  - User avatars and timestamps with relative time formatting
+  - Empty state with encouraging messaging
+  - Real-time comment count display
+
+- **useComments Hook** (`hooks/useComments.ts`):
+  - Centralized comment state management
+  - API integration with proper error handling
+  - Local state optimization for smooth UX
+  - Automatic refetching and cache management
+  - Support for all CRUD operations with proper validation
+
+- **TaskDetailModal Component** (`components/kanban/TaskDetailModal.tsx`):
+  - Comprehensive task view with split-panel layout
+  - Left panel: task details, metadata, priority, dates
+  - Right panel: dedicated comments section
+  - Smooth open/close animations with escape key support
+  - Edit task integration from detail view
+  - Overdue date warnings and visual indicators
+  - Dark theme compatible throughout
+
+- **Enhanced TaskCard Component**:
+  - Added onTaskView prop for detail modal integration
+  - Hover action buttons with view and edit icons
+  - Proper event handling to prevent drag conflicts
+  - Improved accessibility with tooltips and keyboard support
+
+#### Features Implemented
+- ✅ Full markdown rendering with GitHub Flavored Markdown
+- ✅ Syntax highlighting for code blocks (highlight.js integration)
+- ✅ Live preview mode for markdown editing
+- ✅ Comment editing with inline save/cancel
+- ✅ Delete confirmation with warning modals
+- ✅ Keyboard shortcuts for improved productivity
+- ✅ Auto-expanding text areas for better UX
+- ✅ Real-time timestamps with "edited" indicators
+- ✅ Mobile-responsive design with touch-friendly interactions
+- ✅ Comprehensive error handling and loading states
+- ✅ Integration with existing task management system
+- ✅ Dark theme support with proper contrast
+- ✅ Accessible design with ARIA labels and focus management
+
+#### Files Created/Modified
+- `components/kanban/CommentSection.tsx` - Main commenting interface with markdown
+- `components/kanban/TaskDetailModal.tsx` - Comprehensive task detail view
+- `hooks/useComments.ts` - Comment state management hook
+- `components/kanban/TaskCard.tsx` - Enhanced with view/edit buttons
+- `components/kanban/SwimLane.tsx` - Updated to support onTaskView prop
+- `components/kanban/KanbanBoard.tsx` - Integrated TaskDetailModal
+- `styles/globals.css` - Added markdown prose styling and highlight.js theme
+- Package dependencies: `react-markdown`, `remark-gfm`, `rehype-highlight`
+
+#### Technical Improvements
+- Markdown rendering with proper component customization for links and code
+- Highlight.js integration with GitHub Dark theme for syntax highlighting
+- Optimized re-rendering with proper React hooks patterns
+- Local state management with optimistic updates for better UX
+- Split-panel modal design for efficient space utilization
+- Keyboard-first design for power users
+- Proper TypeScript interfaces throughout all components
+- Error boundaries and graceful degradation
+- Mobile-first responsive design considerations
+
+#### Notes
+- Comments table already exists in database with proper RLS policies
+- API routes fully functional for all comment operations
+- Markdown rendering supports tables, lists, code blocks, links, and emphasis
+- Syntax highlighting works for all major programming languages
+- Ready for Task 4.5 (markdown rendering is already complete as part of this task)
+- Component architecture allows for easy extension with additional features 

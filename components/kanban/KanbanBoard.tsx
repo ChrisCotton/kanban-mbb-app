@@ -5,6 +5,7 @@ import { DragDropContext } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import SwimLane from './SwimLane'
 import TaskModal from './TaskModal'
+import TaskDetailModal from './TaskDetailModal'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { useKanban } from '../../hooks/useKanban'
 
@@ -35,6 +36,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
   // Delete confirmation state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
+
+  // Task detail modal state
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [viewingTask, setViewingTask] = useState<Task | null>(null)
 
   // Handle optimistic updates for drag and drop
   const handleOptimisticUpdate = (updatedTasks: typeof tasks) => {
@@ -84,6 +89,22 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     setIsModalOpen(false)
     setEditingTask(null)
     setModalInitialStatus('backlog')
+  }
+
+  // Task detail modal management
+  const openDetailModal = (task: Task) => {
+    setViewingTask(task)
+    setIsDetailModalOpen(true)
+  }
+
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false)
+    setViewingTask(null)
+  }
+
+  const handleEditFromDetailModal = (task: Task) => {
+    closeDetailModal()
+    openEditModal(task)
   }
 
   const handleModalSave = async (taskData: Partial<Task>) => {
@@ -212,6 +233,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('backlog')}
             onTaskEdit={openEditModal}
+            onTaskView={openDetailModal}
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="gray"
@@ -224,6 +246,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('todo')}
             onTaskEdit={openEditModal}
+            onTaskView={openDetailModal}
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="blue"
@@ -236,6 +259,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('doing')}
             onTaskEdit={openEditModal}
+            onTaskView={openDetailModal}
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="yellow"
@@ -248,6 +272,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('done')}
             onTaskEdit={openEditModal}
+            onTaskView={openDetailModal}
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="green"
@@ -281,6 +306,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           onSave={handleModalSave}
           task={editingTask}
           initialStatus={modalInitialStatus}
+        />
+
+        {/* Task Detail Modal */}
+        <TaskDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={closeDetailModal}
+          task={viewingTask}
+          onEdit={handleEditFromDetailModal}
         />
 
         {/* Delete Confirmation Modal */}
