@@ -73,72 +73,120 @@ export class TestHelpers {
  */
 export class KanbanHelpers extends TestHelpers {
   /**
-   * Get a task card by its title
+   * Navigate to dashboard (main kanban page)
    */
-  getTaskByTitle(title: string): Locator {
-    return this.page.locator(`[data-testid="task-card"]:has-text("${title}")`);
+  async navigateToDashboard() {
+    await this.page.goto('/dashboard');
+    await this.waitForNetworkIdle();
   }
 
   /**
-   * Get a column by its status
+   * Get a task card by its title
    */
-  getColumnByStatus(status: string): Locator {
-    return this.page.locator(`[data-testid="kanban-column"][data-status="${status}"]`);
+  getTaskByTitle(title: string): Locator {
+    return this.page.locator(`.kanban-board h3:has-text("${title}")`).locator('..');
+  }
+
+  /**
+   * Get a swim lane by its status
+   */
+  getSwimLaneByStatus(status: string): Locator {
+    const statusTitles = {
+      'backlog': 'Backlog',
+      'todo': 'To Do', 
+      'doing': 'Doing',
+      'done': 'Done'
+    };
+    const title = statusTitles[status as keyof typeof statusTitles];
+    return this.page.locator(`.swim-lane:has(h2:has-text("${title}"))`);
+  }
+
+  /**
+   * Get add task button for a specific swim lane
+   */
+  getAddTaskButton(status: string): Locator {
+    const swimLane = this.getSwimLaneByStatus(status);
+    return swimLane.locator('button:has-text("Add Task")');
   }
 
   /**
    * Create a new task
    */
-  async createTask(title: string, description?: string, priority?: string) {
-    await this.page.click('[data-testid="add-task-button"]');
-    await this.fillAndVerify('[data-testid="task-title-input"]', title);
+  async createTask(title: string, description?: string, priority?: string, status: string = 'backlog') {
+    // Click add task button in the specified column
+    const addButton = this.getAddTaskButton(status);
+    await addButton.click();
+    
+    // Fill in the task form
+    await this.page.fill('input#title', title);
     
     if (description) {
-      await this.fillAndVerify('[data-testid="task-description-input"]', description);
+      await this.page.fill('textarea#description', description);
     }
     
     if (priority) {
-      await this.page.selectOption('[data-testid="task-priority-select"]', priority);
+      await this.page.selectOption('select', priority);
     }
     
-    await this.page.click('[data-testid="save-task-button"]');
+    // Submit the form
+    await this.page.click('button[type="submit"]:has-text("Create Task")');
     await this.waitForNetworkIdle();
   }
 
   /**
-   * Drag task from one column to another
-   */
-  async dragTaskToColumn(taskTitle: string, targetStatus: string) {
-    const task = this.getTaskByTitle(taskTitle);
-    const targetColumn = this.getColumnByStatus(targetStatus);
-    
-    await task.dragTo(targetColumn);
-    await this.waitForNetworkIdle();
-  }
-
-  /**
-   * Verify task exists in specific column
+   * Verify task exists in specific swim lane
    */
   async verifyTaskInColumn(taskTitle: string, columnStatus: string) {
-    const column = this.getColumnByStatus(columnStatus);
-    const task = column.locator(`[data-testid="task-card"]:has-text("${taskTitle}")`);
+    const swimLane = this.getSwimLaneByStatus(columnStatus);
+    const task = swimLane.locator(`h3:has-text("${taskTitle}")`);
     await expect(task).toBeVisible();
   }
 
   /**
-   * Delete a task
+   * Click on a task to view details
    */
-  async deleteTask(taskTitle: string) {
+  async clickTask(taskTitle: string) {
     const task = this.getTaskByTitle(taskTitle);
     await task.click();
-    await this.page.click('[data-testid="delete-task-button"]');
-    await this.page.click('[data-testid="confirm-delete-button"]');
+    await this.waitForNetworkIdle();
+  }
+
+  /**
+   * Verify kanban board is loaded
+   */
+  async verifyKanbanBoardLoaded() {
+    await expect(this.page.locator('.kanban-board')).toBeVisible();
+    await expect(this.page.locator('h1:has-text("Kanban Board")')).toBeVisible();
+    
+    // Verify all swim lanes are present
+    await expect(this.page.locator('h2:has-text("Backlog")')).toBeVisible();
+    await expect(this.page.locator('h2:has-text("To Do")')).toBeVisible();  
+    await expect(this.page.locator('h2:has-text("Doing")')).toBeVisible();
+    await expect(this.page.locator('h2:has-text("Done")')).toBeVisible();
+  }
+
+  /**
+   * Get task count for a specific status
+   */
+  async getTaskCount(status: string): Promise<number> {
+    const swimLane = this.getSwimLaneByStatus(status);
+    const badge = swimLane.locator('.rounded-full.text-xs.font-medium');
+    const count = await badge.textContent();
+    return parseInt(count || '0');
+  }
+
+  /**
+   * Close any open modals
+   */
+  async closeModals() {
+    // Try to close any open modals by pressing Escape
+    await this.page.keyboard.press('Escape');
     await this.waitForNetworkIdle();
   }
 }
 
 /**
- * Authentication helpers (if using Supabase auth)
+ * Authentication helpers (Supabase auth)
  */
 export class AuthHelpers extends TestHelpers {
   /**
@@ -146,9 +194,16 @@ export class AuthHelpers extends TestHelpers {
    */
   async signUp(email: string, password: string) {
     await this.page.goto('/auth/signup');
-    await this.fillAndVerify('[data-testid="email-input"]', email);
-    await this.fillAndVerify('[data-testid="password-input"]', password);
-    await this.page.click('[data-testid="signup-button"]');
+    await this.waitForNetworkIdle();
+    
+    // Fill email field
+    await this.page.fill('input[type="email"]', email);
+    
+    // Fill password field  
+    await this.page.fill('input[type="password"]', password);
+    
+    // Click sign up button
+    await this.page.click('button[type="submit"]');
     await this.waitForNetworkIdle();
   }
 
@@ -156,33 +211,95 @@ export class AuthHelpers extends TestHelpers {
    * Sign in an existing user
    */
   async signIn(email: string, password: string) {
-    await this.page.goto('/auth/signin');
-    await this.fillAndVerify('[data-testid="email-input"]', email);
-    await this.fillAndVerify('[data-testid="password-input"]', password);
-    await this.page.click('[data-testid="signin-button"]');
+    await this.page.goto('/auth/login');
     await this.waitForNetworkIdle();
+    
+    // Wait for form to be ready
+    await this.page.waitForSelector('input[type="email"]', { state: 'visible' });
+    await this.page.waitForSelector('input[type="password"]', { state: 'visible' });
+    
+    // Fill email field
+    await this.page.fill('input[type="email"]', email);
+    
+    // Fill password field
+    await this.page.fill('input[type="password"]', password);
+    
+    // Click sign in button
+    await this.page.click('button[type="submit"]');
+    
+    // Wait for either URL change or success toast
+    try {
+      // Wait for URL to change to dashboard (client-side navigation)
+      await this.page.waitForURL('**/dashboard', { timeout: 10000 });
+    } catch (e) {
+      // If URL doesn't change, wait for success message
+      await this.page.waitForSelector('text=Welcome back!', { timeout: 5000 });
+      // Then wait a bit more for potential navigation
+      await this.page.waitForTimeout(2000);
+    }
   }
 
   /**
    * Sign out current user
    */
   async signOut() {
-    await this.page.click('[data-testid="user-menu"]');
-    await this.page.click('[data-testid="signout-button"]');
+    // If there's a sign out mechanism, implement here
+    // For now, we'll clear the session
+    await this.page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await this.page.goto('/auth/login');
     await this.waitForNetworkIdle();
   }
 
   /**
-   * Verify user is signed in
+   * Verify user is signed in (redirected to dashboard)
    */
   async verifySignedIn() {
-    await expect(this.page.locator('[data-testid="user-menu"]')).toBeVisible();
+    // Wait for either dashboard or check if we're already there
+    try {
+      await this.page.waitForURL('/dashboard', { timeout: 10000 });
+    } catch (e) {
+      // If we don't redirect, check current URL
+      const currentUrl = this.page.url();
+      console.log('Current URL after login attempt:', currentUrl);
+      
+      // If we're still on login page, there might be an error
+      if (currentUrl.includes('/auth/login')) {
+        // Check for error messages
+        const errorElement = await this.page.locator('text=Invalid').first().isVisible().catch(() => false);
+        if (errorElement) {
+          throw new Error('Login failed - invalid credentials or server error');
+        }
+      }
+      
+      throw new Error(`Expected to be on /dashboard but on ${currentUrl}`);
+    }
+    
+    await expect(this.page.locator('h1:has-text("Mental Bank Balance Dashboard")')).toBeVisible();
   }
 
   /**
-   * Verify user is signed out
+   * Verify user is signed out (on login page)
    */
   async verifySignedOut() {
-    await expect(this.page.locator('[data-testid="signin-button"]')).toBeVisible();
+    await expect(this.page.locator('h2:has-text("Sign In")')).toBeVisible();
+  }
+
+  /**
+   * Check if toast error message appears
+   */
+  async waitForErrorToast() {
+    // Wait for toast error message to appear
+    await this.page.waitForSelector('.go2072408551', { timeout: 5000 });
+  }
+
+  /**
+   * Check if success toast appears
+   */
+  async waitForSuccessToast() {
+    // Wait for toast success message to appear  
+    await this.page.waitForSelector('.go2072408551', { timeout: 5000 });
   }
 } 

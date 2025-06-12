@@ -1,18 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { TestHelpers } from '../utils/test-helpers';
+import { TestHelpers, AuthHelpers } from '../utils/test-helpers';
 
 test.describe('Smoke Tests - Basic App Functionality', () => {
   let helpers: TestHelpers;
+  let auth: AuthHelpers;
+  const testEmail = 'thediabolicalmr4dee@gmail.com';
+  const testPassword = '12345';
 
   test.beforeEach(async ({ page }) => {
     helpers = new TestHelpers(page);
+    auth = new AuthHelpers(page);
   });
 
-  test('app loads without errors', async ({ page }) => {
-    // Navigate to the app
-    await helpers.navigateToHome();
+  test('app loads without errors after authentication', async ({ page }) => {
+    // Sign in first
+    await auth.signIn(testEmail, testPassword);
+    await auth.verifySignedIn();
     
-    // Check that page loads successfully
+    // Check that dashboard loads successfully
+    await expect(page).toHaveURL('/dashboard');
     await expect(page).not.toHaveTitle('');
     
     // Verify no JavaScript errors
@@ -28,6 +34,7 @@ test.describe('Smoke Tests - Basic App Functionality', () => {
     
     // Check for critical elements
     await expect(page.locator('body')).toBeVisible();
+    await expect(page.locator('h1:has-text("Mental Bank Balance Dashboard")')).toBeVisible();
     
     // Verify no critical console errors (some warnings are OK)
     const criticalErrors = consoleErrors.filter(error => 
@@ -38,29 +45,21 @@ test.describe('Smoke Tests - Basic App Functionality', () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-  test('navigation works correctly', async ({ page }) => {
+  test('landing page loads correctly', async ({ page }) => {
+    // Clear any existing auth state
+    await page.context().clearCookies();
+    await page.context().clearPermissions();
+    
+    // Go to home page
     await helpers.navigateToHome();
     
-    // Test basic navigation if you have multiple pages
-    // Adjust these based on your actual routes
-    
-    // Test that main page loads
+    // Should be on landing page
     await expect(page).toHaveURL('/');
     
-    // If you have navigation links, test them
-    const navLinks = page.locator('nav a, [data-testid*="nav"]');
-    const linkCount = await navLinks.count();
-    
-    if (linkCount > 0) {
-      // Test that navigation links are visible and clickable
-      for (let i = 0; i < Math.min(linkCount, 3); i++) {
-        const link = navLinks.nth(i);
-        await expect(link).toBeVisible();
-        // Verify links have href attributes
-        const href = await link.getAttribute('href');
-        expect(href).toBeTruthy();
-      }
-    }
+    // Check for main landing page elements
+    await expect(page.locator('h1:has-text("Mental Bank Balance")')).toBeVisible();
+    await expect(page.locator('button:has-text("Get Started Free")')).toBeVisible();
+    await expect(page.locator('button:has-text("Sign In")')).toBeVisible();
   });
 
   test('responsive design basics work', async ({ page }) => {

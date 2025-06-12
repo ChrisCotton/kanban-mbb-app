@@ -7,4 +7,188 @@
   - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1708ms
+ ✓ Ready in 1471ms
+ ○ Compiling / ...
+ ✓ Compiled / in 3.5s (687 modules)
+ ✓ Compiled in 267ms (687 modules)
+ GET / 200 in 4091ms
+ GET / 200 in 11ms
+ GET / 200 in 68ms
+ GET / 200 in 108ms
+ GET / 200 in 129ms
+ GET / 200 in 144ms
+ GET / 200 in 55ms
+ GET / 200 in 39ms
+ ✓ Compiled /auth/login in 257ms (691 modules)
+ GET /auth/login 200 in 313ms
+ GET / 200 in 12ms
+ GET / 200 in 7ms
+ GET / 200 in 8ms
+ GET / 200 in 11ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 844ms (693 modules)
+ GET /api/health 404 in 923ms
+ GET /auth/login 200 in 944ms
+ ✓ Compiled /api/kanban/tasks in 303ms (136 modules)
+ GET /api/kanban/tasks 200 in 787ms
+ GET / 200 in 36ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 7.1s (1356 modules)
+ GET / 200 in 5693ms
+ GET / 200 in 2148ms
+ GET / 200 in 6426ms
+ GET / 200 in 12ms
+ GET /auth/login 200 in 12ms
+ GET / 200 in 9ms
+ GET /api/kanban/tasks 200 in 132ms
+ GET / 200 in 10ms
+ GET /api/health 404 in 14ms
+ GET /api/kanban/tasks 200 in 60ms
+ GET / 200 in 40ms
+ GET / 200 in 9ms
+ GET / 200 in 41ms
+ GET / 200 in 10ms
+ GET / 200 in 9ms
+ GET /auth/login 200 in 30ms
+ GET / 200 in 11ms
+ GET /api/kanban/tasks 200 in 132ms
+ GET / 200 in 10ms
+ GET /api/health 404 in 8ms
+ GET /api/kanban/tasks 200 in 71ms
+ GET / 200 in 9ms
+ GET / 200 in 13ms
+ GET / 200 in 24ms
+ GET / 200 in 10ms
+ GET / 200 in 12ms
+ GET / 200 in 10ms
+ GET / 200 in 5ms
+ GET / 200 in 8ms
+ GET /api/health 404 in 11ms
+ GET / 200 in 46ms
+ GET /auth/login 200 in 98ms
+ GET /api/kanban/tasks 200 in 675ms
+ GET / 200 in 13ms
+ GET / 200 in 18ms
+ GET / 200 in 84ms
+ GET /api/kanban/tasks 200 in 446ms
+ GET / 200 in 17ms
+ GET / 200 in 16ms
+ GET /auth/login 200 in 15ms
+ GET / 200 in 15ms
+ GET / 200 in 14ms
+ GET /api/health 404 in 15ms
+ GET /api/kanban/tasks 200 in 149ms
+ GET / 200 in 20ms
+ GET / 200 in 16ms
+ GET / 200 in 31ms
+ GET / 200 in 28ms
+ GET /api/kanban/tasks 200 in 332ms
+ ○ Compiling /api/kanban/tasks/[id]/move ...
+ ✓ Compiled /api/kanban/tasks/[id]/move in 3.8s (207 modules)
+ PUT /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/move 200 in 4379ms
+ GET /api/kanban/tasks 200 in 191ms
+ PUT /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/move 200 in 255ms
+ GET /api/kanban/tasks 200 in 69ms
+ PUT /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/move 200 in 142ms
+ GET /api/kanban/tasks 200 in 77ms
+ GET /auth/login 200 in 1230ms
+ GET / 200 in 653ms
+ PUT /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/move 200 in 689ms
+ GET /api/kanban/tasks 200 in 465ms
+ GET / 200 in 40ms
+ ○ Compiling /api/kanban/tasks/[id]/comments ...
+ ✓ Compiled /_error in 35.6s (1360 modules)
+ GET /api/health 404 in 31479ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/comments 200 in 39374ms
+ POST /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/comments 201 in 330ms
+ GET / 200 in 133ms
+ GET / 200 in 24ms
+ GET / 200 in 88ms
+ GET / 200 in 21ms
+ GET / 200 in 23ms
+ POST /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/comments 201 in 444ms
+ ✓ Compiled /api/kanban/tasks/[id] in 176ms (204 modules)
+ PUT /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2 200 in 349ms
+ ✓ Compiled /api/kanban/tasks in 42ms (206 modules)
+ GET /api/kanban/tasks 200 in 113ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/comments 200 in 119ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/comments 200 in 144ms
+ PUT /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb 200 in 300ms
+ GET /api/kanban/tasks 200 in 72ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/comments 200 in 66ms
+ POST /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/comments 201 in 146ms
+ GET / 200 in 31ms
+ GET / 200 in 6ms
+ ○ Compiling /auth/login ...
+ ✓ Compiled /auth/login in 1006ms (1339 modules)
+ GET /auth/login 200 in 1231ms
+ GET /auth/login 200 in 1190ms
+ GET /auth/login 200 in 846ms
+ GET /dashboard 200 in 1968ms
+ ○ Compiling /api/kanban/tasks ...
+ ✓ Compiled /api/kanban/tasks in 953ms (204 modules)
+ GET /api/kanban/tasks 200 in 1642ms
+ GET /auth/login 200 in 252ms
+ GET / 200 in 97ms
+ GET /auth/login 200 in 14ms
+ GET /api/kanban/tasks 200 in 171ms
+ GET /auth/login 200 in 50ms
+ GET /api/kanban/tasks 200 in 150ms
+ GET /auth/login 200 in 27ms
+ GET /api/kanban/tasks 200 in 225ms
+ GET /api/kanban/tasks 200 in 254ms
+ GET /auth/login 200 in 325ms
+ GET / 200 in 35ms
+ GET /api/kanban/tasks 200 in 324ms
+ GET / 200 in 29ms
+ GET / 200 in 293ms
+ GET / 200 in 41ms
+ GET / 200 in 24ms
+ GET / 200 in 33ms
+ GET / 200 in 26ms
+ GET / 200 in 48ms
+ GET / 200 in 22ms
+ GET /auth/login 200 in 213ms
+ GET /api/kanban/tasks 200 in 191ms
+ GET / 200 in 24ms
+ GET / 200 in 49ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 9.6s (1356 modules)
+ GET /api/health 404 in 9994ms
+ GET / 200 in 5296ms
+ GET /api/kanban/tasks 200 in 768ms
+ GET / 200 in 177ms
+ GET / 200 in 33ms
+ GET / 200 in 25ms
+ GET / 200 in 19ms
+ GET /auth/login 200 in 11ms
+ GET /api/kanban/tasks 200 in 179ms
+ GET /auth/login 200 in 16ms
+ GET /auth/login 200 in 22ms
+ GET /api/kanban/tasks 200 in 198ms
+ GET /auth/login 200 in 56ms
+ GET /auth/login 200 in 43ms
+ GET /auth/login 200 in 224ms
+ GET /auth/login 200 in 244ms
+ GET /api/kanban/tasks 200 in 266ms
+ GET /api/kanban/tasks 200 in 79ms
+ GET /api/kanban/tasks 200 in 117ms
+ GET /api/kanban/tasks 200 in 86ms
+ GET /auth/login 200 in 9ms
+ GET /api/kanban/tasks 200 in 205ms
+ GET /auth/login 200 in 11ms
+ GET /api/kanban/tasks 200 in 166ms
+ GET /auth/login 200 in 12ms
+ GET /api/kanban/tasks 200 in 300ms
+ GET /auth/login 200 in 11ms
+ GET /api/kanban/tasks 200 in 309ms
+ GET / 200 in 34ms
+ GET / 200 in 50ms
+ GET / 200 in 232ms
+ GET / 200 in 447ms
+ GET / 200 in 54ms
+ GET / 200 in 41ms
+ GET / 200 in 31ms
+ GET / 200 in 48ms
+ GET / 200 in 95ms
+[?25h

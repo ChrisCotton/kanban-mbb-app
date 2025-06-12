@@ -3,76 +3,81 @@ import { AuthHelpers } from '../utils/test-helpers';
 
 test.describe('Authentication Flow', () => {
   let auth: AuthHelpers;
-  const testEmail = `test+${Date.now()}@example.com`;
-  const testPassword = 'TestPassword123!';
+  // Use the specific credentials provided by the user
+  const testEmail = 'thediabolicalmr4dee@gmail.com';
+  const testPassword = '12345';
 
   test.beforeEach(async ({ page }) => {
     auth = new AuthHelpers(page);
   });
 
-  // Skip this test if your app doesn't have authentication yet
-  test.skip('should sign up a new user', async ({ page }) => {
-    await auth.signUp(testEmail, testPassword);
-    
-    // Verify successful signup (adjust based on your UI)
-    await expect(page.locator('[data-testid="signup-success"]')).toBeVisible();
-    
-    // Or verify redirect to main app
-    await expect(page).toHaveURL('/');
-    await auth.verifySignedIn();
-  });
-
-  // Skip this test if your app doesn't have authentication yet
-  test.skip('should sign in existing user', async ({ page }) => {
-    // First create an account (you might want to use a test database)
-    await auth.signUp(testEmail, testPassword);
-    await auth.signOut();
-    
-    // Now test sign in
+  test('should sign in with existing user credentials', async ({ page }) => {
+    // Sign in with provided credentials
     await auth.signIn(testEmail, testPassword);
+    
+    // Verify successful sign in - should redirect to dashboard
     await auth.verifySignedIn();
   });
 
-  // Skip this test if your app doesn't have authentication yet
-  test.skip('should handle invalid credentials', async ({ page }) => {
-    await auth.signIn('invalid@email.com', 'wrongpassword');
+  test('should handle invalid credentials', async ({ page }) => {
+    // Try to sign in with wrong password
+    await auth.signIn(testEmail, 'wrongpassword');
     
-    // Should show error message
-    await expect(page.locator('[data-testid="auth-error"]')).toBeVisible();
-    await expect(page.locator('[data-testid="auth-error"]')).toContainText(/invalid.*credentials|email.*password/i);
+    // Should stay on login page and show error via toast
+    await expect(page).toHaveURL('/auth/login');
     
-    // Should not be signed in
+    // Verify we're still on the sign in page
     await auth.verifySignedOut();
   });
 
-  // Skip this test if your app doesn't have authentication yet
-  test.skip('should sign out user', async ({ page }) => {
-    // Sign in first
-    await auth.signIn(testEmail, testPassword);
-    await auth.verifySignedIn();
+  test('should handle invalid email', async ({ page }) => {
+    // Try to sign in with non-existent email
+    await auth.signIn('nonexistent@email.com', testPassword);
     
-    // Sign out
-    await auth.signOut();
+    // Should stay on login page
+    await expect(page).toHaveURL('/auth/login');
+    
+    // Verify we're still on the sign in page
     await auth.verifySignedOut();
-    
-    // Should redirect to sign in page
-    await expect(page).toHaveURL(/.*auth.*signin/);
   });
 
-  // Skip this test if your app doesn't have authentication yet
-  test.skip('should protect authenticated routes', async ({ page }) => {
+  test('should protect dashboard route when not authenticated', async ({ page }) => {
+    // Clear any existing auth state
+    await page.context().clearCookies();
+    await page.context().clearPermissions();
+    
     // Try to access protected route without authentication
-    await page.goto('/');
+    try {
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 10000 });
+    } catch (error) {
+      // Ignore navigation errors due to redirects
+      console.log('Navigation intercepted by redirect (expected)');
+    }
     
-    // Should redirect to sign in
-    await expect(page).toHaveURL(/.*auth.*signin/);
+    // Wait for the page to settle and check where we ended up
+    await page.waitForTimeout(2000);
     
-    // Sign in and try again
+    // We should be redirected to login page
+    const currentUrl = page.url();
+    expect(currentUrl).toContain('/auth/login');
+    
+    // Verify we're on the sign in page
+    await auth.verifySignedOut();
+  });
+
+  test('should allow access to dashboard after successful login', async ({ page }) => {
+    // Clear any existing auth state first
+    await page.context().clearCookies();
+    await page.context().clearPermissions();
+    
+    // Sign in with valid credentials
     await auth.signIn(testEmail, testPassword);
-    await page.goto('/');
     
-    // Should now have access
-    await expect(page).toHaveURL('/');
+    // Should be redirected to dashboard
+    await auth.verifySignedIn();
+    
+    // Try to access dashboard directly - should work
+    await page.goto('/dashboard');
     await auth.verifySignedIn();
   });
 
