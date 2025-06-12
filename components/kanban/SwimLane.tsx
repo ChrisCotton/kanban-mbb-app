@@ -11,6 +11,8 @@ interface SwimLaneProps {
   tasks: Task[]
   onTaskMove: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => void
   onTaskCreate?: (taskData: Partial<Task>) => Promise<void>
+  onOpenCreateModal?: () => void
+  onTaskEdit?: (task: Task) => void
   onTaskUpdate?: (taskId: string, updates: Partial<Task>) => Promise<void>
   onTaskDelete?: (taskId: string) => Promise<void>
   color: 'gray' | 'blue' | 'yellow' | 'green'
@@ -54,6 +56,8 @@ const SwimLane: React.FC<SwimLaneProps> = ({
   tasks,
   onTaskMove,
   onTaskCreate,
+  onOpenCreateModal,
+  onTaskEdit,
   onTaskUpdate,
   onTaskDelete,
   color
@@ -110,9 +114,9 @@ const SwimLane: React.FC<SwimLaneProps> = ({
   return (
     <div className="swim-lane flex flex-col h-full">
       {/* Lane Header */}
-      <div className={`p-4 rounded-t-lg border-b ${colors.header}`}>
+      <div className={`p-3 sm:p-4 rounded-t-lg border-b ${colors.header}`}>
         <div className="flex items-center justify-between">
-          <h2 className={`font-semibold ${colors.headerText}`}>
+          <h2 className={`font-semibold text-sm sm:text-base ${colors.headerText}`}>
             {title}
           </h2>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors.badge}`}>
@@ -127,18 +131,19 @@ const SwimLane: React.FC<SwimLaneProps> = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 min-h-96 transition-all duration-200 ${
+            className={`flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 min-h-88 sm:min-h-96 transition-all duration-200 ${
               snapshot.isDraggingOver ? colors.dropZone : ''
             }`}
           >
             {/* Tasks */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {tasks.map((task, index) => (
                 <TaskCard
                   key={task.id}
                   task={task}
                   index={index}
                   onTaskMove={onTaskMove}
+                  onTaskEdit={onTaskEdit}
                 />
               ))}
               {provided.placeholder}
@@ -146,19 +151,29 @@ const SwimLane: React.FC<SwimLaneProps> = ({
 
             {/* Empty state */}
             {tasks.length === 0 && !showAddTask && (
-              <div className="flex items-center justify-center h-32 text-gray-400 dark:text-gray-500">
+              <div className="flex items-center justify-center h-24 sm:h-32 text-gray-400 dark:text-gray-500">
                 <div className="text-center">
-                  <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-4.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
-                  <p className="text-sm">No tasks in {title.toLowerCase()}</p>
+                  <p className="text-xs sm:text-sm">No tasks in {title.toLowerCase()}</p>
                 </div>
               </div>
             )}
 
             {/* Add Task Section */}
-            <div className="mt-4">
-              {showAddTask ? (
+            <div className="mt-3 sm:mt-4">
+              {onOpenCreateModal ? (
+                <button
+                  onClick={onOpenCreateModal}
+                  className={`w-full p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg ${colors.addButton} hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center space-x-2`}
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span className="text-sm">Add Task</span>
+                </button>
+              ) : showAddTask ? (
                 <div className="space-y-2">
                   <input
                     type="text"
@@ -166,7 +181,7 @@ const SwimLane: React.FC<SwimLaneProps> = ({
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyDown={handleKeyPress}
                     placeholder="Enter task title..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
                   />
                   <div className="flex space-x-2">
@@ -190,12 +205,12 @@ const SwimLane: React.FC<SwimLaneProps> = ({
               ) : (
                 <button
                   onClick={() => setShowAddTask(true)}
-                  className={`w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg ${colors.addButton} hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center space-x-2`}
+                  className={`w-full p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg ${colors.addButton} hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center space-x-2`}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  <span>Add Task</span>
+                  <span className="text-sm">Add Task</span>
                 </button>
               )}
             </div>
