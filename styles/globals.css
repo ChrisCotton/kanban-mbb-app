@@ -44,6 +44,32 @@
   background: rgba(255, 255, 255, 0.5);
 }
 
+/* Kanban scrollbar utilities */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+}
+
+.scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+}
+
+.scrollbar-track-transparent::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Dark theme scrollbar overrides */
+.dark .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  background-color: #6b7280;
+}
+
+.dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+}
+
 /* Line clamp utility */
 .line-clamp-2 {
   display: -webkit-box;

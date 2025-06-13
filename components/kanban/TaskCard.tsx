@@ -12,9 +12,23 @@ interface TaskCardProps {
   onTaskMove?: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => void
   onTaskEdit?: (task: Task) => void
   onTaskView?: (task: Task) => void
+  onTaskDelete?: (taskId: string) => void
+  // Multi-select props
+  isMultiSelectMode?: boolean
+  isSelected?: boolean
+  onToggleSelection?: (taskId: string, shiftKey: boolean) => void
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ 
+  task, 
+  index, 
+  onTaskEdit, 
+  onTaskView, 
+  onTaskDelete,
+  isMultiSelectMode = false,
+  isSelected = false,
+  onToggleSelection
+}) => {
   const { total, completed, loading } = useSubtaskProgress(task.id)
 
   const formatDate = (dateString: string) => {
@@ -32,23 +46,43 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView
     return dueDate < today
   }
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isMultiSelectMode && onToggleSelection) {
+      e.preventDefault()
+      e.stopPropagation()
+      onToggleSelection(task.id, e.shiftKey)
+    } else if (onTaskView) {
+      onTaskView(task)
+    } else if (onTaskEdit) {
+      onTaskEdit(task)
+    }
+  }
+
   return (
-    <Draggable draggableId={task.id} index={index}>
+    <Draggable draggableId={task.id} index={index} isDragDisabled={isMultiSelectMode}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          onClick={onTaskView ? () => onTaskView(task) : (onTaskEdit ? () => onTaskEdit(task) : undefined)}
-          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-2 sm:p-3 cursor-move hover:shadow-md transition-all duration-200 select-none group ${
+          {...(!isMultiSelectMode ? provided.dragHandleProps : {})}
+          onClick={handleCardClick}
+          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border transition-all duration-200 select-none group relative ${
+            isSelected 
+              ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 ring-opacity-30 bg-blue-50 dark:bg-blue-900/20' 
+              : 'border-gray-200 dark:border-gray-600'
+          } ${
             snapshot.isDragging 
               ? 'opacity-90 rotate-1 scale-105 shadow-lg ring-2 ring-blue-400 ring-opacity-60' 
               : 'hover:shadow-md'
           } ${
             snapshot.isDropAnimating ? 'transition-transform duration-200' : ''
           } ${
-            onTaskView || onTaskEdit ? 'hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' : ''
-          }`}
+            isMultiSelectMode 
+              ? 'cursor-pointer hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' 
+              : 'cursor-move'
+          } ${
+            !isMultiSelectMode && (onTaskView || onTaskEdit) ? 'hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' : ''
+          } p-2 sm:p-3`}
           style={{
             ...provided.draggableProps.style,
             transform: snapshot.isDragging 
@@ -56,7 +90,24 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView
               : provided.draggableProps.style?.transform
           }}
         >
-          <div className="flex items-start justify-between mb-1 sm:mb-2">
+          {/* Multi-select checkbox */}
+          {isMultiSelectMode && (
+            <div className="absolute top-2 left-2 z-10">
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                isSelected 
+                  ? 'bg-blue-600 border-blue-600' 
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 hover:border-blue-400'
+              }`}>
+                {isSelected && (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className={`flex items-start justify-between mb-1 sm:mb-2 ${isMultiSelectMode ? 'ml-7' : ''}`}>
             <h3 className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm leading-tight flex-1 mr-2">
               {task.title}
             </h3>
@@ -112,19 +163,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView
             )}
           </div>
 
-          {/* Action buttons on hover */}
-          {(onTaskView || onTaskEdit) && (
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-1">
+          {/* Action buttons on hover - hidden in multi-select mode */}
+          {!isMultiSelectMode && (onTaskView || onTaskEdit || onTaskDelete) && (
+            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-md shadow-lg p-1">
               {onTaskView && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onTaskView(task)
                   }}
-                  className="p-1 rounded-md bg-white dark:bg-gray-600 shadow-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className="p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border border-blue-200 dark:border-blue-700"
                   title="View details"
                 >
-                  <svg className="w-3 h-3 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
@@ -136,19 +187,33 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onTaskEdit, onTaskView
                     e.stopPropagation()
                     onTaskEdit(task)
                   }}
-                  className="p-1 rounded-md bg-white dark:bg-gray-600 shadow-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className="p-1.5 rounded-md bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600"
                   title="Edit task"
                 >
-                  <svg className="w-3 h-3 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+              {onTaskDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTaskDelete(task.id)
+                  }}
+                  className="p-1.5 rounded-md bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-700 hover:scale-110 transform"
+                  title="Delete task"
+                >
+                  <svg className="w-3.5 h-3.5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
               )}
             </div>
           )}
 
-          {/* Visual indicator for drag handle when no actions */}
-          {!(onTaskView || onTaskEdit) && (
+          {/* Visual indicator for drag handle when no actions - hidden in multi-select mode */}
+          {!isMultiSelectMode && !(onTaskView || onTaskEdit || onTaskDelete) && (
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity duration-200">
               <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />

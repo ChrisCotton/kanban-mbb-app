@@ -7,10 +7,190 @@
   - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1770ms
- ✓ Compiled /middleware in 130ms (72 modules)
+ ✓ Ready in 1731ms
+ ✓ Compiled /middleware in 158ms (72 modules)
  ○ Compiling / ...
- ✓ Compiled / in 2.2s (687 modules)
- ✓ Compiled in 268ms (687 modules)
- GET / 200 in 2864ms
- GET / 200 in 31ms
+ ✓ Compiled / in 1824ms (687 modules)
+ ✓ Compiled in 275ms (687 modules)
+ GET / 200 in 2436ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1180ms (1347 modules)
+ GET /dashboard 200 in 1554ms
+ ✓ Compiled /_error in 259ms (1349 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 291ms
+ ✓ Compiled /api/kanban/tasks in 153ms (209 modules)
+ GET /api/kanban/tasks 304 in 495ms
+ ✓ Compiled /api/kanban/tasks/[id]/subtasks in 44ms (211 modules)
+ GET /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd/subtasks 304 in 138ms
+ GET /api/kanban/tasks/05a01f46-90cd-4dda-8fd6-5c3f1d7e1970/subtasks 304 in 214ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 73ms
+ GET /api/kanban/tasks/04e815d7-4339-426a-99ac-e34b844d396e/subtasks 304 in 231ms
+ GET /api/kanban/tasks/d63324ee-b750-4143-bc54-69ee9a1be377/subtasks 304 in 237ms
+ GET /api/kanban/tasks/e3b604de-1324-4512-bc29-04a954026856/subtasks 304 in 243ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 246ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 72ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 70ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 70ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 70ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 71ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 103ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 63ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 72ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 66ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 71ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 78ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 83ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 74ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 68ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 75ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 65ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 73ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 64ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 117ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 67ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 64ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 83ms
+ ✓ Compiled /api/kanban/tasks/[id] in 50ms (213 modules)
+ DELETE /api/kanban/tasks/05a01f46-90cd-4dda-8fd6-5c3f1d7e1970 200 in 206ms
+ GET /api/kanban/tasks 200 in 66ms
+ GET /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd/subtasks 304 in 74ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 136ms
+ GET /api/kanban/tasks/d63324ee-b750-4143-bc54-69ee9a1be377/subtasks 304 in 136ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 64ms
+ GET /api/kanban/tasks/e3b604de-1324-4512-bc29-04a954026856/subtasks 304 in 155ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 155ms
+ GET /api/kanban/tasks/04e815d7-4339-426a-99ac-e34b844d396e/subtasks 304 in 162ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 65ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 81ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 71ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 71ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 78ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 114ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 69ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 78ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 72ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 73ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 67ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 64ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 75ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 74ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 74ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 78ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 90ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 62ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 69ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 73ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 77ms
+ DELETE /api/kanban/tasks/e3b604de-1324-4512-bc29-04a954026856 200 in 152ms
+ GET /api/kanban/tasks 200 in 77ms
+ GET /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd/subtasks 304 in 80ms
+ GET /api/kanban/tasks/04e815d7-4339-426a-99ac-e34b844d396e/subtasks 304 in 129ms
+ GET /api/kanban/tasks/d63324ee-b750-4143-bc54-69ee9a1be377/subtasks 304 in 141ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 64ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 141ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 146ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 151ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 64ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 69ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 72ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 77ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 85ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 61ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 107ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 69ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 67ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 86ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 79ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 58ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 81ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 60ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 71ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 61ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 71ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 77ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 68ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 67ms
+ DELETE /api/kanban/tasks/d63324ee-b750-4143-bc54-69ee9a1be377 200 in 203ms
+ GET /api/kanban/tasks 200 in 60ms
+ GET /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd/subtasks 304 in 96ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 140ms
+ GET /api/kanban/tasks/04e815d7-4339-426a-99ac-e34b844d396e/subtasks 304 in 147ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 158ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 163ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 183ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 89ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 76ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 78ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 79ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 59ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 103ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 74ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 54ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 67ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 72ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 70ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 67ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 104ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 98ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 66ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 66ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 60ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 66ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 62ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 79ms
+ DELETE /api/kanban/tasks/04e815d7-4339-426a-99ac-e34b844d396e 200 in 616ms
+ GET /api/kanban/tasks 200 in 308ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 345ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 560ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 561ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 512ms
+ GET /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd/subtasks 304 in 563ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 564ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 213ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 292ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 293ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 296ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 297ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 297ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 298ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 154ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 155ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 158ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 332ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 333ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 337ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 167ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 168ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 170ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 153ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 153ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 154ms
+ DELETE /api/kanban/tasks/677ef42a-9fd6-4e81-b9d1-135b9193a5fd 200 in 141ms
+ GET /api/kanban/tasks 200 in 64ms
+ GET /api/kanban/tasks/f38abb49-61c7-418c-9c71-4480828f3b03/subtasks 304 in 77ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 125ms
+ GET /api/kanban/tasks/1440cd9b-7aa7-4e35-a355-e6d6ef0a6ce0/subtasks 304 in 128ms
+ GET /api/kanban/tasks/19db2fdc-829c-4345-af75-70a6e203e5fd/subtasks 304 in 135ms
+ GET /api/kanban/tasks/04183100-4dbc-4646-b686-a34d7dd2c728/subtasks 304 in 143ms
+ GET /api/kanban/tasks/4e8fb98f-b4bb-4c07-b7da-04b5e9ef2cc1/subtasks 304 in 153ms
+ GET /api/kanban/tasks/7aff5398-069f-4242-87f3-778b25dfe8c2/subtasks 304 in 80ms
+ GET /api/kanban/tasks/35d3ce61-93ba-4cd3-a3c0-f97a268cf950/subtasks 304 in 67ms
+ GET /api/kanban/tasks/1a50a77a-94c3-4381-bf99-31b41d300dd4/subtasks 304 in 72ms
+ GET /api/kanban/tasks/f12d33f2-9c60-48b9-86b3-ad327a01e59b/subtasks 304 in 88ms
+ GET /api/kanban/tasks/9cb272ef-14c2-42d8-acd7-255420295e3b/subtasks 304 in 76ms
+ GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 80ms
+ GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 93ms
+ GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 65ms
+ GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 74ms
+ GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 90ms
+ GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 75ms
+ GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 71ms
+ GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 80ms
+ GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 74ms
+ GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 62ms
+ GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 75ms
+ GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 75ms
+ GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 77ms
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/subtasks 304 in 248ms
+ ✓ Compiled /api/kanban/tasks/[id]/comments in 263ms (211 modules)
+ GET /api/kanban/tasks/2919536f-ecbf-407b-a33b-1f30973d00c3/comments 200 in 365ms

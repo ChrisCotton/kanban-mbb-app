@@ -18,6 +18,11 @@ interface SwimLaneProps {
   onTaskDelete?: (taskId: string) => Promise<void>
   color: 'gray' | 'blue' | 'yellow' | 'green'
   isDraggingOver?: boolean
+  // Multi-select props
+  isMultiSelectMode?: boolean
+  selectedTaskIds?: string[]
+  onToggleTaskSelection?: (taskId: string, shiftKey: boolean) => void
+  onToggleMultiSelectMode?: () => void
 }
 
 const colorClasses = {
@@ -62,7 +67,11 @@ const SwimLane: React.FC<SwimLaneProps> = ({
   onTaskView,
   onTaskUpdate,
   onTaskDelete,
-  color
+  color,
+  isMultiSelectMode = false,
+  selectedTaskIds = [],
+  onToggleTaskSelection,
+  onToggleMultiSelectMode
 }) => {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -118,11 +127,29 @@ const SwimLane: React.FC<SwimLaneProps> = ({
       {/* Lane Header */}
       <div className={`p-3 sm:p-4 rounded-t-lg border-b ${colors.header}`}>
         <div className="flex items-center justify-between">
-          <h2 className={`font-semibold text-sm sm:text-base ${colors.headerText}`}>
-            {title}
-          </h2>
+          <div className="flex items-center space-x-2">
+            <h2 className={`font-semibold text-sm sm:text-base ${colors.headerText}`}>
+              {title}
+            </h2>
+            {/* Multi-select toggle button */}
+            {onToggleMultiSelectMode && tasks.length > 0 && (
+              <button
+                onClick={onToggleMultiSelectMode}
+                className={`p-1 rounded transition-colors ${
+                  isMultiSelectMode 
+                    ? 'bg-blue-600 text-white' 
+                    : `${colors.addButton} hover:bg-gray-200 dark:hover:bg-gray-600`
+                }`}
+                title={isMultiSelectMode ? 'Exit multi-select mode' : 'Enter multi-select mode'}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            )}
+          </div>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors.badge}`}>
-            {tasks.length}
+            {tasks.length > 10 ? `10 of ${tasks.length}` : tasks.length}
           </span>
         </div>
       </div>
@@ -133,23 +160,29 @@ const SwimLane: React.FC<SwimLaneProps> = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 min-h-88 sm:min-h-96 transition-all duration-200 ${
+            className={`flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 transition-all duration-200 ${
               snapshot.isDraggingOver ? colors.dropZone : ''
             }`}
           >
-            {/* Tasks */}
-            <div className="space-y-2 sm:space-y-3">
-              {tasks.map((task, index) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  onTaskMove={onTaskMove}
-                  onTaskEdit={onTaskEdit}
-                  onTaskView={onTaskView}
-                />
-              ))}
-              {provided.placeholder}
+            {/* Tasks Container with Scrolling */}
+            <div className="h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              <div className="space-y-2 sm:space-y-3 pr-1">
+                {tasks.map((task, index) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    index={index}
+                    onTaskMove={onTaskMove}
+                    onTaskEdit={onTaskEdit}
+                    onTaskView={onTaskView}
+                    onTaskDelete={onTaskDelete}
+                    isMultiSelectMode={isMultiSelectMode}
+                    isSelected={selectedTaskIds.includes(task.id)}
+                    onToggleSelection={onToggleTaskSelection}
+                  />
+                ))}
+                {provided.placeholder}
+              </div>
             </div>
 
             {/* Empty state */}

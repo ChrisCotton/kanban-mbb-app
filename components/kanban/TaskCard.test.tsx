@@ -295,4 +295,89 @@ describe('TaskCard', () => {
     const description = screen.getByText('This is a test task description')
     expect(description.tagName).toBe('P')
   })
+
+  it('calls onTaskDelete when delete button is clicked', () => {
+    const mockOnTaskDelete = jest.fn()
+    
+    render(
+      <DragDropContext onDragEnd={() => {}}>
+        <Droppable droppableId="test-droppable">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              <TaskCard
+                task={mockTask}
+                index={0}
+                onTaskDelete={mockOnTaskDelete}
+              />
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+    )
+
+    // Find the delete button (should be visible on hover)
+    const deleteButton = screen.getByTitle('Delete task')
+    expect(deleteButton).toBeInTheDocument()
+    
+    // Click the delete button
+    fireEvent.click(deleteButton)
+    
+    // Verify the callback was called with the correct task ID
+    expect(mockOnTaskDelete).toHaveBeenCalledWith(mockTask.id)
+  })
+
+  it('shows action buttons when onTaskDelete prop is provided', () => {
+    const mockOnTaskDelete = jest.fn()
+    
+    render(
+      <DragDropContext onDragEnd={() => {}}>
+        <Droppable droppableId="test-droppable">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              <TaskCard
+                task={mockTask}
+                index={0}
+                onTaskDelete={mockOnTaskDelete}
+              />
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+    )
+
+    // Action buttons container should be present
+    const actionButtons = screen.getByTitle('Delete task').closest('div')
+    expect(actionButtons).toHaveClass('opacity-0', 'group-hover:opacity-100')
+    
+    // Delete button should have correct styling
+    const deleteButton = screen.getByTitle('Delete task')
+    expect(deleteButton).toHaveClass('hover:bg-red-50', 'dark:hover:bg-red-900')
+  })
+
+  it('does not show action buttons when no action props are provided', () => {
+    render(
+      <DragDropContext onDragEnd={() => {}}>
+        <Droppable droppableId="test-droppable">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              <TaskCard
+                task={mockTask}
+                index={0}
+              />
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+    )
+
+    // Should not have delete button
+    expect(screen.queryByTitle('Delete task')).not.toBeInTheDocument()
+    
+    // Should show drag handle instead
+    const dragHandle = screen.getByRole('button')
+    expect(dragHandle.querySelector('svg')).toBeInTheDocument()
+  })
 }) 

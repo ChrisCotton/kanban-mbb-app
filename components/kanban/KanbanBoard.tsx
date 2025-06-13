@@ -6,8 +6,11 @@ import { Task } from '../../lib/database/kanban-queries'
 import SwimLane from './SwimLane'
 import TaskModal from './TaskModal'
 import TaskDetailModal from './TaskDetailModal'
+import BulkActionsToolbar from './BulkActionsToolbar'
+import BulkDeleteConfirmDialog from './BulkDeleteConfirmDialog'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { useKanban } from '../../hooks/useKanban'
+import { useMultiSelect } from '../../hooks/useMultiSelect'
 
 interface KanbanBoardProps {
   className?: string
@@ -40,6 +43,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
   // Task detail modal state
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [viewingTask, setViewingTask] = useState<Task | null>(null)
+
+  // Bulk delete confirmation state
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   // Handle optimistic updates for drag and drop
   const handleOptimisticUpdate = (updatedTasks: typeof tasks) => {
@@ -75,6 +82,37 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     tasks,
     onTaskMove: handleTaskMove,
     onOptimisticUpdate: handleOptimisticUpdate
+  })
+
+  // Initialize multi-select hook
+  const {
+    selectedTaskIds,
+    selectedCount,
+    isMultiSelectMode,
+    toggleMultiSelectMode,
+    toggleTaskSelection,
+    selectAllTasks,
+    clearSelection,
+    isTaskSelected
+  } = useMultiSelect({
+    onBulkDelete: async (taskIds: string[]) => {
+      setIsBulkDeleting(true)
+      try {
+        // Delete tasks one by one
+        for (const taskId of taskIds) {
+          await deleteTask(taskId)
+        }
+      } finally {
+        setIsBulkDeleting(false)
+        setIsBulkDeleteDialogOpen(false)
+      }
+    },
+    onBulkUpdate: async (taskIds: string[], updates: Partial<Task>) => {
+      // Update tasks one by one
+      for (const taskId of taskIds) {
+        await updateTask(taskId, updates)
+      }
+    }
   })
 
   // Modal management functions
@@ -155,6 +193,45 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     clearError()
     refetchTasks()
   }
+
+  // Multi-select handlers
+  const handleBulkDelete = () => {
+    setIsBulkDeleteDialogOpen(true)
+  }
+
+  const handleBulkMove = async (status: Task['status']) => {
+    const updates = { status }
+    for (const taskId of selectedTaskIds) {
+      await updateTask(taskId, updates)
+    }
+    clearSelection()
+  }
+
+  const handleBulkPriorityChange = async (priority: Task['priority']) => {
+    const updates = { priority }
+    for (const taskId of selectedTaskIds) {
+      await updateTask(taskId, updates)
+    }
+    clearSelection()
+  }
+
+  const handleSelectAll = () => {
+    const allTaskIds = Object.values(tasks).flat().map(task => task.id)
+    selectAllTasks(allTaskIds)
+  }
+
+  const handleToggleTaskSelection = (taskId: string, shiftKey: boolean) => {
+    const allTasks = Object.values(tasks).flat()
+    toggleTaskSelection(taskId, shiftKey, allTasks)
+  }
+
+  const getSelectedTasks = (): Task[] => {
+    const allTasks = Object.values(tasks).flat()
+    return allTasks.filter(task => selectedTaskIds.includes(task.id))
+  }
+
+  const totalTaskCount = Object.values(tasks).flat().length
+  const isAllSelected = selectedCount === totalTaskCount && totalTaskCount > 0
 
   if (isLoading) {
     return (
@@ -239,6 +316,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="gray"
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleMultiSelectMode={toggleMultiSelectMode}
           />
           
           <SwimLane
@@ -252,6 +333,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="blue"
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleMultiSelectMode={toggleMultiSelectMode}
           />
           
           <SwimLane
@@ -265,6 +350,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="yellow"
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleMultiSelectMode={toggleMultiSelectMode}
           />
           
           <SwimLane
@@ -278,6 +367,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
             onTaskUpdate={handleTaskUpdate}
             onTaskDelete={handleTaskDeleteWithConfirm}
             color="green"
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleMultiSelectMode={toggleMultiSelectMode}
           />
         </div>
 
@@ -316,6 +409,42 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           onClose={closeDetailModal}
           task={viewingTask}
           onUpdate={handleTaskUpdate}
+        />
+
+        {/* Bulk Actions Toolbar */}
+        {isMultiSelectMode && selectedCount > 0 && (
+          <BulkActionsToolbar
+            selectedCount={selectedCount}
+            onBulkDelete={handleBulkDelete}
+            onBulkMove={handleBulkMove}
+            onBulkPriorityChange={handleBulkPriorityChange}
+            onSelectAll={handleSelectAll}
+            onClearSelection={clearSelection}
+            onExitMultiSelect={toggleMultiSelectMode}
+            totalTaskCount={totalTaskCount}
+            isAllSelected={isAllSelected}
+          />
+        )}
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <BulkDeleteConfirmDialog
+          isOpen={isBulkDeleteDialogOpen}
+          onClose={() => setIsBulkDeleteDialogOpen(false)}
+          onConfirm={async () => {
+            const taskIds = selectedTaskIds
+            setIsBulkDeleting(true)
+            try {
+              for (const taskId of taskIds) {
+                await deleteTask(taskId)
+              }
+              clearSelection()
+            } finally {
+              setIsBulkDeleting(false)
+              setIsBulkDeleteDialogOpen(false)
+            }
+          }}
+          selectedTasks={getSelectedTasks()}
+          isDeleting={isBulkDeleting}
         />
 
         {/* Delete Confirmation Modal */}
