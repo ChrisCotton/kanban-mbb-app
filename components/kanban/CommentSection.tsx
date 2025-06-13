@@ -203,7 +203,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 return inline ? (
                   <code
                     {...props}
-                    className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm"
+                    className="bg-gray-200 dark:bg-gray-600 px-1 py-0.5 rounded text-sm text-gray-800 dark:text-gray-100"
                   >
                     {children}
                   </code>
@@ -213,15 +213,49 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   </code>
                 )
               },
-              // Ensure proper list rendering
+              // Ensure proper list rendering with better contrast
               ol: ({ node, ...props }) => (
-                <ol {...props} className="list-decimal list-inside pl-4 space-y-1" />
+                <ol {...props} className="list-decimal list-inside pl-4 space-y-1 text-gray-800 dark:text-gray-100" />
               ),
               ul: ({ node, ...props }) => (
-                <ul {...props} className="list-disc list-inside pl-4 space-y-1" />
+                <ul {...props} className="list-disc list-inside pl-4 space-y-1 text-gray-800 dark:text-gray-100" />
               ),
               li: ({ node, ...props }) => (
-                <li {...props} className="text-sm" />
+                <li {...props} className="text-sm text-gray-800 dark:text-gray-100" />
+              ),
+              // Better contrast for paragraphs and headings
+              p: ({ node, ...props }) => (
+                <p {...props} className="text-gray-800 dark:text-gray-100" />
+              ),
+              h1: ({ node, ...props }) => (
+                <h1 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              h2: ({ node, ...props }) => (
+                <h2 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              h3: ({ node, ...props }) => (
+                <h3 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              h4: ({ node, ...props }) => (
+                <h4 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              h5: ({ node, ...props }) => (
+                <h5 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              h6: ({ node, ...props }) => (
+                <h6 {...props} className="text-gray-900 dark:text-white" />
+              ),
+              // Better contrast for blockquotes
+              blockquote: ({ node, ...props }) => (
+                <blockquote {...props} className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 text-gray-700 dark:text-gray-200 italic" />
+              ),
+              // Better contrast for strong/bold text
+              strong: ({ node, ...props }) => (
+                <strong {...props} className="font-bold text-gray-900 dark:text-white" />
+              ),
+              // Better contrast for emphasis/italic text
+              em: ({ node, ...props }) => (
+                <em {...props} className="italic text-gray-800 dark:text-gray-100" />
               )
             }}
           >
@@ -391,7 +425,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                         return inline ? (
                           <code
                             {...props}
-                            className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm"
+                            className="bg-gray-200 dark:bg-gray-600 px-1 py-0.5 rounded text-sm text-gray-800 dark:text-gray-100"
                           >
                             {children}
                           </code>
@@ -401,15 +435,49 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                           </code>
                         )
                       },
-                      // Ensure proper list rendering
+                      // Ensure proper list rendering with better contrast
                       ol: ({ node, ...props }) => (
-                        <ol {...props} className="list-decimal list-inside pl-4 space-y-1" />
+                        <ol {...props} className="list-decimal list-inside pl-4 space-y-1 text-gray-800 dark:text-gray-100" />
                       ),
                       ul: ({ node, ...props }) => (
-                        <ul {...props} className="list-disc list-inside pl-4 space-y-1" />
+                        <ul {...props} className="list-disc list-inside pl-4 space-y-1 text-gray-800 dark:text-gray-100" />
                       ),
                       li: ({ node, ...props }) => (
-                        <li {...props} className="text-sm" />
+                        <li {...props} className="text-sm text-gray-800 dark:text-gray-100" />
+                      ),
+                      // Better contrast for paragraphs and headings
+                      p: ({ node, ...props }) => (
+                        <p {...props} className="text-gray-800 dark:text-gray-100" />
+                      ),
+                      h1: ({ node, ...props }) => (
+                        <h1 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      h2: ({ node, ...props }) => (
+                        <h2 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      h3: ({ node, ...props }) => (
+                        <h3 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      h4: ({ node, ...props }) => (
+                        <h4 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      h5: ({ node, ...props }) => (
+                        <h5 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      h6: ({ node, ...props }) => (
+                        <h6 {...props} className="text-gray-900 dark:text-white" />
+                      ),
+                      // Better contrast for blockquotes
+                      blockquote: ({ node, ...props }) => (
+                        <blockquote {...props} className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 text-gray-700 dark:text-gray-200 italic" />
+                      ),
+                      // Better contrast for strong/bold text
+                      strong: ({ node, ...props }) => (
+                        <strong {...props} className="font-bold text-gray-900 dark:text-white" />
+                      ),
+                      // Better contrast for emphasis/italic text
+                      em: ({ node, ...props }) => (
+                        <em {...props} className="italic text-gray-800 dark:text-gray-100" />
                       )
                     }}
                   >

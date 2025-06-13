@@ -115,7 +115,7 @@ const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
               
               {showPriorityDropdown && (
                 <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-40">
-                  {(['low', 'medium', 'high', 'urgent'] as Task['priority'][]).map((priority) => (
+                  {(['low', 'medium', 'high'] as Task['priority'][]).map((priority) => (
                     <button
                       key={priority}
                       onClick={() => {

@@ -145,8 +145,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     setViewingTask(null)
   }
 
-
-
   const handleModalSave = async (taskData: Partial<Task>) => {
     if (editingTask) {
       // Updating existing task
@@ -409,6 +407,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           onClose={closeDetailModal}
           task={viewingTask}
           onUpdate={handleTaskUpdate}
+          onMove={handleTaskMove}
+          allTasks={tasks}
         />
 
         {/* Bulk Actions Toolbar */}

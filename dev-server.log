@@ -7,32 +7,9 @@
   - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1860ms
- ○ Compiling /_error ...
- ✓ Compiled /_error in 2.1s (340 modules)
- GET /_next/static/webpack/23251fc69ffa7303.webpack.hot-update.json 404 in 2238ms
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- ○ Compiling /dashboard ...
- ✓ Compiled /dashboard in 2.4s (1349 modules)
- GET /_next/static/webpack/23251fc69ffa7303.webpack.hot-update.json 404 in 2035ms
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /dashboard 200 in 2047ms
- GET / 200 in 2827ms
- GET /dashboard 200 in 246ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 11ms
- ✓ Compiled /api/kanban/tasks in 153ms (209 modules)
- GET /api/kanban/tasks 304 in 390ms
- ✓ Compiled /api/kanban/tasks/[id]/subtasks in 47ms (211 modules)
- GET /api/kanban/tasks/4fa89286-572f-42a6-881b-348cf92f8dc1/subtasks 304 in 135ms
- GET /api/kanban/tasks/8a08dc54-5036-4473-95d1-64723a7afac9/subtasks 304 in 63ms
- GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 197ms
- GET /api/kanban/tasks/d3955f03-c906-4ef7-8397-1ea01c1287dd/subtasks 304 in 208ms
- GET /api/kanban/tasks/031bbc27-2259-482b-ac42-82af233a3f3a/subtasks 304 in 210ms
- GET /api/kanban/tasks/debdb1cf-06b3-4b67-9fae-47cb7dc3a057/subtasks 304 in 232ms
- GET /api/kanban/tasks/bab80e51-113f-41a0-8fa8-98ca40c55888/subtasks 304 in 233ms
- GET /api/kanban/tasks/4495bf3c-7998-4070-9414-7c44d13d1dcb/subtasks 304 in 73ms
- GET /api/kanban/tasks/5d050410-aa4c-4bfa-87f4-02cd211a1bda/subtasks 304 in 78ms
- GET /api/kanban/tasks/a206b6cd-7f2b-4d89-a11b-9906c5f564a2/subtasks 304 in 58ms
- GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 66ms
- GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 75ms
- GET /api/kanban/tasks/29acf0a8-cba8-4b37-94b3-71e9298ac26d/subtasks 304 in 92ms
+ ✓ Ready in 1786ms
+ ✓ Compiled /middleware in 167ms (72 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 2.1s (687 modules)
+ ✓ Compiled in 271ms (687 modules)
+ GET / 200 in 2875ms
