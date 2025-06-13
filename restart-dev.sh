@@ -22,6 +22,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Project directory
@@ -61,6 +62,27 @@ show_server_processes() {
     else
         echo -e "${YELLOW}⚠️  Server not yet responding on http://localhost:3000${NC}"
     fi
+}
+
+# Function to show dev server logs hyperlink
+show_logs_hyperlink() {
+    local log_file="$1"
+    local full_path="$PROJECT_DIR/$log_file"
+    
+    echo -e "${PURPLE}📄 Dev Server Logs:${NC}"
+    
+    # Check if we're in a terminal that supports hyperlinks (iTerm2, some terminals)
+    if [[ "$TERM_PROGRAM" == "iTerm.app" ]] || [[ "$TERM" == *"xterm"* ]]; then
+        # Create a clickable hyperlink using OSC 8 escape sequence
+        echo -e "${CYAN}   📎 Click to open logs: \033]8;;file://$full_path\033\\$log_file\033]8;;\033\\${NC}"
+    else
+        echo -e "${CYAN}   📁 Log file location: $log_file${NC}"
+    fi
+    
+    # Also provide command to tail the logs
+    echo -e "${CYAN}   🔍 To follow logs: ${YELLOW}tail -f $log_file${NC}"
+    echo -e "${CYAN}   📖 To view logs: ${YELLOW}cat $log_file${NC}"
+    echo ""
 }
 
 # Function to show usage
@@ -165,6 +187,9 @@ echo -e "${YELLOW}🚀 Starting fresh dev server...${NC}"
 
 # Start the dev server based on mode
 if [ "$BACKGROUND_MODE" = true ]; then
+    # Show logs hyperlink before starting background server
+    show_logs_hyperlink "dev-server.log"
+    
     # Background mode - server continues after script exits
     nohup npm run dev > dev-server.log 2>&1 &
     DEV_PID=$!
@@ -197,6 +222,13 @@ else
     show_server_processes
     
     echo ""
+    
+    # Show logs info for foreground mode (logs will be displayed directly in terminal)
+    echo -e "${PURPLE}📄 Dev Server Logs:${NC}"
+    echo -e "${CYAN}   📺 Logs will be displayed directly in this terminal${NC}"
+    echo -e "${CYAN}   🔍 To save logs to file, use: ${YELLOW}npm run dev 2>&1 | tee dev-server.log${NC}"
+    echo ""
+    
     echo -e "${CYAN}🚀 Starting dev server in foreground...${NC}"
     npm run dev
     echo -e "${YELLOW}⚠️  Dev server stopped${NC}"
