@@ -2,10 +2,17 @@
 # Quick restart for active development (stops when you stop script)
 # ./restart-dev.sh
 # 
-# Start server and leave it running (script exits, server continues)
+#
+## Background mode with process display (your original request)
 # ./restart-dev.sh -b
-# 
-# Get help on all options
+#
+# Just check server status without restarting
+# ./restart-dev.sh -s
+#
+# Foreground mode (now also shows initial process status)
+# ./restart-dev.sh -f
+#
+# Show help with all options
 # ./restart-dev.sh -h
 #
 #######################################################################                                                                       
@@ -22,6 +29,39 @@ PROJECT_DIR="$HOME/Learn/AI/MBB_Kanban/MBB_Kanban_cursor/kanban-mbb-app"
 
 # Default mode
 BACKGROUND_MODE=false
+STATUS_ONLY=false
+
+# Function to show running server processes
+show_server_processes() {
+    echo -e "${CYAN}🔍 Checking for running server processes...${NC}"
+    
+    # Check for Next.js dev processes
+    NEXT_PROCESSES=$(ps aux | grep -E "next dev|npm run dev" | grep -v grep)
+    if [ ! -z "$NEXT_PROCESSES" ]; then
+        echo -e "${GREEN}📋 Next.js dev processes:${NC}"
+        echo "$NEXT_PROCESSES" | while read line; do
+            echo -e "${YELLOW}  $line${NC}"
+        done
+    fi
+    
+    # Check for processes on port 3000
+    PORT_PROCESSES=$(lsof -i:3000 2>/dev/null)
+    if [ ! -z "$PORT_PROCESSES" ]; then
+        echo -e "${GREEN}🌐 Processes on port 3000:${NC}"
+        echo "$PORT_PROCESSES" | while read line; do
+            echo -e "${YELLOW}  $line${NC}"
+        done
+    else
+        echo -e "${YELLOW}⚠️  No processes found on port 3000${NC}"
+    fi
+    
+    # Check if port 3000 is responding
+    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Server is responding on http://localhost:3000${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Server not yet responding on http://localhost:3000${NC}"
+    fi
+}
 
 # Function to show usage
 show_usage() {
@@ -29,12 +69,14 @@ show_usage() {
     echo -e "${CYAN}Options:${NC}"
     echo -e "  ${YELLOW}-b, --background${NC}    Run dev server in background (script exits, server continues)"
     echo -e "  ${YELLOW}-f, --foreground${NC}    Run dev server in foreground (default - stopping script stops server)"
+    echo -e "  ${YELLOW}-s, --status${NC}        Show running server processes without restarting"
     echo -e "  ${YELLOW}-h, --help${NC}          Show this help message"
     echo ""
     echo -e "${CYAN}Examples:${NC}"
     echo -e "  ${GREEN}./restart-dev.sh${NC}              # Foreground mode (default)"
     echo -e "  ${GREEN}./restart-dev.sh -f${NC}           # Foreground mode (explicit)"
     echo -e "  ${GREEN}./restart-dev.sh -b${NC}           # Background mode"
+    echo -e "  ${GREEN}./restart-dev.sh -s${NC}           # Just show server status"
     echo -e "  ${GREEN}./restart-dev.sh --background${NC}  # Background mode (long form)"
 }
 
@@ -49,6 +91,10 @@ while [[ $# -gt 0 ]]; do
             BACKGROUND_MODE=false
             shift
             ;;
+        -s|--status)
+            STATUS_ONLY=true
+            shift
+            ;;
         -h|--help)
             show_usage
             exit 0
@@ -60,6 +106,22 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Handle status-only mode
+if [ "$STATUS_ONLY" = true ]; then
+    echo -e "${BLUE}🔍 Checking Kanban Dev Server Status...${NC}"
+    
+    # Change to project directory
+    echo -e "${YELLOW}📂 Changing to project directory...${NC}"
+    cd "$PROJECT_DIR" || {
+        echo -e "${RED}❌ Error: Could not change to project directory: $PROJECT_DIR${NC}"
+        exit 1
+    }
+    
+    # Show running processes and exit
+    show_server_processes
+    exit 0
+fi
 
 # Show mode
 if [ "$BACKGROUND_MODE" = true ]; then
@@ -115,6 +177,12 @@ if [ "$BACKGROUND_MODE" = true ]; then
         echo -e "${BLUE}🌐 Server should be available at: http://localhost:3000${NC}"
         echo -e "${CYAN}📋 Logs are being written to: dev-server.log${NC}"
         echo -e "${CYAN}🛑 To stop the server later, run: pkill -f 'next dev'${NC}"
+        echo ""
+        
+        # Show running processes
+        show_server_processes
+        
+        echo ""
         echo -e "${GREEN}✅ Script complete - dev server continues running${NC}"
     else
         echo -e "${RED}❌ Failed to start dev server in background${NC}"
@@ -123,6 +191,13 @@ if [ "$BACKGROUND_MODE" = true ]; then
 else
     # Foreground mode - script controls server lifecycle
     echo -e "${CYAN}📋 Running in foreground - press Ctrl+C to stop server${NC}"
+    echo ""
+    
+    # Show initial process status
+    show_server_processes
+    
+    echo ""
+    echo -e "${CYAN}🚀 Starting dev server in foreground...${NC}"
     npm run dev
     echo -e "${YELLOW}⚠️  Dev server stopped${NC}"
 fi 

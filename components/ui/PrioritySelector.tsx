@@ -45,15 +45,9 @@ const priorityOptions: PriorityOption[] = [
     color: 'text-orange-700 dark:text-orange-400',
     bgColor: 'bg-orange-100 dark:bg-orange-900/20',
     icon: '⬆️'
-  },
-  {
-    value: 'urgent',
-    label: 'Urgent',
-    description: 'Critical, immediate action',
-    color: 'text-red-700 dark:text-red-400',
-    bgColor: 'bg-red-100 dark:bg-red-900/20',
-    icon: '🔥'
   }
+  // Note: 'urgent' priority temporarily removed until database enum is updated
+  // To fix: Run "ALTER TYPE task_priority ADD VALUE 'urgent';" in Supabase SQL editor
 ]
 
 const PrioritySelector: React.FC<PrioritySelectorProps> = ({

@@ -21,6 +21,13 @@
     "test:e2e:debug": "playwright test --debug",
     "test:smoke": "playwright test tests/e2e/smoke.spec.ts",
     "test:regression": "playwright test tests/e2e/regression.spec.ts",
+    "test:description-update": "playwright test tests/e2e/task-description-update.spec.ts",
+    "test:description-unit": "jest components/kanban/TaskDetailModal.test.tsx",
+    "test:description-all": "npm run test:description-unit && npm run test:description-update",
+    "test:regression-setup": "./scripts/run-regression-tests.sh",
+    "test:regression-ui": "./scripts/run-regression-tests.sh --ui",
+    "test:regression-headed": "./scripts/run-regression-tests.sh --headed",
+    "test:regression-debug": "./scripts/run-regression-tests.sh --debug",
     "playwright:install": "playwright install"
   },
   "dependencies": {
@@ -43,6 +50,7 @@
     "@playwright/test": "^1.53.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.38",

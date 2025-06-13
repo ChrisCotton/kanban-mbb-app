@@ -54,6 +54,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     await updateTask(taskId, updates)
+    
+    // Update the viewing task if it's the same task being updated
+    if (viewingTask && viewingTask.id === taskId) {
+      setViewingTask(prev => prev ? { ...prev, ...updates } : null)
+    }
   }
 
   const handleTaskDelete = async (taskId: string) => {

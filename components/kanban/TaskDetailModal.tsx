@@ -64,7 +64,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUpdate
 }) => {
   const [isClosing, setIsClosing] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   

@@ -1,0 +1,32 @@
+{
+  "testUser": {
+    "email": "thediabolicalmr4dee@gmail.com",
+    "password": "12345",
+    "id": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "sampleTasks": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "title": "Test Task for Description Updates",
+      "description": "Original description that will be updated",
+      "status": "todo",
+      "priority": "high",
+      "due_date": "2025-06-20"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440002", 
+      "title": "Another Test Task",
+      "description": "Another task for testing",
+      "status": "backlog",
+      "priority": "medium",
+      "due_date": "2025-06-25"
+    }
+  ],
+  "testDescriptions": {
+    "original": "Original description text",
+    "updated": "UPDATED - This description has been changed",
+    "empty": "",
+    "markdown": "# Test Markdown\n\n- List item 1\n- List item 2\n\n**Bold text** and *italic text*",
+    "special": "Special chars: @#$%^&*()_+-=[]{}|;':\",./<>?`~"
+  }
+} 

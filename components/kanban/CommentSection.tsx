@@ -212,7 +212,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     {children}
                   </code>
                 )
-              }
+              },
+              // Ensure proper list rendering
+              ol: ({ node, ...props }) => (
+                <ol {...props} className="list-decimal list-inside pl-4 space-y-1" />
+              ),
+              ul: ({ node, ...props }) => (
+                <ul {...props} className="list-disc list-inside pl-4 space-y-1" />
+              ),
+              li: ({ node, ...props }) => (
+                <li {...props} className="text-sm" />
+              )
             }}
           >
             {comment.content}
@@ -390,7 +400,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                             {children}
                           </code>
                         )
-                      }
+                      },
+                      // Ensure proper list rendering
+                      ol: ({ node, ...props }) => (
+                        <ol {...props} className="list-decimal list-inside pl-4 space-y-1" />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul {...props} className="list-disc list-inside pl-4 space-y-1" />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li {...props} className="text-sm" />
+                      )
                     }}
                   >
                     {newComment}

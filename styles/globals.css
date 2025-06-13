@@ -121,8 +121,25 @@ select:focus {
   margin: 1em 0;
 }
 
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
 .prose li {
   margin: 0.25em 0;
+  display: list-item;
+}
+
+.prose ol li {
+  list-style-type: decimal;
+}
+
+.prose ul li {
+  list-style-type: disc;
 }
 
 .prose strong {
