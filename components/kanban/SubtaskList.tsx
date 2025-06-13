@@ -79,12 +79,13 @@ function SubtaskItem({ subtask, index, onToggle, onUpdate, onDelete }: SubtaskIt
             }
           `}
         >
-          {/* Drag Handle */}
+          {/* Enhanced Drag Handle - Always visible with better styling */}
           <div
             {...provided.dragHandleProps}
-            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1"
+            className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 touch-manipulation"
+            title="Drag to reorder"
           >
-            <svg className="w-4 h-4 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 text-white/80" fill="currentColor" viewBox="0 0 20 20">
               <path d="M7 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 2zM7 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 8zM7 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 14zM13 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 2zM13 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 8zM13 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 14z"/>
             </svg>
           </div>
@@ -298,6 +299,16 @@ export default function SubtaskList({ taskId, className = '' }: SubtaskListProps
       {error && (
         <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Add helpful instruction text */}
+      {totalCount > 1 && (
+        <div className="text-xs text-white/50 flex items-center gap-2 mb-2">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M7 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 2zM7 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 8zM7 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 14zM13 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 2zM13 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 8zM13 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 14z"/>
+          </svg>
+          Drag handles to reorder by priority
         </div>
       )}
 

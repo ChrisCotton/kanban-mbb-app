@@ -25,7 +25,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Task with Subtasks ${Date.now()}`;
     
     // Create a new task in backlog
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'A task to test subtasks');
     await page.click('button:has-text("Create Task")');
@@ -74,7 +74,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Toggle Test Task ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing subtask completion');
     await page.click('button:has-text("Create Task")');
@@ -120,7 +120,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Edit Test Task ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing subtask editing');
     await page.click('button:has-text("Create Task")');
@@ -153,7 +153,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Delete Test Task ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing subtask deletion');
     await page.click('button:has-text("Create Task")');
@@ -190,7 +190,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Card Progress Test ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing card progress display');
     await page.click('button:has-text("Create Task")');
@@ -241,7 +241,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Modal Edit Test ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing modal subtask display');
     await page.click('button:has-text("Create Task")');
@@ -271,7 +271,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
 
   test('should not show subtasks section when creating new task', async ({ page }) => {
     // Click add task button in backlog column
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     
     // Should show TaskModal for creation
     await expect(page.locator('h2:has-text("Create New Task")')).toBeVisible();
@@ -287,7 +287,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Keyboard Test Task ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing keyboard shortcuts');
     await page.click('button:has-text("Create Task")');
@@ -326,7 +326,7 @@ test.describe('Task 4.6: SubtaskList Component Tests', () => {
     const taskTitle = `Loading Test ${Date.now()}`;
     
     // Create task
-    await page.click('button:has-text("Add Task")').first();
+    await page.locator('button:has-text("Add Task")').first().click();
     await page.fill('input[placeholder="Enter task title..."]', taskTitle);
     await page.fill('textarea[placeholder="Enter task description..."]', 'Testing loading states');
     await page.click('button:has-text("Create Task")');

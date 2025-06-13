@@ -67,8 +67,8 @@ export const useComments = (taskId: string): UseCommentsReturn => {
       const result = await response.json()
       const newComment = result.data
 
-      // Add the new comment to the local state
-      setComments(prev => [...prev, newComment])
+      // Add the new comment to the local state (at the beginning for LIFO order)
+      setComments(prev => [newComment, ...prev])
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add comment'
       setError(errorMessage)

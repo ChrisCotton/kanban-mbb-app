@@ -102,10 +102,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     setViewingTask(null)
   }
 
-  const handleEditFromDetailModal = (task: Task) => {
-    closeDetailModal()
-    openEditModal(task)
-  }
+
 
   const handleModalSave = async (taskData: Partial<Task>) => {
     if (editingTask) {
@@ -313,7 +310,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           isOpen={isDetailModalOpen}
           onClose={closeDetailModal}
           task={viewingTask}
-          onEdit={handleEditFromDetailModal}
+          onUpdate={handleTaskUpdate}
         />
 
         {/* Delete Confirmation Modal */}

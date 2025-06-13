@@ -208,7 +208,7 @@ export async function getTaskComments(taskId: string) {
     .from('comments')
     .select('*')
     .eq('task_id', taskId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
 
   if (error) {
     throw new Error(`Failed to fetch comments: ${error.message}`)
