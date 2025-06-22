@@ -45,8 +45,15 @@ const priorityOptions: PriorityOption[] = [
     color: 'text-red-700 dark:text-red-400',
     bgColor: 'bg-red-100 dark:bg-red-900/20',
     icon: '⬆️'
+  },
+  {
+    value: 'urgent',
+    label: 'Urgent Priority',
+    description: 'Critical, requires immediate action',
+    color: 'text-purple-700 dark:text-purple-400',
+    bgColor: 'bg-purple-100 dark:bg-purple-900/20',
+    icon: '🔥'
   }
-  // Removed 'urgent' priority to match database enum (low, medium, high only)
 ]
 
 const PrioritySelector: React.FC<PrioritySelectorProps> = ({

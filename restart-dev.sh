@@ -69,15 +69,11 @@ show_logs_hyperlink() {
     local log_file="$1"
     local full_path="$PROJECT_DIR/$log_file"
     
-    echo -e "${PURPLE}📄 Dev Server Logs:${NC}"
+    echo -e "${PURPLE}📄 Dev Server Logs: ${YELLOW}$log_file${NC}"
     
-    # Check if we're in a terminal that supports hyperlinks (iTerm2, some terminals)
-    if [[ "$TERM_PROGRAM" == "iTerm.app" ]] || [[ "$TERM" == *"xterm"* ]]; then
-        # Create a clickable hyperlink using OSC 8 escape sequence
-        echo -e "${CYAN}   📎 Click to open logs: \033]8;;file://$full_path\033\\$log_file\033]8;;\033\\${NC}"
-    else
-        echo -e "${CYAN}   📁 Log file location: $log_file${NC}"
-    fi
+    # Provide simple, clean log file information
+    echo -e "${CYAN}   📁 Log file: $log_file${NC}"
+    echo -e "${CYAN}   📂 Full path: $full_path${NC}"
     
     # Also provide command to tail the logs
     echo -e "${CYAN}   🔍 To follow logs: ${YELLOW}tail -f $log_file${NC}"
