@@ -128,8 +128,8 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 3.4 Create responsive hamburger menu for mobile devices
   - [x] 3.5 Create Calendar page with CalendarView component for task scheduling
   - [x] 3.6 Create Journal page with AudioRecorder and TranscriptEditor components
-  - [ ] 3.7 Create VisionBoard page with ThumbnailGallery and ImageUploader
-  - [ ] 3.8 Create Categories and MBB analytics pages
+  - [x] 3.7 Create VisionBoard page with ThumbnailGallery and ImageUploader
+  - [x] 3.8 Create Categories and MBB analytics pages
   - [ ] 3.9 Implement Calendar view showing existing tasks by due date
   - [ ] 3.10 Set up routing and navigation between pages with persistent layout
   - [ ] 3.11 Ensure all pages maintain carousel header and timer footer structure
