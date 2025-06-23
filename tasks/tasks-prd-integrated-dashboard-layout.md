@@ -121,7 +121,7 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 2.8 Implement active/inactive image status for carousel rotation control
   - [x] 2.9 Add responsive design for mobile carousel viewing
   - [x] 2.10 Implement database queries for vision board image management with status tracking
-- [ ] 3.0 Enhanced Navigation Header with Routing
+- [x] 3.0 Enhanced Navigation Header with Routing
   - [x] 3.1 Create new Navigation component with expanded menu items
   - [x] 3.2 Add navigation links: Kanban, Calendar, Journal, Categories, MBB, VisionBoard
   - [x] 3.3 Implement active page highlighting in navigation
@@ -130,9 +130,9 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 3.6 Create Journal page with AudioRecorder and TranscriptEditor components
   - [x] 3.7 Create VisionBoard page with ThumbnailGallery and ImageUploader
   - [x] 3.8 Create Categories and MBB analytics pages
-  - [ ] 3.9 Implement Calendar view showing existing tasks by due date
-  - [ ] 3.10 Set up routing and navigation between pages with persistent layout
-  - [ ] 3.11 Ensure all pages maintain carousel header and timer footer structure
+  - [x] 3.9 Implement Calendar view showing existing tasks by due date
+  - [x] 3.10 Set up routing and navigation between pages with persistent layout
+  - [x] 3.11 Ensure all pages maintain carousel header and timer footer structure
 - [ ] 4.0 Task Categories & Hourly Rate System
   - [ ] 4.1 Create CategorySelector component for task creation/editing
   - [ ] 4.2 Build category management interface for defining custom categories

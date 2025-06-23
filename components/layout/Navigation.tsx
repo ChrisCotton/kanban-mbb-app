@@ -46,7 +46,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
       description: 'Audio journal & transcripts',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       )
     },
@@ -61,7 +61,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
       )
     },
     {
-      name: 'MBB Analytics',
+      name: 'MBB',
       href: '/mbb',
       description: 'Mental Bank Balance tracking',
       icon: (
@@ -94,18 +94,18 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   }
 
   return (
-    <nav className={`bg-white shadow-sm border-b border-gray-200 ${className}`}>
+    <nav className={`${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and Brand */}
           <div className="flex items-center">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center border border-blue-400/30">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-gray-900">MBB Kanban</span>
+              <span className="text-xl font-bold text-white">MBB Dashboard</span>
             </Link>
           </div>
 
@@ -120,15 +120,15 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                   flex items-center space-x-2 group relative
                   ${
                     isActiveRoute(item.href)
-                      ? 'bg-blue-100 text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-white/20 text-white shadow-sm border border-white/30'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
                   }
                 `}
                 title={item.description}
               >
                 <span className={`
                   transition-colors duration-200
-                  ${isActiveRoute(item.href) ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'}
+                  ${isActiveRoute(item.href) ? 'text-white' : 'text-white/60 group-hover:text-white/80'}
                 `}>
                   {item.icon}
                 </span>
@@ -136,7 +136,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                 
                 {/* Active indicator */}
                 {isActiveRoute(item.href) && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
                 )}
               </Link>
             ))}
@@ -146,8 +146,8 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
           <div className="flex items-center space-x-4">
             {/* User Avatar/Menu - Placeholder */}
             <div className="hidden md:flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center border border-white/20">
+                <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
@@ -156,7 +156,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
             {/* Mobile Menu Button */}
             <button
               onClick={toggleMobileMenu}
-              className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors duration-200"
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-200"
               aria-expanded="false"
               aria-label="Toggle navigation menu"
             >
@@ -176,7 +176,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
         {/* Mobile Navigation Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
+            <div className="px-2 pt-2 pb-3 space-y-1 bg-white/5 backdrop-blur-sm border-t border-white/10 rounded-b-lg">
               {navItems.map((item) => (
                 <Link
                   key={item.name}
@@ -187,37 +187,22 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                     flex items-center space-x-3
                     ${
                       isActiveRoute(item.href)
-                        ? 'bg-blue-100 text-blue-700 border-l-4 border-blue-600'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        ? 'bg-white/20 text-white border-l-4 border-blue-400'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
                     }
                   `}
                 >
                   <span className={`
-                    ${isActiveRoute(item.href) ? 'text-blue-600' : 'text-gray-500'}
+                    ${isActiveRoute(item.href) ? 'text-white' : 'text-white/60'}
                   `}>
                     {item.icon}
                   </span>
                   <div>
-                    <div>{item.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
+                    <div className="font-medium">{item.name}</div>
+                    <div className="text-xs text-white/50">{item.description}</div>
                   </div>
                 </Link>
               ))}
-            </div>
-
-            {/* Mobile User Section */}
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="flex items-center px-5 space-x-3">
-                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-base font-medium text-gray-800">User</div>
-                  <div className="text-sm text-gray-500">user@example.com</div>
-                </div>
-              </div>
             </div>
           </div>
         )}

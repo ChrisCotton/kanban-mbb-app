@@ -3,6 +3,7 @@
 import React from 'react'
 import Head from 'next/head'
 import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
+import Navigation from './Navigation'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -58,39 +59,13 @@ const Layout: React.FC<LayoutProps> = ({
 
           {/* Navigation Header */}
           {showNavigation && (
-            <div className="w-full bg-white/5 backdrop-blur-sm border-b border-white/10">
-              <div className="container mx-auto px-4 py-4">
-                {/* Placeholder for Navigation component */}
-                <nav className="flex items-center justify-between">
-                  <div className="flex items-center space-x-8">
-                    <h1 className="text-xl font-bold text-white">MBB Dashboard</h1>
-                    <div className="hidden md:flex space-x-6 text-white/80">
-                      <a href="/dashboard" className="hover:text-white transition-colors">Kanban</a>
-                      <a href="/calendar" className="hover:text-white transition-colors">Calendar</a>
-                      <a href="/journal" className="hover:text-white transition-colors">Journal</a>
-                      <a href="/categories" className="hover:text-white transition-colors">Categories</a>
-                      <a href="/mbb" className="hover:text-white transition-colors">MBB</a>
-                      <a href="/vision-board" className="hover:text-white transition-colors">Vision Board</a>
-                    </div>
-                  </div>
-                  
-                  {/* Mobile Menu Button */}
-                  <div className="md:hidden">
-                    <button className="text-white/80 hover:text-white">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </nav>
-              </div>
-            </div>
+            <Navigation />
           )}
 
           {/* Main Content Area - Flexible Height */}
-          <div className="flex-1 container mx-auto px-4 py-6">
+          <main className="flex-1">
             {children}
-          </div>
+          </main>
 
           {/* MBB Timer Footer */}
           {showTimer && (

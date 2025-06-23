@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '@/components/layout/Layout'
-import VisionBoardCarousel from '@/components/vision-board/VisionBoardCarousel'
 import JournalView from '@/components/journal/JournalView'
 import { supabase } from '../lib/supabase'
 
