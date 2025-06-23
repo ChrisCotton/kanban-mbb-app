@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
 
 interface Task {
   id: string
@@ -9,7 +8,7 @@ interface Task {
   description?: string
   due_date?: string
   priority: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'todo' | 'in_progress' | 'done'
+  status: 'backlog' | 'todo' | 'doing' | 'done'
   category_id?: string
   category?: {
     name: string
@@ -44,8 +43,9 @@ const PRIORITY_COLORS = {
 }
 
 const STATUS_COLORS = {
-  todo: 'border-l-gray-400',
-  in_progress: 'border-l-blue-400',
+  backlog: 'border-l-gray-400',
+  todo: 'border-l-blue-400',
+  doing: 'border-l-yellow-400',
   done: 'border-l-green-400'
 }
 
@@ -105,61 +105,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return days
   }, [currentDate, tasks])
 
-  // Load tasks from database
+  // Load tasks from API endpoint
   const loadTasks = useCallback(async () => {
-    if (!userId) return
-
+    setLoading(true)
+    setError(null)
+    
     try {
-      setLoading(true)
-      setError(null)
-
-      // Get start and end dates for the current view (include previous/next month for context)
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const startDate = new Date(year, month - 1, 1)
-      const endDate = new Date(year, month + 2, 0)
-
-      const { data, error: fetchError } = await supabase
-        .from('tasks')
-        .select(`
-          id,
-          title,
-          description,
-          due_date,
-          priority,
-          status,
-          category_id,
-          categories:category_id (
-            name,
-            hourly_rate_usd
-          )
-        `)
-        .eq('user_id', userId)
-        .gte('due_date', startDate.toISOString().split('T')[0])
-        .lte('due_date', endDate.toISOString().split('T')[0])
-        .order('due_date', { ascending: true })
-
-      if (fetchError) {
-        throw fetchError
+      console.log('Loading tasks from API...')
+      
+      const response = await fetch('/api/kanban/tasks')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
-
-      // Transform the data to match our interface
-      const transformedTasks: Task[] = (data || []).map(task => ({
-        ...task,
-        category: task.categories ? {
-          name: task.categories.name,
-          hourly_rate_usd: task.categories.hourly_rate_usd
-        } : undefined
-      }))
-
-      setTasks(transformedTasks)
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load tasks')
+      }
+      
+      // Filter tasks that have due dates
+      const tasksWithDueDates = (result.data || []).filter((task: Task) => 
+        task.due_date != null
+      )
+      
+      console.log('Loaded tasks with due dates:', tasksWithDueDates)
+      setTasks(tasksWithDueDates)
     } catch (err) {
       console.error('Error loading tasks:', err)
-      setError('Failed to load tasks')
+      setError(err instanceof Error ? err.message : 'Failed to load tasks')
     } finally {
       setLoading(false)
     }
-  }, [userId, currentDate])
+  }, [])
 
   // Navigation functions
   const goToPreviousMonth = () => {
@@ -195,15 +174,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className={`${className} py-12`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading calendar...</p>
+          <p className="text-white/70">Loading calendar...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`${className} bg-white rounded-lg shadow`}>
-      {/* Calendar Header */}
+    <div className={`${className} bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl`}>
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">
@@ -241,7 +219,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="p-6 bg-red-50 border-b border-red-200">
           <div className="flex items-center">
@@ -261,9 +238,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       )}
 
-      {/* Calendar Grid */}
       <div className="p-6">
-        {/* Days of week header */}
         <div className="grid grid-cols-7 gap-px mb-2">
           {DAYS_OF_WEEK.map(day => (
             <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
@@ -272,54 +247,59 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           ))}
         </div>
 
-        {/* Calendar days */}
         <div className="grid grid-cols-7 gap-px bg-gray-200">
-          {calendarDays.map((day, index) => (
-            <div
-              key={index}
-              className={`min-h-32 bg-white p-2 ${
-                day.isCurrentMonth ? '' : 'bg-gray-50'
-              } ${day.isToday ? 'bg-blue-50' : ''}`}
-            >
-              {/* Date number */}
-              <div className={`text-sm font-medium mb-1 ${
-                day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-              } ${day.isToday ? 'text-blue-600' : ''}`}>
-                {day.date.getDate()}
-              </div>
+          {calendarDays.map((day, index) => {
+            const dayClassName = `min-h-32 bg-white p-2 ${
+              day.isCurrentMonth ? '' : 'bg-gray-50'
+            } ${day.isToday ? 'bg-blue-50' : ''}`
+            
+            const dateClassName = `text-sm font-medium mb-1 ${
+              day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+            } ${day.isToday ? 'text-blue-600' : ''}`
+            
+            return (
+              <div key={index} className={dayClassName}>
+                <div className={dateClassName}>
+                  {day.date.getDate()}
+                </div>
 
-              {/* Tasks for this day */}
-              <div className="space-y-1">
-                {day.tasks.slice(0, 3).map(task => (
-                  <div
-                    key={task.id}
-                    onClick={() => handleTaskClick(task)}
-                    className={`text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow ${
+                <div className="space-y-1">
+                  {day.tasks.slice(0, 3).map(task => {
+                    const taskClassName = `text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow ${
                       PRIORITY_COLORS[task.priority]
-                    } ${STATUS_COLORS[task.status]}`}
-                    title={`${task.title}${task.category ? ` (${task.category.name})` : ''}`}
-                  >
-                    <div className="truncate font-medium">{task.title}</div>
-                    {task.category && (
-                      <div className="truncate text-gray-600">
-                        {task.category.name}
+                    } ${STATUS_COLORS[task.status]}`
+                    
+                    const taskTitle = `${task.title}${task.category ? ` (${task.category.name})` : ''}`
+                    
+                    return (
+                      <div
+                        key={task.id}
+                        onClick={() => handleTaskClick(task)}
+                        className={taskClassName}
+                        title={taskTitle}
+                      >
+                        <div className="truncate font-medium">{task.title}</div>
+                        {task.category && (
+                          <div className="truncate text-gray-600">
+                            {task.category.name}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-                
-                {day.tasks.length > 3 && (
-                  <div className="text-xs text-gray-500 text-center">
-                    +{day.tasks.length - 3} more
-                  </div>
-                )}
+                    )
+                  })}
+                  
+                  {day.tasks.length > 3 && (
+                    <div className="text-xs text-gray-500 text-center">
+                      +{day.tasks.length - 3} more
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
-      {/* Task Detail Modal */}
       {showTaskModal && selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
@@ -356,7 +336,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <span className="text-sm text-gray-600">
-                    {selectedTask.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {selectedTask.status.charAt(0).toUpperCase() + selectedTask.status.slice(1)}
                   </span>
                 </div>
               </div>
@@ -400,4 +380,4 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   )
 }
 
-export default CalendarView 
+export default CalendarView

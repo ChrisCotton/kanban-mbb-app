@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import AudioRecorder from './AudioRecorder'
 import TranscriptEditor from './TranscriptEditor'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase.js'
 
 interface JournalEntry {
   id: string
