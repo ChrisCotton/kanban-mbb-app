@@ -27,6 +27,16 @@ Based on: `prd-integrated-dashboard-layout.md`
 - `components/vision-board/VisionBoardManager.test.tsx` - Unit tests for VisionBoardManager component.
 - `components/layout/Navigation.tsx` - Enhanced navigation header component with new links.
 - `components/layout/Navigation.test.tsx` - Unit tests for Navigation component.
+- `pages/calendar.js` - Calendar page with CalendarView component for task scheduling.
+- `components/calendar/CalendarView.tsx` - Calendar component for displaying tasks by date.
+- `components/calendar/CalendarView.test.tsx` - Unit tests for CalendarView component.
+- `pages/journal.js` - Journal page with AudioRecorder and TranscriptEditor components.
+- `components/journal/JournalView.tsx` - Main journal interface combining recording and transcript editing.
+- `components/journal/JournalView.test.tsx` - Unit tests for JournalView component.
+- `components/journal/AudioRecorder.tsx` - Component for recording audio journal entries.
+- `components/journal/AudioRecorder.test.tsx` - Unit tests for AudioRecorder component.
+- `components/journal/TranscriptEditor.tsx` - Component for editing journal transcripts in markdown.
+- `components/journal/TranscriptEditor.test.tsx` - Unit tests for TranscriptEditor component.
 - `components/ui/CategorySelector.tsx` - Component for selecting task categories with hourly rates.
 - `components/ui/CategorySelector.test.tsx` - Unit tests for CategorySelector component.
 - `components/categories/CategoryBulkUpload.tsx` - Component for bulk uploading categories from CSV.
@@ -106,18 +116,18 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 2.3 Implement auto-advance functionality with configurable timing
   - [x] 2.4 Add manual navigation controls (previous/next buttons)
   - [x] 2.5 Create image counter display (e.g., "3 of 12")
-  - [ ] 2.6 Build ThumbnailGallery component for selectable image thumbnails
-  - [ ] 2.7 Build VisionBoardManager component for image management interface
-  - [ ] 2.8 Implement active/inactive image status for carousel rotation control
+  - [x] 2.6 Build ThumbnailGallery component for selectable image thumbnails
+  - [x] 2.7 Build VisionBoardManager component for image management interface
+  - [x] 2.8 Implement active/inactive image status for carousel rotation control
   - [x] 2.9 Add responsive design for mobile carousel viewing
-  - [ ] 2.10 Implement database queries for vision board image management with status tracking
+  - [x] 2.10 Implement database queries for vision board image management with status tracking
 - [ ] 3.0 Enhanced Navigation Header with Routing
-  - [ ] 3.1 Create new Navigation component with expanded menu items
-  - [ ] 3.2 Add navigation links: Kanban, Calendar, Journal, Categories, MBB, VisionBoard
-  - [ ] 3.3 Implement active page highlighting in navigation
-  - [ ] 3.4 Create responsive hamburger menu for mobile devices
-  - [ ] 3.5 Create Calendar page with CalendarView component for task scheduling
-  - [ ] 3.6 Create Journal page with AudioRecorder and TranscriptEditor components
+  - [x] 3.1 Create new Navigation component with expanded menu items
+  - [x] 3.2 Add navigation links: Kanban, Calendar, Journal, Categories, MBB, VisionBoard
+  - [x] 3.3 Implement active page highlighting in navigation
+  - [x] 3.4 Create responsive hamburger menu for mobile devices
+  - [x] 3.5 Create Calendar page with CalendarView component for task scheduling
+  - [x] 3.6 Create Journal page with AudioRecorder and TranscriptEditor components
   - [ ] 3.7 Create VisionBoard page with ThumbnailGallery and ImageUploader
   - [ ] 3.8 Create Categories and MBB analytics pages
   - [ ] 3.9 Implement Calendar view showing existing tasks by due date
