@@ -1,0 +1,774 @@
+🎯 Database Migrations for Integrated Dashboard Layout
+============================================================
+📋 Copy and paste each migration into Supabase SQL Editor
+🔗 Dashboard: https://supabase.com/dashboard/project/emxejsyyelcdpejxuvfd
+📄 Go to: SQL Editor → New Query → Paste SQL → Run
+
+
+============================================================
+📁 MIGRATION 1/5: 007_create_categories_table.sql
+============================================================
+-- Migration 007: Create categories table
+-- This table stores task categories with their associated USD hourly rates
+
+CREATE TABLE IF NOT EXISTS categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    hourly_rate_usd DECIMAL(10,2) NOT NULL CHECK (hourly_rate_usd >= 0),
+    color VARCHAR(7), -- For hex color codes like #FF5733
+    icon VARCHAR(10), -- For emoji or icon identifiers
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES auth.users(id),
+    updated_by UUID REFERENCES auth.users(id)
+);
+
+-- Create index for faster queries
+CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
+CREATE INDEX IF NOT EXISTS idx_categories_active ON categories(is_active);
+CREATE INDEX IF NOT EXISTS idx_categories_created_by ON categories(created_by);
+
+-- Enable Row Level Security
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view their own categories" ON categories
+    FOR SELECT USING (auth.uid() = created_by);
+
+CREATE POLICY "Users can insert their own categories" ON categories
+    FOR INSERT WITH CHECK (auth.uid() = created_by);
+
+CREATE POLICY "Users can update their own categories" ON categories
+    FOR UPDATE USING (auth.uid() = created_by);
+
+CREATE POLICY "Users can delete their own categories" ON categories
+    FOR DELETE USING (auth.uid() = created_by);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_categories_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = auth.uid();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_categories_updated_at
+    BEFORE UPDATE ON categories
+    FOR EACH ROW
+    EXECUTE FUNCTION update_categories_updated_at();
+
+-- Insert some default categories for new users
+INSERT INTO categories (name, description, hourly_rate_usd, color, icon, created_by) 
+VALUES 
+    ('Development', 'Software development and coding tasks', 75.00, '#3B82F6', '💻', auth.uid()),
+    ('Design', 'UI/UX design and creative work', 65.00, '#8B5CF6', '🎨', auth.uid()),
+    ('Consulting', 'Client consultation and advisory work', 100.00, '#10B981', '💼', auth.uid()),
+    ('Writing', 'Content creation and documentation', 50.00, '#F59E0B', '✍️', auth.uid()),
+    ('Research', 'Research and analysis tasks', 60.00, '#EF4444', '🔍', auth.uid())
+ON CONFLICT (name) DO NOTHING; 
+
+✅ After running this migration, proceed to the next one.
+============================================================
+
+
+============================================================
+📁 MIGRATION 2/5: 008_add_category_to_tasks.sql
+============================================================
+-- Migration 008: Add category_id field to tasks table
+-- This adds a foreign key relationship between tasks and categories
+
+-- Add the category_id column to tasks table
+ALTER TABLE tasks 
+ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE SET NULL;
+
+-- Create index for faster category-based queries
+CREATE INDEX IF NOT EXISTS idx_tasks_category_id ON tasks(category_id);
+
+-- Create index for combined queries (user + category)
+CREATE INDEX IF NOT EXISTS idx_tasks_user_category ON tasks(user_id, category_id);
+
+-- Update existing tasks to have a default category if needed
+-- This will assign the first available category for each user to their existing tasks
+DO $$
+DECLARE
+    user_record RECORD;
+    default_category_id UUID;
+BEGIN
+    -- Loop through each user who has tasks but no categories assigned
+    FOR user_record IN 
+        SELECT DISTINCT user_id 
+        FROM tasks 
+        WHERE category_id IS NULL
+    LOOP
+        -- Find the first category for this user (likely 'Development' from our defaults)
+        SELECT id INTO default_category_id
+        FROM categories 
+        WHERE created_by = user_record.user_id 
+        ORDER BY created_at ASC 
+        LIMIT 1;
+        
+        -- If user has categories, assign the first one to their uncategorized tasks
+        IF default_category_id IS NOT NULL THEN
+            UPDATE tasks 
+            SET category_id = default_category_id,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = user_record.user_id 
+            AND category_id IS NULL;
+            
+            RAISE NOTICE 'Updated tasks for user % with default category %', user_record.user_id, default_category_id;
+        END IF;
+    END LOOP;
+END $$;
+
+-- Add a comment to document the relationship
+COMMENT ON COLUMN tasks.category_id IS 'Foreign key reference to categories table for task categorization and hourly rate calculation'; 
+
+✅ After running this migration, proceed to the next one.
+============================================================
+
+
+============================================================
+📁 MIGRATION 3/5: 009_create_time_sessions_table.sql
+============================================================
+-- Migration 009: Create time_sessions table
+-- This table tracks work periods for tasks to calculate MBB earnings
+
+CREATE TABLE IF NOT EXISTS time_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    
+    -- Time tracking fields
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER GENERATED ALWAYS AS (
+        CASE 
+            WHEN ended_at IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (ended_at - started_at))::INTEGER
+            ELSE NULL 
+        END
+    ) STORED,
+    
+    -- MBB calculation fields
+    hourly_rate_usd DECIMAL(10,2), -- Snapshot of rate at time of session
+    earnings_usd DECIMAL(12,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN ended_at IS NOT NULL AND hourly_rate_usd IS NOT NULL
+            THEN ROUND((duration_seconds::DECIMAL / 3600) * hourly_rate_usd, 2)
+            ELSE NULL 
+        END
+    ) STORED,
+    
+    -- Session metadata
+    is_active BOOLEAN DEFAULT true, -- For currently running sessions
+    session_notes TEXT, -- Optional notes about the work session
+    
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT valid_time_range CHECK (
+        ended_at IS NULL OR ended_at >= started_at
+    ),
+    CONSTRAINT valid_duration CHECK (
+        duration_seconds IS NULL OR duration_seconds >= 0
+    ),
+    CONSTRAINT valid_hourly_rate CHECK (
+        hourly_rate_usd IS NULL OR hourly_rate_usd >= 0
+    )
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_time_sessions_task_id ON time_sessions(task_id);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_user_id ON time_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_category_id ON time_sessions(category_id);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_active ON time_sessions(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_time_sessions_started_at ON time_sessions(started_at);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_user_started ON time_sessions(user_id, started_at);
+
+-- Enable Row Level Security
+ALTER TABLE time_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view their own time sessions" ON time_sessions
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own time sessions" ON time_sessions
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own time sessions" ON time_sessions
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own time sessions" ON time_sessions
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_time_sessions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_time_sessions_updated_at
+    BEFORE UPDATE ON time_sessions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_time_sessions_updated_at();
+
+-- Function to start a new time session
+CREATE OR REPLACE FUNCTION start_time_session(
+    p_task_id UUID,
+    p_hourly_rate_usd DECIMAL(10,2) DEFAULT NULL
+)
+RETURNS UUID AS $$
+DECLARE
+    session_id UUID;
+    task_category_id UUID;
+    category_rate DECIMAL(10,2);
+    task_user_id UUID;
+BEGIN
+    -- Get task details and verify ownership
+    SELECT user_id, category_id INTO task_user_id, task_category_id
+    FROM tasks 
+    WHERE id = p_task_id AND user_id = auth.uid();
+    
+    IF task_user_id IS NULL THEN
+        RAISE EXCEPTION 'Task not found or access denied';
+    END IF;
+    
+    -- End any currently active sessions for this user
+    UPDATE time_sessions 
+    SET ended_at = CURRENT_TIMESTAMP,
+        is_active = false,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = auth.uid() 
+    AND is_active = true 
+    AND ended_at IS NULL;
+    
+    -- Get hourly rate from category if not provided
+    IF p_hourly_rate_usd IS NULL AND task_category_id IS NOT NULL THEN
+        SELECT hourly_rate_usd INTO category_rate
+        FROM categories 
+        WHERE id = task_category_id AND created_by = auth.uid();
+        
+        p_hourly_rate_usd := category_rate;
+    END IF;
+    
+    -- Create new session
+    INSERT INTO time_sessions (
+        task_id, 
+        user_id, 
+        category_id, 
+        hourly_rate_usd,
+        is_active
+    ) VALUES (
+        p_task_id,
+        auth.uid(),
+        task_category_id,
+        p_hourly_rate_usd,
+        true
+    ) RETURNING id INTO session_id;
+    
+    RETURN session_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to end a time session
+CREATE OR REPLACE FUNCTION end_time_session(p_session_id UUID DEFAULT NULL)
+RETURNS UUID AS $$
+DECLARE
+    session_id UUID;
+BEGIN
+    -- If no session ID provided, end the most recent active session
+    IF p_session_id IS NULL THEN
+        SELECT id INTO session_id
+        FROM time_sessions
+        WHERE user_id = auth.uid() 
+        AND is_active = true 
+        AND ended_at IS NULL
+        ORDER BY started_at DESC
+        LIMIT 1;
+    ELSE
+        session_id := p_session_id;
+    END IF;
+    
+    -- Update the session
+    UPDATE time_sessions 
+    SET ended_at = CURRENT_TIMESTAMP,
+        is_active = false,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = session_id 
+    AND user_id = auth.uid()
+    AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Active session not found';
+    END IF;
+    
+    RETURN session_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add comments for documentation
+COMMENT ON TABLE time_sessions IS 'Tracks work sessions for tasks to calculate MBB earnings';
+COMMENT ON COLUMN time_sessions.duration_seconds IS 'Automatically calculated duration in seconds when session ends';
+COMMENT ON COLUMN time_sessions.earnings_usd IS 'Automatically calculated earnings based on duration and hourly rate';
+COMMENT ON COLUMN time_sessions.hourly_rate_usd IS 'Snapshot of hourly rate at time of session start';
+COMMENT ON COLUMN time_sessions.is_active IS 'Indicates if this is a currently running session'; 
+
+✅ After running this migration, proceed to the next one.
+============================================================
+
+
+============================================================
+📁 MIGRATION 4/5: 010_create_vision_board_images_table.sql
+============================================================
+-- Migration 010: Create vision_board_images table
+-- This table manages images for the vision board carousel with active/inactive status
+
+CREATE TABLE IF NOT EXISTS vision_board_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    -- Image file details
+    file_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL, -- Storage path/URL for the image
+    file_size INTEGER, -- File size in bytes
+    mime_type VARCHAR(100), -- e.g., 'image/jpeg', 'image/png'
+    
+    -- Image metadata
+    title VARCHAR(200), -- Optional title for the image
+    alt_text TEXT, -- Accessibility alt text
+    description TEXT, -- Optional description or caption
+    
+    -- Carousel control
+    is_active BOOLEAN DEFAULT true, -- Whether image appears in carousel rotation
+    display_order INTEGER DEFAULT 0, -- Order for display in carousel
+    
+    -- Image dimensions (for responsive display)
+    width_px INTEGER,
+    height_px INTEGER,
+    
+    -- Upload tracking
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_viewed_at TIMESTAMP WITH TIME ZONE,
+    view_count INTEGER DEFAULT 0,
+    
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT valid_file_size CHECK (file_size IS NULL OR file_size > 0),
+    CONSTRAINT valid_dimensions CHECK (
+        (width_px IS NULL AND height_px IS NULL) OR 
+        (width_px > 0 AND height_px > 0)
+    ),
+    CONSTRAINT valid_display_order CHECK (display_order >= 0)
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_vision_board_user_id ON vision_board_images(user_id);
+CREATE INDEX IF NOT EXISTS idx_vision_board_active ON vision_board_images(user_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_vision_board_display_order ON vision_board_images(user_id, display_order, created_at);
+CREATE INDEX IF NOT EXISTS idx_vision_board_uploaded_at ON vision_board_images(uploaded_at);
+
+-- Enable Row Level Security
+ALTER TABLE vision_board_images ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view their own vision board images" ON vision_board_images
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own vision board images" ON vision_board_images
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own vision board images" ON vision_board_images
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own vision board images" ON vision_board_images
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_vision_board_images_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_vision_board_images_updated_at
+    BEFORE UPDATE ON vision_board_images
+    FOR EACH ROW
+    EXECUTE FUNCTION update_vision_board_images_updated_at();
+
+-- Function to get active carousel images for a user
+CREATE OR REPLACE FUNCTION get_active_carousel_images(p_user_id UUID DEFAULT NULL)
+RETURNS TABLE (
+    id UUID,
+    file_path TEXT,
+    title VARCHAR(200),
+    alt_text TEXT,
+    description TEXT,
+    display_order INTEGER,
+    width_px INTEGER,
+    height_px INTEGER
+) AS $$
+BEGIN
+    -- Use current user if no user_id provided
+    IF p_user_id IS NULL THEN
+        p_user_id := auth.uid();
+    END IF;
+    
+    RETURN QUERY
+    SELECT 
+        vbi.id,
+        vbi.file_path,
+        vbi.title,
+        vbi.alt_text,
+        vbi.description,
+        vbi.display_order,
+        vbi.width_px,
+        vbi.height_px
+    FROM vision_board_images vbi
+    WHERE vbi.user_id = p_user_id 
+    AND vbi.is_active = true
+    ORDER BY vbi.display_order ASC, vbi.created_at ASC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to toggle image active status
+CREATE OR REPLACE FUNCTION toggle_image_active_status(p_image_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    new_status BOOLEAN;
+BEGIN
+    UPDATE vision_board_images 
+    SET is_active = NOT is_active,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = p_image_id 
+    AND user_id = auth.uid()
+    RETURNING is_active INTO new_status;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Image not found or access denied';
+    END IF;
+    
+    RETURN new_status;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to reorder images
+CREATE OR REPLACE FUNCTION reorder_vision_board_images(p_image_ids UUID[])
+RETURNS VOID AS $$
+DECLARE
+    image_id UUID;
+    new_order INTEGER := 0;
+BEGIN
+    -- Update display order for each image in the provided order
+    FOREACH image_id IN ARRAY p_image_ids
+    LOOP
+        UPDATE vision_board_images 
+        SET display_order = new_order,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = image_id 
+        AND user_id = auth.uid();
+        
+        new_order := new_order + 1;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to record image view
+CREATE OR REPLACE FUNCTION record_image_view(p_image_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE vision_board_images 
+    SET last_viewed_at = CURRENT_TIMESTAMP,
+        view_count = view_count + 1,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = p_image_id 
+    AND user_id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add comments for documentation
+COMMENT ON TABLE vision_board_images IS 'Stores vision board images for carousel display with active/inactive status control';
+COMMENT ON COLUMN vision_board_images.is_active IS 'Controls whether image appears in carousel rotation';
+COMMENT ON COLUMN vision_board_images.display_order IS 'Order for displaying images in carousel (0 = first)';
+COMMENT ON COLUMN vision_board_images.file_path IS 'Storage path or URL for the image file';
+COMMENT ON COLUMN vision_board_images.view_count IS 'Number of times image has been viewed in carousel'; 
+
+✅ After running this migration, proceed to the next one.
+============================================================
+
+
+============================================================
+📁 MIGRATION 5/5: 011_create_mbb_settings_table.sql
+============================================================
+-- Migration 011: Create mbb_settings table
+-- This table stores Mental Bank Balance settings and targets for each user
+
+CREATE TABLE IF NOT EXISTS mbb_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    -- MBB Target Settings
+    target_balance_usd DECIMAL(12,2) NOT NULL DEFAULT 0.00 CHECK (target_balance_usd >= 0),
+    target_description TEXT, -- Description of what the target represents
+    target_deadline DATE, -- Optional deadline for achieving target
+    
+    -- Current Balance Tracking
+    current_balance_usd DECIMAL(12,2) NOT NULL DEFAULT 0.00 CHECK (current_balance_usd >= 0),
+    lifetime_earnings_usd DECIMAL(12,2) NOT NULL DEFAULT 0.00 CHECK (lifetime_earnings_usd >= 0),
+    
+    -- Progress Tracking
+    progress_percentage DECIMAL(5,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN target_balance_usd > 0 
+            THEN LEAST(ROUND((current_balance_usd / target_balance_usd) * 100, 2), 100.00)
+            ELSE 0.00 
+        END
+    ) STORED,
+    
+    -- Notification Settings
+    notify_on_milestone BOOLEAN DEFAULT true, -- Notify on percentage milestones
+    milestone_intervals INTEGER DEFAULT 25 CHECK (milestone_intervals > 0 AND milestone_intervals <= 50), -- e.g., 25% intervals
+    notify_near_target BOOLEAN DEFAULT true, -- Notify when close to target
+    target_proximity_percentage DECIMAL(5,2) DEFAULT 5.00 CHECK (target_proximity_percentage >= 0 AND target_proximity_percentage <= 20),
+    
+    -- Display Preferences
+    currency_symbol VARCHAR(5) DEFAULT '$',
+    show_cents BOOLEAN DEFAULT true, -- Whether to display cents in UI
+    show_progress_bar BOOLEAN DEFAULT true,
+    show_percentage BOOLEAN DEFAULT true,
+    
+    -- Reset/Cycle Settings
+    auto_reset_on_target BOOLEAN DEFAULT false, -- Automatically reset balance when target is reached
+    reset_frequency VARCHAR(20) CHECK (reset_frequency IN ('none', 'daily', 'weekly', 'monthly', 'yearly')) DEFAULT 'none',
+    last_reset_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Historical Tracking
+    targets_achieved INTEGER DEFAULT 0, -- Number of times target has been reached
+    best_streak_days INTEGER DEFAULT 0, -- Longest streak of daily earnings
+    current_streak_days INTEGER DEFAULT 0, -- Current streak of daily earnings
+    last_earning_date DATE, -- Last date earnings were recorded
+    
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Additional constraints
+    CONSTRAINT valid_progress_settings CHECK (
+        (notify_on_milestone = false) OR 
+        (milestone_intervals > 0 AND milestone_intervals <= 50)
+    )
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_mbb_settings_user_id ON mbb_settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_mbb_settings_target_deadline ON mbb_settings(target_deadline) WHERE target_deadline IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mbb_settings_last_earning ON mbb_settings(last_earning_date);
+
+-- Enable Row Level Security
+ALTER TABLE mbb_settings ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view their own MBB settings" ON mbb_settings
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own MBB settings" ON mbb_settings
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own MBB settings" ON mbb_settings
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own MBB settings" ON mbb_settings
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_mbb_settings_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_mbb_settings_updated_at
+    BEFORE UPDATE ON mbb_settings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_mbb_settings_updated_at();
+
+-- Function to initialize MBB settings for a new user
+CREATE OR REPLACE FUNCTION initialize_mbb_settings(
+    p_user_id UUID DEFAULT NULL,
+    p_target_balance DECIMAL(12,2) DEFAULT 1000.00
+)
+RETURNS UUID AS $$
+DECLARE
+    settings_id UUID;
+    target_user_id UUID;
+BEGIN
+    -- Use current user if no user_id provided
+    target_user_id := COALESCE(p_user_id, auth.uid());
+    
+    INSERT INTO mbb_settings (
+        user_id,
+        target_balance_usd,
+        target_description
+    ) VALUES (
+        target_user_id,
+        p_target_balance,
+        'Initial MBB target - customize to match your goals!'
+    ) 
+    ON CONFLICT (user_id) DO NOTHING
+    RETURNING id INTO settings_id;
+    
+    -- If no new record was created (conflict), get existing ID
+    IF settings_id IS NULL THEN
+        SELECT id INTO settings_id
+        FROM mbb_settings
+        WHERE user_id = target_user_id;
+    END IF;
+    
+    RETURN settings_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to update MBB balance from time sessions
+CREATE OR REPLACE FUNCTION update_mbb_balance_from_sessions()
+RETURNS TRIGGER AS $$
+DECLARE
+    total_earnings DECIMAL(12,2);
+    settings_record RECORD;
+    today_date DATE := CURRENT_DATE;
+BEGIN
+    -- Calculate total earnings for the user
+    SELECT 
+        COALESCE(SUM(earnings_usd), 0) as total,
+        COUNT(*) FILTER (WHERE DATE(ended_at) = today_date) as today_sessions
+    INTO total_earnings
+    FROM time_sessions 
+    WHERE user_id = NEW.user_id 
+    AND earnings_usd IS NOT NULL;
+    
+    -- Get current settings
+    SELECT * INTO settings_record
+    FROM mbb_settings 
+    WHERE user_id = NEW.user_id;
+    
+    -- Initialize settings if they don't exist
+    IF settings_record IS NULL THEN
+        PERFORM initialize_mbb_settings(NEW.user_id);
+        SELECT * INTO settings_record FROM mbb_settings WHERE user_id = NEW.user_id;
+    END IF;
+    
+    -- Update streak tracking
+    DECLARE
+        new_current_streak INTEGER := settings_record.current_streak_days;
+        new_best_streak INTEGER := settings_record.best_streak_days;
+    BEGIN
+        -- Update streak if earning today
+        IF NEW.earnings_usd > 0 THEN
+            IF settings_record.last_earning_date = today_date - INTERVAL '1 day' THEN
+                -- Continue streak
+                new_current_streak := settings_record.current_streak_days + 1;
+            ELSIF settings_record.last_earning_date < today_date - INTERVAL '1 day' OR settings_record.last_earning_date IS NULL THEN
+                -- Start new streak
+                new_current_streak := 1;
+            END IF;
+            
+            -- Update best streak if current is better
+            new_best_streak := GREATEST(new_best_streak, new_current_streak);
+        END IF;
+        
+        -- Update MBB settings
+        UPDATE mbb_settings SET
+            current_balance_usd = total_earnings,
+            lifetime_earnings_usd = GREATEST(lifetime_earnings_usd, total_earnings),
+            last_earning_date = CASE WHEN NEW.earnings_usd > 0 THEN today_date ELSE last_earning_date END,
+            current_streak_days = new_current_streak,
+            best_streak_days = new_best_streak,
+            targets_achieved = CASE 
+                WHEN total_earnings >= target_balance_usd AND settings_record.current_balance_usd < target_balance_usd 
+                THEN targets_achieved + 1 
+                ELSE targets_achieved 
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = NEW.user_id;
+    END;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to automatically update MBB balance when time sessions are completed
+CREATE TRIGGER trigger_update_mbb_balance_on_session_end
+    AFTER INSERT OR UPDATE ON time_sessions
+    FOR EACH ROW
+    WHEN (NEW.ended_at IS NOT NULL AND NEW.earnings_usd IS NOT NULL)
+    EXECUTE FUNCTION update_mbb_balance_from_sessions();
+
+-- Function to get MBB progress summary
+CREATE OR REPLACE FUNCTION get_mbb_progress_summary(p_user_id UUID DEFAULT NULL)
+RETURNS TABLE (
+    current_balance DECIMAL(12,2),
+    target_balance DECIMAL(12,2),
+    progress_percentage DECIMAL(5,2),
+    remaining_amount DECIMAL(12,2),
+    targets_achieved INTEGER,
+    current_streak INTEGER,
+    best_streak INTEGER,
+    days_to_deadline INTEGER
+) AS $$
+DECLARE
+    target_user_id UUID;
+BEGIN
+    target_user_id := COALESCE(p_user_id, auth.uid());
+    
+    -- Ensure settings exist
+    PERFORM initialize_mbb_settings(target_user_id);
+    
+    RETURN QUERY
+    SELECT 
+        ms.current_balance_usd,
+        ms.target_balance_usd,
+        ms.progress_percentage,
+        GREATEST(ms.target_balance_usd - ms.current_balance_usd, 0.00) as remaining_amount,
+        ms.targets_achieved,
+        ms.current_streak_days,
+        ms.best_streak_days,
+        CASE 
+            WHEN ms.target_deadline IS NOT NULL 
+            THEN (ms.target_deadline - CURRENT_DATE)::INTEGER
+            ELSE NULL 
+        END as days_to_deadline
+    FROM mbb_settings ms
+    WHERE ms.user_id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add comments for documentation
+COMMENT ON TABLE mbb_settings IS 'Stores Mental Bank Balance settings, targets, and progress tracking for users';
+COMMENT ON COLUMN mbb_settings.target_balance_usd IS 'User-defined target amount to achieve';
+COMMENT ON COLUMN mbb_settings.current_balance_usd IS 'Current accumulated balance from time sessions';
+COMMENT ON COLUMN mbb_settings.progress_percentage IS 'Automatically calculated progress toward target (0-100%)';
+COMMENT ON COLUMN mbb_settings.targets_achieved IS 'Number of times user has reached their target balance';
+COMMENT ON COLUMN mbb_settings.current_streak_days IS 'Current consecutive days with earnings';
+COMMENT ON COLUMN mbb_settings.best_streak_days IS 'Longest streak of consecutive earning days'; 
+
+✅ After running this migration, proceed to the next one.
+============================================================
+
+🎉 All 5 migrations listed above.
+👆 Please run them ONE AT A TIME in the Supabase Dashboard.
+⚠️  Important: Run in the exact order shown above!

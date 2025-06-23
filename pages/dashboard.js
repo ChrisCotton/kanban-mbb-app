@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { KanbanProvider } from '../lib/hooks/useKanban'
 import KanbanBoard from '../components/kanban/KanbanBoard'
+import Layout from '../components/layout/Layout'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -25,9 +26,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-      </div>
+      <Layout showCarousel={false} showNavigation={false} showTimer={false}>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+        </div>
+      </Layout>
     )
   }
 
@@ -36,18 +39,26 @@ export default function Dashboard() {
   }
 
   return (
-    <KanbanProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-4xl font-bold text-white mb-8">
-            Mental Bank Balance Dashboard
-          </h1>
+    <Layout 
+      title="Dashboard - Mental Bank Balance"
+      description="Manage your tasks and track productivity with the Kanban board"
+    >
+      <KanbanProvider>
+        <div className="space-y-6">
+          <div className="text-center">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+              Mental Bank Balance Dashboard
+            </h1>
+            <p className="text-white/70">
+              Organize your tasks and track your virtual earnings
+            </p>
+          </div>
           
-          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
             <KanbanBoard className="w-full" />
           </div>
         </div>
-      </div>
-    </KanbanProvider>
+      </KanbanProvider>
+    </Layout>
   )
 }

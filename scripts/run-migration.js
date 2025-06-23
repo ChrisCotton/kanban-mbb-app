@@ -46,33 +46,54 @@ async function runMigration(migrationFile) {
     
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
     
-    // Execute the migration using REST API
-    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/exec`, {
+    // Execute the migration using supabase.rpc with raw SQL
+    // Split the SQL into individual statements
+    const sqlStatements = migrationSQL
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'))
+    
+    // Execute each SQL statement
+    for (const [index, statement] of sqlStatements.entries()) {
+      if (!statement) continue
+      
+      console.log(`  Executing statement ${index + 1}/${sqlStatements.length}...`)
+      
+      // Use the raw SQL execution via the REST API
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/exec_sql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseServiceKey}`,
         'apikey': supabaseServiceKey
       },
-      body: JSON.stringify({ sql: migrationSQL })
+        body: JSON.stringify({ query: statement + ';' })
     })
     
     if (!response.ok) {
-      // If exec RPC doesn't exist, try direct SQL execution via PostgREST
-      const sqlResponse = await fetch(`${supabaseUrl}/rest/v1/`, {
+        // Try alternative approach with direct SQL execution endpoint
+        const altResponse = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/sql',
+            'Content-Type': 'text/plain',
           'Authorization': `Bearer ${supabaseServiceKey}`,
           'apikey': supabaseServiceKey,
-          'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Content-Profile': 'public'
         },
-        body: migrationSQL
+          body: statement + ';'
       })
       
-      if (!sqlResponse.ok) {
-        const errorText = await sqlResponse.text()
-        throw new Error(`HTTP ${sqlResponse.status}: ${errorText}`)
+        if (!altResponse.ok) {
+          // Final fallback - try using supabase client's rpc method
+          try {
+            const { data, error } = await supabase.rpc('exec_sql', { query: statement + ';' })
+            if (error) throw error
+          } catch (rpcError) {
+            console.error(`Statement failed: ${statement.substring(0, 100)}...`)
+            throw new Error(`Failed to execute SQL: ${rpcError.message}`)
+          }
+        }
       }
     }
     

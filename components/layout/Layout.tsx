@@ -2,17 +2,26 @@
 
 import React from 'react'
 import Head from 'next/head'
+import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
 
 interface LayoutProps {
   children: React.ReactNode
   title?: string
   description?: string
+  showCarousel?: boolean
+  showNavigation?: boolean
+  showTimer?: boolean
+  carouselImages?: any[] // Will be properly typed when we have the full vision board system
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, 
   title = 'Mental Bank Balance - Kanban Board',
-  description = 'Track your productivity and calculate virtual earnings with our innovative Kanban board system.'
+  description = 'Track your productivity and calculate virtual earnings with our innovative Kanban board system.',
+  showCarousel = true,
+  showNavigation = true,
+  showTimer = true,
+  carouselImages = []
 }) => {
   return (
     <>
@@ -23,17 +32,94 @@ const Layout: React.FC<LayoutProps> = ({
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col">
         {/* Background Effects */}
-        <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
           <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
           <div className="absolute bottom-1/4 left-1/2 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
         </div>
 
-        {/* Main Content */}
-        <div className="relative z-10">
-          {children}
+        {/* Persistent Layout Structure */}
+        <div className="relative z-10 flex flex-col min-h-screen">
+          
+          {/* Vision Board Carousel Header */}
+          {showCarousel && (
+            <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10">
+              <VisionBoardCarousel 
+                images={carouselImages}
+                height="h-48 md:h-64"
+                autoAdvanceInterval={8000}
+                showControls={true}
+                showCounter={true}
+              />
+            </div>
+          )}
+
+          {/* Navigation Header */}
+          {showNavigation && (
+            <div className="w-full bg-white/5 backdrop-blur-sm border-b border-white/10">
+              <div className="container mx-auto px-4 py-4">
+                {/* Placeholder for Navigation component */}
+                <nav className="flex items-center justify-between">
+                  <div className="flex items-center space-x-8">
+                    <h1 className="text-xl font-bold text-white">MBB Dashboard</h1>
+                    <div className="hidden md:flex space-x-6 text-white/80">
+                      <a href="/dashboard" className="hover:text-white transition-colors">Kanban</a>
+                      <a href="/calendar" className="hover:text-white transition-colors">Calendar</a>
+                      <a href="/journal" className="hover:text-white transition-colors">Journal</a>
+                      <a href="/categories" className="hover:text-white transition-colors">Categories</a>
+                      <a href="/mbb" className="hover:text-white transition-colors">MBB</a>
+                      <a href="/vision-board" className="hover:text-white transition-colors">Vision Board</a>
+                    </div>
+                  </div>
+                  
+                  {/* Mobile Menu Button */}
+                  <div className="md:hidden">
+                    <button className="text-white/80 hover:text-white">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </nav>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Area - Flexible Height */}
+          <div className="flex-1 container mx-auto px-4 py-6">
+            {children}
+          </div>
+
+          {/* MBB Timer Footer */}
+          {showTimer && (
+            <div className="w-full bg-black/30 backdrop-blur-sm border-t border-white/10">
+              <div className="container mx-auto px-4 py-4">
+                {/* Placeholder for MBBTimerSection component */}
+                <div className="flex items-center justify-between text-white">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm font-medium">MBB Balance:</div>
+                    <div className="text-xl font-bold text-green-400">$0.00</div>
+                    <div className="text-sm opacity-60">Target: $1,000.00</div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm">Timer:</div>
+                    <div className="text-lg font-mono">00:00:00</div>
+                    <div className="flex space-x-2">
+                      <button className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition-colors">
+                        Start
+                      </button>
+                      <button className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition-colors">
+                        Stop
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

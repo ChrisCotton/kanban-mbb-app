@@ -17,7 +17,7 @@ Based on: `prd-integrated-dashboard-layout.md`
 - `pages/api/vision-board/index.ts` - API endpoint for vision board image management.
 - `pages/api/vision-board/[id].ts` - API endpoint for individual vision board image operations.
 - `pages/api/mbb/index.ts` - API endpoint for MBB balance calculations and history.
-- `components/vision-board/VisionBoardCarousel.tsx` - Main carousel component for hero section.
+- `components/vision-board/VisionBoardCarousel.tsx` - Main carousel component for hero section with fade transitions, auto-advance, manual controls, and responsive design.
 - `components/vision-board/VisionBoardCarousel.test.tsx` - Unit tests for VisionBoardCarousel component.
 - `components/vision-board/ImageUploader.tsx` - Component for uploading and managing vision board images.
 - `components/vision-board/ImageUploader.test.tsx` - Unit tests for ImageUploader component.
@@ -78,6 +78,9 @@ Based on: `prd-integrated-dashboard-layout.md`
 - `lib/utils/csv-parser.test.ts` - Unit tests for CSV parsing functions.
 - `lib/utils/currency-formatter.ts` - Utility functions for formatting USD currency values.
 - `lib/utils/currency-formatter.test.ts` - Unit tests for currency formatting functions.
+- `scripts/manual-migration-helper.js` - Helper script to generate complete migration SQL for manual execution.
+- `migrations-to-run.txt` - Generated file containing all migration SQL ready for copy-paste into Supabase Dashboard.
+- `pages/api/placeholder/[...params].ts` - Dynamic placeholder image API endpoint for development and testing.
 
 ### Notes
 
@@ -86,7 +89,7 @@ Based on: `prd-integrated-dashboard-layout.md`
 
 ## Tasks
 
-- [ ] 1.0 Database Schema & API Infrastructure Setup
+- [x] 1.0 Database Schema & API Infrastructure Setup
   - [x] 1.1 Create categories table migration with name and hourly_rate fields
   - [x] 1.2 Create migration to add category_id field to existing tasks table
   - [x] 1.3 Create time_sessions table migration for tracking work periods
@@ -94,19 +97,19 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 1.5 Create mbb_settings table migration for target balance tracking
   - [x] 1.6 Build API endpoints for categories CRUD operations
   - [x] 1.7 Build API endpoints for time sessions management
-  - [ ] 1.8 Build API endpoints for vision board image management
-  - [ ] 1.9 Build API endpoints for MBB balance calculations and history
-  - [ ] 1.10 Run database migrations and verify schema changes
-- [ ] 2.0 Persistent Layout & Hero Vision Board Carousel
-  - [ ] 2.1 Create persistent layout structure with carousel header across all views
-  - [ ] 2.2 Create VisionBoardCarousel component with fade transitions
-  - [ ] 2.3 Implement auto-advance functionality with configurable timing
-  - [ ] 2.4 Add manual navigation controls (previous/next buttons)
-  - [ ] 2.5 Create image counter display (e.g., "3 of 12")
+  - [x] 1.8 Build API endpoints for vision board image management
+  - [x] 1.9 Build API endpoints for MBB balance calculations and history
+  - [x] 1.10 Run database migrations and verify schema changes
+- [x] 2.0 Persistent Layout & Hero Vision Board Carousel
+  - [x] 2.1 Create persistent layout structure with carousel header across all views
+  - [x] 2.2 Create VisionBoardCarousel component with fade transitions
+  - [x] 2.3 Implement auto-advance functionality with configurable timing
+  - [x] 2.4 Add manual navigation controls (previous/next buttons)
+  - [x] 2.5 Create image counter display (e.g., "3 of 12")
   - [ ] 2.6 Build ThumbnailGallery component for selectable image thumbnails
   - [ ] 2.7 Build VisionBoardManager component for image management interface
   - [ ] 2.8 Implement active/inactive image status for carousel rotation control
-  - [ ] 2.9 Add responsive design for mobile carousel viewing
+  - [x] 2.9 Add responsive design for mobile carousel viewing
   - [ ] 2.10 Implement database queries for vision board image management with status tracking
 - [ ] 3.0 Enhanced Navigation Header with Routing
   - [ ] 3.1 Create new Navigation component with expanded menu items
