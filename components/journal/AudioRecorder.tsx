@@ -256,11 +256,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   if (!isSupported) {
     return (
       <div className={`${className} text-center py-12`}>
-        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-12 h-12 text-white/40 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Recording Not Supported</h3>
-        <p className="text-gray-600 mb-4">{error}</p>
+        <h3 className="text-lg font-medium text-white mb-2">Recording Not Supported</h3>
+        <p className="text-white/70 mb-4">{error}</p>
         <button
           onClick={onCancel}
           className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
@@ -275,15 +275,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     <div className={`${className} space-y-6`}>
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-4">
           <div className="flex items-center">
             <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-red-700">{error}</span>
+            <span className="text-red-300">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-600"
+              className="ml-auto text-red-400 hover:text-red-300"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -294,7 +294,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       )}
 
       {/* Recording Interface */}
-      <div className="bg-gray-50 rounded-lg p-8 text-center">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
         {/* Visual Indicator */}
         <div className="mb-6">
           <div className="relative w-32 h-32 mx-auto">
@@ -316,7 +316,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
             
             {/* Microphone icon */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-12 h-12 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </div>
@@ -325,10 +325,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
         {/* Duration Display */}
         <div className="mb-6">
-          <div className="text-3xl font-mono font-bold text-gray-900 mb-2">
+          <div className="text-3xl font-mono font-bold text-white mb-2">
             {formatDuration(duration)}
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-white/70">
             {recordingState === 'recording' && 'Recording...'}
             {recordingState === 'paused' && 'Paused'}
             {recordingState === 'stopped' && 'Recording complete'}
@@ -423,7 +423,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
         {/* Duration Limit Warning */}
         {duration > maxDuration * 0.8 && recordingState === 'recording' && (
-          <div className="text-sm text-orange-600 mb-4">
+          <div className="text-sm text-orange-400 mb-4">
             Recording will automatically stop in {formatDuration(maxDuration - duration)}
           </div>
         )}
@@ -433,7 +433,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={onCancel}
-          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors"
+          className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg font-medium transition-colors border border-white/20"
         >
           Cancel
         </button>

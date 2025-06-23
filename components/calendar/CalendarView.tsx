@@ -36,10 +36,10 @@ const MONTHS = [
 ]
 
 const PRIORITY_COLORS = {
-  low: 'bg-blue-100 text-blue-800 border-blue-200',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  high: 'bg-orange-100 text-orange-800 border-orange-200',
-  urgent: 'bg-red-100 text-red-800 border-red-200'
+  low: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
+  medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30',
+  high: 'bg-orange-500/20 text-orange-300 border-orange-400/30',
+  urgent: 'bg-red-500/20 text-red-300 border-red-400/30'
 }
 
 const STATUS_COLORS = {
@@ -182,19 +182,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className={`${className} bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl`}>
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-white">
             {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
           </h2>
           
           <div className="flex items-center space-x-3">
             <button
               onClick={goToPreviousMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Previous month"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -208,10 +208,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             
             <button
               onClick={goToNextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Next month"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -220,15 +220,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {error && (
-        <div className="p-6 bg-red-50 border-b border-red-200">
+        <div className="p-6 bg-red-500/20 border-b border-red-400/30">
           <div className="flex items-center">
             <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-red-700">{error}</span>
+            <span className="text-red-300">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-600"
+              className="ml-auto text-red-400 hover:text-red-300"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -241,21 +241,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="p-6">
         <div className="grid grid-cols-7 gap-px mb-2">
           {DAYS_OF_WEEK.map(day => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+            <div key={day} className="p-2 text-center text-sm font-medium text-white/70">
               {day}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-gray-200">
+        <div className="grid grid-cols-7 gap-px bg-white/10">
           {calendarDays.map((day, index) => {
-            const dayClassName = `min-h-32 bg-white p-2 ${
-              day.isCurrentMonth ? '' : 'bg-gray-50'
-            } ${day.isToday ? 'bg-blue-50' : ''}`
+            const dayClassName = `min-h-32 bg-white/5 p-2 ${
+              day.isCurrentMonth ? '' : 'bg-white/5 opacity-50'
+            } ${day.isToday ? 'bg-blue-500/20 border border-blue-400/30' : ''}`
             
             const dateClassName = `text-sm font-medium mb-1 ${
-              day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-            } ${day.isToday ? 'text-blue-600' : ''}`
+              day.isCurrentMonth ? 'text-white' : 'text-white/50'
+            } ${day.isToday ? 'text-blue-300' : ''}`
             
             return (
               <div key={index} className={dayClassName}>
@@ -265,7 +265,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                 <div className="space-y-1">
                   {day.tasks.slice(0, 3).map(task => {
-                    const taskClassName = `text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow ${
+                    const taskClassName = `text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow backdrop-blur-sm ${
                       PRIORITY_COLORS[task.priority]
                     } ${STATUS_COLORS[task.status]}`
                     
@@ -280,7 +280,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         <div className="truncate font-medium">{task.title}</div>
                         {task.category && (
-                          <div className="truncate text-gray-600">
+                          <div className="truncate opacity-80">
                             {task.category.name}
                           </div>
                         )}
@@ -289,7 +289,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   })}
                   
                   {day.tasks.length > 3 && (
-                    <div className="text-xs text-gray-500 text-center">
+                    <div className="text-xs text-white/50 text-center">
                       +{day.tasks.length - 3} more
                     </div>
                   )}
@@ -302,12 +302,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {showTaskModal && selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+          <div className="bg-gray-800 border border-white/20 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{selectedTask.title}</h3>
+              <h3 className="text-lg font-bold text-white">{selectedTask.title}</h3>
               <button
                 onClick={() => setShowTaskModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-white/70 hover:text-white"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -318,14 +318,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div className="space-y-3">
               {selectedTask.description && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <p className="text-sm text-gray-600">{selectedTask.description}</p>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Description</label>
+                  <p className="text-sm text-white/70">{selectedTask.description}</p>
                 </div>
               )}
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Priority</label>
                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
                     PRIORITY_COLORS[selectedTask.priority]
                   }`}>
@@ -334,8 +334,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <span className="text-sm text-gray-600">
+                  <label className="block text-sm font-medium text-white/90 mb-1">Status</label>
+                  <span className="text-sm text-white/70">
                     {selectedTask.status.charAt(0).toUpperCase() + selectedTask.status.slice(1)}
                   </span>
                 </div>
@@ -343,8 +343,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               
               {selectedTask.due_date && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                  <p className="text-sm text-gray-600">
+                  <label className="block text-sm font-medium text-white/90 mb-1">Due Date</label>
+                  <p className="text-sm text-white/70">
                     {new Date(selectedTask.due_date).toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
@@ -357,21 +357,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               
               {selectedTask.category && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <p className="text-sm text-gray-600">
-                    {selectedTask.category.name} (${selectedTask.category.hourly_rate_usd}/hr)
-                  </p>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Category</label>
+                  <p className="text-sm text-white/70">{selectedTask.category.name}</p>
                 </div>
               )}
-            </div>
-            
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowTaskModal(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

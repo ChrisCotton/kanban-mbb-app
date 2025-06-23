@@ -194,7 +194,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
       .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
-      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-gray-300 pl-4 italic">$1</blockquote>')
+      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-white/20 pl-4 italic">$1</blockquote>')
       .replace(/^- (.*$)/gm, '<li class="ml-4">• $1</li>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:underline" target="_blank">$1</a>')
       .replace(/\n/g, '<br>')
@@ -205,9 +205,9 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h3 className="text-lg font-medium text-gray-900">Edit Journal Entry</h3>
+          <h3 className="text-lg font-medium text-white">Edit Journal Entry</h3>
           {hasUnsavedChanges && (
-            <span className="text-sm text-orange-600 bg-orange-100 px-2 py-1 rounded">
+            <span className="text-sm text-orange-400 bg-orange-500/20 px-2 py-1 rounded">
               Unsaved changes
             </span>
           )}
@@ -219,7 +219,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             className={`px-3 py-1 text-sm rounded transition-colors ${
               viewMode === 'edit' 
                 ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/10 text-white hover:bg-white/20'
             }`}
           >
             Edit
@@ -229,7 +229,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             className={`px-3 py-1 text-sm rounded transition-colors ${
               viewMode === 'preview' 
                 ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/10 text-white hover:bg-white/20'
             }`}
           >
             Preview
@@ -239,7 +239,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
       {/* Audio Player */}
       {entry.audio_file_path && (
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="bg-white/10 rounded-lg p-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={togglePlayback}
@@ -257,11 +257,11 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             </button>
             
             <div className="flex-1">
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+              <div className="flex items-center justify-between text-sm text-white/70 mb-1">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-white/20 rounded-full h-2">
                 <div
                   className="bg-blue-500 h-2 rounded-full transition-all duration-200"
                   style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
@@ -294,14 +294,14 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
       {/* Title Input */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-white/90 mb-2">
           Title
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           placeholder="Enter journal entry title..."
         />
       </div>
@@ -309,10 +309,10 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       {/* Content Editor */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-white/90">
             Content
           </label>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-white/70">
             Supports Markdown formatting
           </div>
         </div>
@@ -320,10 +320,10 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         {viewMode === 'edit' && (
           <>
             {/* Markdown Toolbar */}
-            <div className="border border-gray-300 rounded-t-lg bg-gray-50 px-3 py-2 flex items-center space-x-2">
+            <div className="border border-white/20 rounded-t-lg bg-white/10 px-3 py-2 flex items-center space-x-2">
               <button
                 onClick={() => insertMarkdown('bold', 'bold text')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Bold (Ctrl+B)"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,7 +333,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('italic', 'italic text')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Italic (Ctrl+I)"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,7 +342,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('heading', 'Heading')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Heading"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -351,7 +351,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('list', 'List item')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="List"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,7 +360,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('quote', 'Quote')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Quote"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +369,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('code', 'code')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Code"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -378,7 +378,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               </button>
               <button
                 onClick={() => insertMarkdown('link', 'link text')}
-                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-900"
+                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Link"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -392,14 +392,14 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-3 border border-gray-300 border-t-0 rounded-b-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-64"
+              className="w-full px-3 py-3 border border-white/20 border-t-0 rounded-b-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-64"
               placeholder="Start typing your journal entry... You can use Markdown formatting."
             />
           </>
         )}
 
         {viewMode === 'preview' && (
-          <div className="border border-gray-300 rounded-lg p-4 min-h-64 bg-white">
+          <div className="border border-white/20 rounded-lg p-4 min-h-64 bg-white">
             <div 
               className="prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content) }}
@@ -429,7 +429,7 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         <div className="flex items-center space-x-3">
           <button
             onClick={onCancel}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Cancel
           </button>
@@ -460,13 +460,13 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-bold mb-4">Delete Journal Entry</h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-white/70 mb-6">
               Are you sure you want to delete this journal entry? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
               >
                 Cancel
               </button>
