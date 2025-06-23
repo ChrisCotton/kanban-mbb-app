@@ -1,0 +1,160 @@
+# Tasks for Integrated Dashboard Layout Implementation
+
+Based on: `prd-integrated-dashboard-layout.md`
+
+## Relevant Files
+
+- `database/migrations/007_create_categories_table.sql` - Database migration to create categories table with name and hourly_rate_usd fields.
+- `database/migrations/008_add_category_to_tasks.sql` - Database migration to add category_id field to tasks table.
+- `database/migrations/009_create_time_sessions_table.sql` - Database migration to create time_sessions table for tracking work periods.
+- `database/migrations/010_create_vision_board_images_table.sql` - Database migration to create vision_board_images table with active/inactive status for carousel rotation.
+- `database/migrations/011_create_mbb_settings_table.sql` - Database migration to create mbb_settings table for target balance tracking.
+- `pages/api/categories/index.ts` - API endpoint for CRUD operations on task categories.
+- `pages/api/categories/[id].ts` - API endpoint for individual category operations.
+- `pages/api/categories/bulk-upload.ts` - API endpoint for bulk uploading categories from CSV.
+- `pages/api/time-sessions/index.ts` - API endpoint for timer session management.
+- `pages/api/time-sessions/[id].ts` - API endpoint for individual time session operations.
+- `pages/api/vision-board/index.ts` - API endpoint for vision board image management.
+- `pages/api/vision-board/[id].ts` - API endpoint for individual vision board image operations.
+- `pages/api/mbb/index.ts` - API endpoint for MBB balance calculations and history.
+- `components/vision-board/VisionBoardCarousel.tsx` - Main carousel component for hero section.
+- `components/vision-board/VisionBoardCarousel.test.tsx` - Unit tests for VisionBoardCarousel component.
+- `components/vision-board/ImageUploader.tsx` - Component for uploading and managing vision board images.
+- `components/vision-board/ImageUploader.test.tsx` - Unit tests for ImageUploader component.
+- `components/vision-board/ThumbnailGallery.tsx` - Component for displaying selectable image thumbnails.
+- `components/vision-board/ThumbnailGallery.test.tsx` - Unit tests for ThumbnailGallery component.
+- `components/vision-board/VisionBoardManager.tsx` - Main management interface for vision board images.
+- `components/vision-board/VisionBoardManager.test.tsx` - Unit tests for VisionBoardManager component.
+- `components/layout/Navigation.tsx` - Enhanced navigation header component with new links.
+- `components/layout/Navigation.test.tsx` - Unit tests for Navigation component.
+- `components/ui/CategorySelector.tsx` - Component for selecting task categories with hourly rates.
+- `components/ui/CategorySelector.test.tsx` - Unit tests for CategorySelector component.
+- `components/categories/CategoryBulkUpload.tsx` - Component for bulk uploading categories from CSV.
+- `components/categories/CategoryBulkUpload.test.tsx` - Unit tests for CategoryBulkUpload component.
+- `components/categories/CategoryList.tsx` - Component for displaying and managing list of categories.
+- `components/categories/CategoryList.test.tsx` - Unit tests for CategoryList component.
+- `components/kanban/TaskCard.tsx` - Modified to display category information (existing file).
+- `components/kanban/TaskCard.test.tsx` - Updated unit tests for TaskCard component (existing file).
+- `components/kanban/TaskModal.tsx` - Modified to include category selection (existing file).
+- `components/timer/MBBTimerSection.tsx` - Bottom dashboard timer component with MBB calculations.
+- `components/timer/MBBTimerSection.test.tsx` - Unit tests for MBBTimerSection component.
+- `components/timer/TimerControls.tsx` - Timer control buttons (play/stop/pause/reset).
+- `components/timer/TimerControls.test.tsx` - Unit tests for TimerControls component.
+- `components/timer/MBBDisplay.tsx` - Component showing MBB balance and progress.
+- `components/timer/MBBDisplay.test.tsx` - Unit tests for MBBDisplay component.
+- `pages/calendar.js` - New page for calendar view of tasks with persistent carousel.
+- `pages/categories.js` - New page for category management with persistent carousel.
+- `pages/mbb.js` - New page for MBB analytics dashboard with persistent carousel.
+- `pages/vision-board.js` - New page for vision board management with thumbnail gallery and upload widget.
+- `pages/journal.js` - New page for audio journal recording and transcript functionality with persistent carousel.
+- `components/calendar/CalendarView.tsx` - Calendar component for displaying tasks by date.
+- `components/calendar/CalendarView.test.tsx` - Unit tests for CalendarView component.
+- `components/journal/AudioRecorder.tsx` - Component for recording audio journal entries.
+- `components/journal/AudioRecorder.test.tsx` - Unit tests for AudioRecorder component.
+- `components/journal/TranscriptEditor.tsx` - Component for editing journal transcripts in markdown.
+- `components/journal/TranscriptEditor.test.tsx` - Unit tests for TranscriptEditor component.
+- `components/journal/JournalView.tsx` - Main journal interface combining recording and transcript editing.
+- `components/journal/JournalView.test.tsx` - Unit tests for JournalView component.
+- `lib/database/categories-queries.ts` - Database query functions for categories.
+- `lib/database/categories-queries.test.ts` - Unit tests for categories query functions.
+- `lib/database/time-sessions-queries.ts` - Database query functions for time sessions.
+- `lib/database/time-sessions-queries.test.ts` - Unit tests for time sessions query functions.
+- `lib/database/vision-board-queries.ts` - Database query functions for vision board.
+- `lib/database/vision-board-queries.test.ts` - Unit tests for vision board query functions.
+- `lib/database/mbb-queries.ts` - Database query functions for MBB calculations.
+- `lib/database/mbb-queries.test.ts` - Unit tests for MBB query functions.
+- `hooks/useTimer.ts` - Custom hook for timer functionality.
+- `hooks/useTimer.test.ts` - Unit tests for useTimer hook.
+- `hooks/useCategories.ts` - Custom hook for category management.
+- `hooks/useCategories.test.ts` - Unit tests for useCategories hook.
+- `hooks/useMBBBalance.ts` - Custom hook for MBB balance calculations (modify existing).
+- `hooks/useVisionBoard.ts` - Custom hook for vision board management.
+- `hooks/useVisionBoard.test.ts` - Unit tests for useVisionBoard hook.
+- `lib/utils/timer-utils.ts` - Utility functions for timer calculations.
+- `lib/utils/timer-utils.test.ts` - Unit tests for timer utility functions.
+- `lib/utils/mbb-calculations.ts` - Utility functions for MBB calculations.
+- `lib/utils/mbb-calculations.test.ts` - Unit tests for MBB calculation functions.
+- `lib/utils/csv-parser.ts` - Utility functions for parsing CSV files for category upload.
+- `lib/utils/csv-parser.test.ts` - Unit tests for CSV parsing functions.
+- `lib/utils/currency-formatter.ts` - Utility functions for formatting USD currency values.
+- `lib/utils/currency-formatter.test.ts` - Unit tests for currency formatting functions.
+
+### Notes
+
+- Unit tests should typically be placed alongside the code files they are testing (e.g., `MyComponent.tsx` and `MyComponent.test.tsx` in the same directory).
+- Use `npx jest [optional/path/to/test/file]` to run tests. Running without a path executes all tests found by the Jest configuration.
+
+## Tasks
+
+- [ ] 1.0 Database Schema & API Infrastructure Setup
+  - [ ] 1.1 Create categories table migration with name and hourly_rate fields
+  - [ ] 1.2 Create migration to add category_id field to existing tasks table
+  - [ ] 1.3 Create time_sessions table migration for tracking work periods
+  - [ ] 1.4 Create vision_board_images table migration for carousel content
+  - [ ] 1.5 Create mbb_settings table migration for target balance tracking
+  - [ ] 1.6 Build API endpoints for categories CRUD operations
+  - [ ] 1.7 Build API endpoints for time sessions management
+  - [ ] 1.8 Build API endpoints for vision board image management
+  - [ ] 1.9 Build API endpoints for MBB balance calculations and history
+  - [ ] 1.10 Run database migrations and verify schema changes
+- [ ] 2.0 Persistent Layout & Hero Vision Board Carousel
+  - [ ] 2.1 Create persistent layout structure with carousel header across all views
+  - [ ] 2.2 Create VisionBoardCarousel component with fade transitions
+  - [ ] 2.3 Implement auto-advance functionality with configurable timing
+  - [ ] 2.4 Add manual navigation controls (previous/next buttons)
+  - [ ] 2.5 Create image counter display (e.g., "3 of 12")
+  - [ ] 2.6 Build ThumbnailGallery component for selectable image thumbnails
+  - [ ] 2.7 Build VisionBoardManager component for image management interface
+  - [ ] 2.8 Implement active/inactive image status for carousel rotation control
+  - [ ] 2.9 Add responsive design for mobile carousel viewing
+  - [ ] 2.10 Implement database queries for vision board image management with status tracking
+- [ ] 3.0 Enhanced Navigation Header with Routing
+  - [ ] 3.1 Create new Navigation component with expanded menu items
+  - [ ] 3.2 Add navigation links: Kanban, Calendar, Journal, Categories, MBB, VisionBoard
+  - [ ] 3.3 Implement active page highlighting in navigation
+  - [ ] 3.4 Create responsive hamburger menu for mobile devices
+  - [ ] 3.5 Create Calendar page with CalendarView component for task scheduling
+  - [ ] 3.6 Create Journal page with AudioRecorder and TranscriptEditor components
+  - [ ] 3.7 Create VisionBoard page with ThumbnailGallery and ImageUploader
+  - [ ] 3.8 Create Categories and MBB analytics pages
+  - [ ] 3.9 Implement Calendar view showing existing tasks by due date
+  - [ ] 3.10 Set up routing and navigation between pages with persistent layout
+  - [ ] 3.11 Ensure all pages maintain carousel header and timer footer structure
+- [ ] 4.0 Task Categories & Hourly Rate System
+  - [ ] 4.1 Create CategorySelector component for task creation/editing
+  - [ ] 4.2 Build category management interface for defining custom categories
+  - [ ] 4.3 Create CategoryBulkUpload component for CSV upload functionality
+  - [ ] 4.4 Create CategoryList component for displaying and managing categories
+  - [ ] 4.5 Implement CSV parsing utility with validation for category data
+  - [ ] 4.6 Build currency formatter utility for USD hourly rate display
+  - [ ] 4.7 Create bulk upload API endpoint for processing CSV files
+  - [ ] 4.8 Modify TaskCard component to display category information with USD rates
+  - [ ] 4.9 Update TaskModal component to include category selection
+  - [ ] 4.10 Implement database queries for category management and bulk operations
+  - [ ] 4.11 Create useCategories hook for category state management
+  - [ ] 4.12 Add category field validation to task creation/editing with USD format
+  - [ ] 4.13 Update existing task data to support categories (migration script)
+  - [ ] 4.14 Add CSV template download functionality for category upload
+  - [ ] 4.15 Implement error handling and validation for CSV bulk upload
+- [ ] 5.0 MBB Timer Section Implementation
+  - [ ] 5.1 Create MBBTimerSection component for bottom dashboard
+  - [ ] 5.2 Build TimerControls component with play/stop/pause/reset buttons
+  - [ ] 5.3 Create MBBDisplay component showing balance and progress
+  - [ ] 5.4 Implement useTimer hook for timer state management
+  - [ ] 5.5 Build real-time MBB calculation functionality
+  - [ ] 5.6 Add timer persistence across page refreshes and navigation
+  - [ ] 5.7 Integrate timer start/stop with task status changes
+  - [ ] 5.8 Create visual progress indicator for MBB target achievement
+  - [ ] 5.9 Implement MBB balance persistence across browser sessions
+  - [ ] 5.10 Add responsive design for mobile timer controls
+- [ ] 6.0 Audio Journal & Transcript Functionality
+  - [ ] 6.1 Create AudioRecorder component with recording controls
+  - [ ] 6.2 Implement audio file storage and management
+  - [ ] 6.3 Build TranscriptEditor component with markdown support
+  - [ ] 6.4 Create JournalView component combining recording and editing
+  - [ ] 6.5 Integrate Whisper AI for automatic transcription
+  - [ ] 6.6 Add database schema for journal entries and audio files
+  - [ ] 6.7 Build API endpoints for journal CRUD operations
+  - [ ] 6.8 Implement audio playback functionality in transcript editor
+  - [ ] 6.9 Add timestamp synchronization between audio and transcript
+  - [ ] 6.10 Create responsive design for mobile audio recording 
