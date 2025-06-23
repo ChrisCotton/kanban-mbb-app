@@ -401,3 +401,14 @@
  GET /api/kanban/tasks/93df3219-3d55-451b-861d-82aba7614261/subtasks 304 in 74ms
  GET /api/kanban/tasks/e0da35cd-9635-437c-8e76-f2816b42a246/subtasks 304 in 65ms
  GET /api/kanban/tasks/3c107f8b-4ecc-4968-bb5e-fb28628a96c4/subtasks 304 in 62ms
+ ✓ Compiled in 860ms (1155 modules)
+ ✓ Compiled in 293ms (1155 modules)
+ ✓ Compiled in 413ms (1155 modules)
+ ✓ Compiled in 264ms (1155 modules)
+ ✓ Compiled in 254ms (1155 modules)
+ ✓ Compiled in 439ms (1155 modules)
+ ✓ Compiled in 294ms (1155 modules)
+ ✓ Compiled in 277ms (1155 modules)
+ ✓ Compiled in 261ms (1155 modules)
+ ✓ Compiled in 267ms (1155 modules)
+ ✓ Compiled in 292ms (1155 modules)

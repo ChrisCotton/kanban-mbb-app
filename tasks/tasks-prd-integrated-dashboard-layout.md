@@ -92,7 +92,7 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 1.3 Create time_sessions table migration for tracking work periods
   - [x] 1.4 Create vision_board_images table migration for carousel content
   - [x] 1.5 Create mbb_settings table migration for target balance tracking
-  - [ ] 1.6 Build API endpoints for categories CRUD operations
+  - [x] 1.6 Build API endpoints for categories CRUD operations
   - [ ] 1.7 Build API endpoints for time sessions management
   - [ ] 1.8 Build API endpoints for vision board image management
   - [ ] 1.9 Build API endpoints for MBB balance calculations and history
