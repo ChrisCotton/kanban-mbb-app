@@ -89,8 +89,8 @@ Based on: `prd-integrated-dashboard-layout.md`
 - [ ] 1.0 Database Schema & API Infrastructure Setup
   - [x] 1.1 Create categories table migration with name and hourly_rate fields
   - [x] 1.2 Create migration to add category_id field to existing tasks table
-  - [ ] 1.3 Create time_sessions table migration for tracking work periods
-  - [ ] 1.4 Create vision_board_images table migration for carousel content
+  - [x] 1.3 Create time_sessions table migration for tracking work periods
+  - [x] 1.4 Create vision_board_images table migration for carousel content
   - [ ] 1.5 Create mbb_settings table migration for target balance tracking
   - [ ] 1.6 Build API endpoints for categories CRUD operations
   - [ ] 1.7 Build API endpoints for time sessions management
