@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { getActiveCarouselImages, recordImageView } from '../../lib/database/vision-board-queries'
 
 interface VisionBoardImage {
   id: string
@@ -12,28 +13,75 @@ interface VisionBoardImage {
   display_order: number
   width_px?: number
   height_px?: number
+  is_active?: boolean // Support for active/inactive status
+  view_count?: number
 }
 
 interface VisionBoardCarouselProps {
   images?: VisionBoardImage[]
+  userId?: string // For loading active images from database
   autoAdvanceInterval?: number // milliseconds
   height?: string
   showControls?: boolean
   showCounter?: boolean
   className?: string
+  onImageView?: (imageId: string) => void // Callback when image is viewed
 }
 
 const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
   images = [],
+  userId,
   autoAdvanceInterval = 8000, // 8 seconds default
   height = 'h-48 md:h-64',
   showControls = true,
   showCounter = true,
-  className = ''
+  className = '',
+  onImageView
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  const [loadedImages, setLoadedImages] = useState<VisionBoardImage[]>([])
+  const [loadingFromDB, setLoadingFromDB] = useState(false)
+
+  // Load active images from database if userId is provided and no images prop
+  useEffect(() => {
+    if (userId && images.length === 0) {
+      setLoadingFromDB(true)
+      getActiveCarouselImages(userId)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Error loading carousel images:', error)
+          } else {
+            setLoadedImages(data || [])
+          }
+        })
+        .finally(() => setLoadingFromDB(false))
+    }
+  }, [userId, images.length])
+
+  // Record image view when current image changes (with debounce)
+  useEffect(() => {
+    if (!userId) return
+    
+    const activeImages = images.length > 0 ? images : loadedImages
+    const currentImage = activeImages[currentIndex]
+    
+    if (currentImage && !currentImage.id.startsWith('placeholder-')) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          await recordImageView(currentImage.id, userId)
+          if (onImageView) {
+            onImageView(currentImage.id)
+          }
+        } catch (error) {
+          console.error('Error recording image view:', error)
+        }
+      }, 2000) // Record view after 2 seconds of viewing
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentIndex, images, loadedImages, userId, onImageView])
   
   // If no images provided, use placeholder data
   const placeholderImages: VisionBoardImage[] = [
@@ -69,7 +117,24 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
     }
   ]
   
-  const displayImages = images.length > 0 ? images : placeholderImages
+  // Determine which images to display
+  const getDisplayImages = () => {
+    if (images.length > 0) {
+      // Filter to only active images if is_active property exists
+      return images.filter(img => img.is_active !== false)
+    } else if (loadedImages.length > 0) {
+      // Loaded images from DB are already filtered to active only
+      return loadedImages
+    } else if (loadingFromDB) {
+      // Show empty array while loading
+      return []
+    } else {
+      // Show placeholders
+      return placeholderImages
+    }
+  }
+
+  const displayImages = getDisplayImages()
   const totalImages = displayImages.length
 
   // Auto-advance functionality
@@ -121,12 +186,33 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
   const handleMouseEnter = () => setIsPaused(true)
   const handleMouseLeave = () => setIsPaused(false)
 
+  // Loading state
+  if (loadingFromDB) {
+    return (
+      <div className={`${height} ${className} flex items-center justify-center bg-black/20 backdrop-blur-sm`}>
+        <div className="text-center text-white/60">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/60 mx-auto mb-3"></div>
+          <div className="text-lg font-medium mb-2">Loading Vision Board</div>
+          <div className="text-sm">Fetching your inspirational images...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state
   if (totalImages === 0) {
     return (
       <div className={`${height} ${className} flex items-center justify-center bg-black/20 backdrop-blur-sm`}>
         <div className="text-center text-white/60">
-          <div className="text-lg font-medium mb-2">No Vision Board Images</div>
-          <div className="text-sm">Upload images to inspire your productivity journey</div>
+          <div className="text-lg font-medium mb-2">
+            {userId ? 'No Active Vision Board Images' : 'No Vision Board Images'}
+          </div>
+          <div className="text-sm">
+            {userId 
+              ? 'Activate some images in your vision board manager to see them here'
+              : 'Upload images to inspire your productivity journey'
+            }
+          </div>
         </div>
       </div>
     )
