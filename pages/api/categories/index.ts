@@ -1,40 +1,37 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
+import { 
+  createApiHandler, 
+  DatabaseError, 
+  ValidationError,
+  NotFoundError,
+  validateRequired,
+  validateTypes 
+} from '../../../lib/api-error-handler'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function categoriesHandler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req
 
-  try {
-    switch (method) {
-      case 'GET':
-        return await getCategories(req, res)
-      case 'POST':
-        return await createCategory(req, res)
-      default:
-        res.setHeader('Allow', ['GET', 'POST'])
-        return res.status(405).json({ error: `Method ${method} not allowed` })
-    }
-  } catch (error) {
-    console.error('Categories API error:', error)
-    return res.status(500).json({ 
-      success: false,
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    })
+  switch (method) {
+    case 'GET':
+      return await getCategories(req, res)
+    case 'POST':
+      return await createCategory(req, res)
+    default:
+      res.setHeader('Allow', ['GET', 'POST'])
+      throw new ValidationError('method', method, 'Must be GET or POST')
   }
 }
 
 async function getCategories(req: NextApiRequest, res: NextApiResponse) {
   const { user_id, active_only = 'false', include_stats = 'false' } = req.query
 
-  if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' })
-  }
+  validateRequired({ user_id }, ['user_id'])
 
   try {
     let query = supabase
@@ -242,3 +239,8 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
     })
   }
 }
+
+export default createApiHandler(categoriesHandler, { 
+  allowedMethods: ['GET', 'POST'],
+  requireAuth: false 
+})

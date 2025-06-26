@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { createApiHandler, createHealthResponse } from '../../lib/api-error-handler'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,37 +14,71 @@ interface HealthCheck {
   duration_ms?: number
 }
 
-async function healthHandler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', ['GET'])
+    return res.status(405).json({ error: `Method ${req.method} not allowed` })
+  }
+
   const startTime = Date.now()
   const checks: HealthCheck[] = []
 
-  // Check 1: Database Connection
-  const connectionCheck = await checkDatabaseConnection()
-  checks.push(connectionCheck)
+  try {
+    // Check 1: Database Connection
+    const connectionCheck = await checkDatabaseConnection()
+    checks.push(connectionCheck)
 
-  // Check 2: Categories Table
-  const categoriesCheck = await checkCategoriesTable()
-  checks.push(categoriesCheck)
+    // Check 2: Categories Table
+    const categoriesCheck = await checkCategoriesTable()
+    checks.push(categoriesCheck)
 
-  // Check 3: Authentication
-  const authCheck = await checkAuthentication()
-  checks.push(authCheck)
+    // Check 3: Authentication
+    const authCheck = await checkAuthentication()
+    checks.push(authCheck)
 
-  // Check 4: Core Tables
-  const coreTablesChecks = await checkCoreTables()
-  checks.push(...coreTablesChecks)
+    // Check 4: Core Tables
+    const coreTablesCheck = await checkCoreTables()
+    checks.push(...coreTablesCheck)
 
-  const totalDuration = Date.now() - startTime
-  
-  // Create health response
-  const response = createHealthResponse(checks, 'Database Health Check')
-  response.duration_ms = totalDuration
-  
-  // Set appropriate status code
-  const statusCode = response.overall_status === 'critical' ? 503 : 
-                    response.overall_status === 'degraded' ? 200 : 200
+    const totalDuration = Date.now() - startTime
+    
+    // Calculate overall health
+    const successCount = checks.filter(c => c.status === 'success').length
+    const warningCount = checks.filter(c => c.status === 'warning').length
+    const errorCount = checks.filter(c => c.status === 'error').length
+    
+    const healthScore = Math.round((successCount / checks.length) * 100)
+    
+    let overallStatus = 'healthy'
+    if (errorCount > 0) overallStatus = 'critical'
+    else if (warningCount > 0) overallStatus = 'warnings'
 
-  return res.status(statusCode).json(response)
+    const response = {
+      overall_status: overallStatus,
+      health_score: healthScore,
+      timestamp: new Date().toISOString(),
+      duration_ms: totalDuration,
+      summary: {
+        total_checks: checks.length,
+        successful: successCount,
+        warnings: warningCount,
+        errors: errorCount
+      },
+      checks
+    }
+
+    const statusCode = overallStatus === 'critical' ? 503 : 200
+    return res.status(statusCode).json(response)
+
+  } catch (error) {
+    return res.status(500).json({
+      overall_status: 'critical',
+      error: 'Health check failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      duration_ms: Date.now() - startTime
+    })
+  }
 }
 
 async function checkDatabaseConnection(): Promise<HealthCheck> {
@@ -64,7 +97,7 @@ async function checkDatabaseConnection(): Promise<HealthCheck> {
         name: 'Database Connection',
         status: 'warning',
         message: 'Connected but categories table missing',
-        details: { error_code: error.code, suggestion: 'Run database migrations' },
+        details: error.message,
         duration_ms: duration
       }
     } else if (error) {
@@ -72,7 +105,7 @@ async function checkDatabaseConnection(): Promise<HealthCheck> {
         name: 'Database Connection',
         status: 'error',
         message: 'Database connection failed',
-        details: { error_code: error.code, error_message: error.message },
+        details: error.message,
         duration_ms: duration
       }
     } else {
@@ -80,7 +113,6 @@ async function checkDatabaseConnection(): Promise<HealthCheck> {
         name: 'Database Connection',
         status: 'success',
         message: 'Database connection successful',
-        details: { connection_time_ms: duration },
         duration_ms: duration
       }
     }
@@ -89,7 +121,7 @@ async function checkDatabaseConnection(): Promise<HealthCheck> {
       name: 'Database Connection',
       status: 'error',
       message: 'Connection attempt failed',
-      details: { error: e instanceof Error ? e.message : 'Unknown error' },
+      details: e instanceof Error ? e.message : 'Unknown error',
       duration_ms: Date.now() - start
     }
   }
@@ -99,10 +131,10 @@ async function checkCategoriesTable(): Promise<HealthCheck> {
   const start = Date.now()
   
   try {
-    // Test the exact query that the API uses
+    // Test basic query
     const { data, error } = await supabase
       .from('categories')
-      .select('id, name, hourly_rate, color, is_active, created_at, updated_at, created_by, updated_by')
+      .select('id, name, hourly_rate, color, is_active')
       .limit(1)
     
     const duration = Date.now() - start
@@ -112,25 +144,7 @@ async function checkCategoriesTable(): Promise<HealthCheck> {
         name: 'Categories Table',
         status: 'error',
         message: 'Categories table does not exist',
-        details: { 
-          error_code: error.code,
-          suggestion: 'Run migration 007_create_categories_table.sql'
-        },
-        duration_ms: duration
-      }
-    } else if (error && error.code === '42703') {
-      // Column doesn't exist
-      const missingColumn = error.message.match(/column "(\w+)"/)?.[1]
-      return {
-        name: 'Categories Table',
-        status: 'error',
-        message: 'Categories table schema mismatch',
-        details: { 
-          error_code: error.code,
-          missing_column: missingColumn,
-          error_message: error.message,
-          suggestion: 'Check database schema against API expectations'
-        },
+        details: error.message,
         duration_ms: duration
       }
     } else if (error) {
@@ -138,22 +152,45 @@ async function checkCategoriesTable(): Promise<HealthCheck> {
         name: 'Categories Table',
         status: 'warning',
         message: 'Categories table has issues',
-        details: { 
-          error_code: error.code,
-          error_message: error.message
-        },
+        details: error.message,
         duration_ms: duration
       }
     } else {
-      return {
-        name: 'Categories Table',
-        status: 'success',
-        message: 'Categories table is healthy',
-        details: { 
-          record_sample_count: data?.length || 0,
-          schema_check: 'passed'
-        },
-        duration_ms: duration
+      // Check for expected columns
+      const expectedColumns = ['id', 'name', 'hourly_rate', 'color', 'is_active']
+      const issues = []
+      
+      for (const column of expectedColumns) {
+        try {
+          const { error: colError } = await supabase
+            .from('categories')
+            .select(column)
+            .limit(1)
+          
+          if (colError && colError.message.includes('does not exist')) {
+            issues.push(`Missing column: ${column}`)
+          }
+        } catch (e) {
+          issues.push(`Cannot test column: ${column}`)
+        }
+      }
+      
+      if (issues.length > 0) {
+        return {
+          name: 'Categories Table',
+          status: 'warning',
+          message: 'Categories table schema issues',
+          details: issues,
+          duration_ms: duration
+        }
+      } else {
+        return {
+          name: 'Categories Table',
+          status: 'success',
+          message: 'Categories table is healthy',
+          details: { record_sample_count: data?.length || 0 },
+          duration_ms: duration
+        }
       }
     }
   } catch (e) {
@@ -161,7 +198,7 @@ async function checkCategoriesTable(): Promise<HealthCheck> {
       name: 'Categories Table',
       status: 'error',
       message: 'Failed to check categories table',
-      details: { error: e instanceof Error ? e.message : 'Unknown error' },
+      details: e instanceof Error ? e.message : 'Unknown error',
       duration_ms: Date.now() - start
     }
   }
@@ -180,21 +217,15 @@ async function checkAuthentication(): Promise<HealthCheck> {
         name: 'Authentication System',
         status: 'error',
         message: 'Cannot access auth system',
-        details: { 
-          error_message: error.message,
-          suggestion: 'Check service role key permissions'
-        },
+        details: error.message,
         duration_ms: duration
       }
     } else {
       return {
         name: 'Authentication System',
         status: 'success',
-        message: 'Auth system operational',
-        details: { 
-          user_count: data.users.length,
-          auth_provider: 'supabase'
-        },
+        message: `Auth system working`,
+        details: { user_count: data.users.length },
         duration_ms: duration
       }
     }
@@ -203,14 +234,14 @@ async function checkAuthentication(): Promise<HealthCheck> {
       name: 'Authentication System',
       status: 'error',
       message: 'Auth system check failed',
-      details: { error: e instanceof Error ? e.message : 'Unknown error' },
+      details: e instanceof Error ? e.message : 'Unknown error',
       duration_ms: Date.now() - start
     }
   }
 }
 
 async function checkCoreTables(): Promise<HealthCheck[]> {
-  const tables = ['tasks', 'comments', 'subtasks', 'time_sessions', 'vision_board_images']
+  const tables = ['tasks', 'comments', 'subtasks']
   const checks: HealthCheck[] = []
   
   for (const table of tables) {
@@ -229,10 +260,7 @@ async function checkCoreTables(): Promise<HealthCheck[]> {
           name: `Table: ${table}`,
           status: 'warning',
           message: `Table '${table}' does not exist`,
-          details: { 
-            error_code: error.code,
-            suggestion: `Consider running migration for ${table} table`
-          },
+          details: error.message,
           duration_ms: duration
         })
       } else if (error) {
@@ -240,10 +268,7 @@ async function checkCoreTables(): Promise<HealthCheck[]> {
           name: `Table: ${table}`,
           status: 'warning',
           message: `Table '${table}' has issues`,
-          details: { 
-            error_code: error.code,
-            error_message: error.message
-          },
+          details: error.message,
           duration_ms: duration
         })
       } else {
@@ -260,16 +285,11 @@ async function checkCoreTables(): Promise<HealthCheck[]> {
         name: `Table: ${table}`,
         status: 'error',
         message: `Failed to check table '${table}'`,
-        details: { error: e instanceof Error ? e.message : 'Unknown error' },
+        details: e instanceof Error ? e.message : 'Unknown error',
         duration_ms: Date.now() - start
       })
     }
   }
   
   return checks
-}
-
-export default createApiHandler(healthHandler, { 
-  allowedMethods: ['GET'],
-  requireAuth: false 
-}) 
+} 

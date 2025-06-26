@@ -28,7 +28,15 @@
     "test:regression-ui": "./scripts/run-regression-tests.sh --ui",
     "test:regression-headed": "./scripts/run-regression-tests.sh --headed",
     "test:regression-debug": "./scripts/run-regression-tests.sh --debug",
-    "playwright:install": "playwright install"
+    "playwright:install": "playwright install",
+    "db:health": "node scripts/db-health.js",
+    "db:repair": "node scripts/db-repair.js",
+    "db:migrate-status": "node scripts/migrate-status.js",
+    "db:full-check": "npm run db:health && npm run db:migrate-status",
+    "db:validate": "node scripts/db-validate.js",
+    "db:cleanup": "node scripts/db-cleanup.js",
+    "db:performance": "node scripts/db-performance.js",
+    "db:integrity": "npm run db:validate && npm run db:cleanup && npm run db:performance"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",
