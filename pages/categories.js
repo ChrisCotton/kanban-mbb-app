@@ -14,9 +14,11 @@ const CategoriesPage = () => {
   const [editingCategory, setEditingCategory] = useState(null)
 
   // Load categories from API
-  const loadCategories = useCallback(async () => {
+  const loadCategories = useCallback(async (userId) => {
+    if (!userId) return
+    
     try {
-      const response = await fetch('/api/categories')
+      const response = await fetch(`/api/categories?user_id=${userId}`)
       if (!response.ok) throw new Error('Failed to load categories')
       
       const result = await response.json()
@@ -52,7 +54,7 @@ const CategoriesPage = () => {
       setVisionBoardImages(images || [])
       
       // Load categories
-      await loadCategories()
+      await loadCategories(user.id)
       setLoading(false)
     }
 
@@ -62,7 +64,7 @@ const CategoriesPage = () => {
   // Handle adding new category
   const handleAddCategory = async (e) => {
     e.preventDefault()
-    if (!newCategory.name.trim()) return
+    if (!newCategory.name.trim() || !user) return
 
     try {
       const response = await fetch('/api/categories', {
@@ -70,7 +72,8 @@ const CategoriesPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newCategory.name.trim(),
-          hourly_rate_usd: parseFloat(newCategory.hourly_rate_usd) || 0
+          hourly_rate_usd: parseFloat(newCategory.hourly_rate_usd) || 0,
+          user_id: user.id
         })
       })
 
@@ -81,7 +84,7 @@ const CategoriesPage = () => {
 
       setNewCategory({ name: '', hourly_rate_usd: '' })
       setShowAddModal(false)
-      await loadCategories()
+      await loadCategories(user.id)
     } catch (error) {
       console.error('Error creating category:', error)
       alert('Failed to create category')
@@ -103,7 +106,7 @@ const CategoriesPage = () => {
       if (!result.success) throw new Error(result.error)
 
       setEditingCategory(null)
-      await loadCategories()
+      await loadCategories(user.id)
     } catch (error) {
       console.error('Error updating category:', error)
       alert('Failed to update category')
@@ -124,7 +127,7 @@ const CategoriesPage = () => {
       const result = await response.json()
       if (!result.success) throw new Error(result.error)
 
-      await loadCategories()
+      await loadCategories(user.id)
     } catch (error) {
       console.error('Error deleting category:', error)
       alert('Failed to delete category')

@@ -1,6 +1,7 @@
--- Migration 007: Create categories table
--- This table stores task categories with their associated USD hourly rates
+-- Direct SQL fix for categories table
+-- Run this script to add missing description column and fix schema
 
+-- 1. Create categories table if it doesn't exist
 CREATE TABLE IF NOT EXISTS categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
@@ -12,19 +13,40 @@ CREATE TABLE IF NOT EXISTS categories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES auth.users(id),
-    updated_by UUID REFERENCES auth.users(id),
-    UNIQUE(name, created_by) -- Unique constraint per user
+    updated_by UUID REFERENCES auth.users(id)
 );
 
--- Create index for faster queries
+-- 2. Add description column if it doesn't exist
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'categories' 
+        AND column_name = 'description'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN description TEXT;
+    END IF;
+END $$;
+
+-- 3. Create indexes if they don't exist
 CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 CREATE INDEX IF NOT EXISTS idx_categories_active ON categories(is_active);
 CREATE INDEX IF NOT EXISTS idx_categories_created_by ON categories(created_by);
 
--- Enable Row Level Security
+-- 4. Add unique constraint (drop existing if needed)
+ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key;
+ALTER TABLE categories ADD CONSTRAINT IF NOT EXISTS categories_name_user_unique UNIQUE (name, created_by);
+
+-- 5. Enable Row Level Security
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- 6. Create RLS policies (drop existing first to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can insert their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can update their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can delete their own categories" ON categories;
+
 CREATE POLICY "Users can view their own categories" ON categories
     FOR SELECT USING (auth.uid() = created_by);
 
@@ -37,7 +59,7 @@ CREATE POLICY "Users can update their own categories" ON categories
 CREATE POLICY "Users can delete their own categories" ON categories
     FOR DELETE USING (auth.uid() = created_by);
 
--- Create trigger to update updated_at timestamp
+-- 7. Create trigger function for updated_at
 CREATE OR REPLACE FUNCTION update_categories_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -47,17 +69,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 8. Create trigger
+DROP TRIGGER IF EXISTS trigger_categories_updated_at ON categories;
 CREATE TRIGGER trigger_categories_updated_at
     BEFORE UPDATE ON categories
     FOR EACH ROW
-    EXECUTE FUNCTION update_categories_updated_at();
-
--- Insert some default categories for new users
-INSERT INTO categories (name, description, hourly_rate_usd, color, icon, created_by) 
-VALUES 
-    ('Development', 'Software development and coding tasks', 75.00, '#3B82F6', '💻', auth.uid()),
-    ('Design', 'UI/UX design and creative work', 65.00, '#8B5CF6', '🎨', auth.uid()),
-    ('Consulting', 'Client consultation and advisory work', 100.00, '#10B981', '💼', auth.uid()),
-    ('Writing', 'Content creation and documentation', 50.00, '#F59E0B', '✍️', auth.uid()),
-    ('Research', 'Research and analysis tasks', 60.00, '#EF4444', '🔍', auth.uid())
-ON CONFLICT (name) DO NOTHING; 
+    EXECUTE FUNCTION update_categories_updated_at(); 

@@ -22,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     console.error('Categories API error:', error)
     return res.status(500).json({ 
+      success: false,
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
@@ -41,13 +42,13 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
       .select(`
         id,
         name,
-        description,
-        hourly_rate_usd,
+        hourly_rate,
         color,
-        icon,
         is_active,
         created_at,
-        updated_at
+        updated_at,
+        created_by,
+        updated_by
       `)
       .eq('created_by', user_id)
       .order('name', { ascending: true })
@@ -60,7 +61,7 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       console.error('Error fetching categories:', error)
-      return res.status(500).json({ error: 'Failed to fetch categories' })
+      return res.status(500).json({ error: 'Failed to fetch categories', details: error.message })
     }
 
     // Calculate additional stats if requested
@@ -109,11 +110,13 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
 
   } catch (error) {
     console.error('Error in getCategories:', error)
-    return res.status(500).json({ error: 'Failed to fetch categories' })
+    return res.status(500).json({ error: 'Failed to fetch categories', details: error.message })
   }
 }
 
 async function createCategory(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Creating category with data:', req.body)
+  
   const { 
     name, 
     description, 
@@ -125,71 +128,105 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
   } = req.body
 
   // Validation
-  if (!name || !hourly_rate_usd || !user_id) {
+  if (!name || hourly_rate_usd === undefined || !user_id) {
+    console.log('Validation failed - missing fields:', { 
+      name: !!name, 
+      hourly_rate: hourly_rate_usd !== undefined, 
+      user_id: !!user_id 
+    })
     return res.status(400).json({ 
+      success: false,
       error: 'Missing required fields',
-      required: ['name', 'hourly_rate_usd', 'user_id']
+      required: ['name', 'hourly_rate', 'user_id'],
+      received: { name, hourly_rate: hourly_rate_usd, user_id }
     })
   }
 
-  if (typeof hourly_rate_usd !== 'number' || hourly_rate_usd < 0) {
+  const numericRate = parseFloat(hourly_rate_usd)
+  if (isNaN(numericRate) || numericRate < 0) {
+    console.log('Validation failed - invalid hourly rate:', hourly_rate_usd, typeof hourly_rate_usd)
     return res.status(400).json({ 
-      error: 'hourly_rate_usd must be a positive number' 
+      success: false,
+      error: 'hourly_rate must be a positive number',
+      received: hourly_rate_usd
     })
   }
 
   if (name.length > 100) {
+    console.log('Validation failed - name too long:', name.length)
     return res.status(400).json({ 
+      success: false,
       error: 'Category name must be 100 characters or less' 
     })
   }
 
   try {
+    console.log('Checking for existing category...')
     // Check if category name already exists for this user
-    const { data: existingCategory } = await supabase
+    const { data: existingCategory, error: checkError } = await supabase
       .from('categories')
       .select('id')
       .eq('created_by', user_id)
       .eq('name', name)
-      .single()
+      .maybeSingle()
+
+    if (checkError) {
+      console.error('Error checking existing category:', checkError)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to check existing categories',
+        details: checkError.message
+      })
+    }
 
     if (existingCategory) {
+      console.log('Category already exists:', existingCategory)
       return res.status(409).json({ 
+        success: false,
         error: 'Category with this name already exists' 
       })
     }
 
-    // Create the category
+    console.log('Creating new category...')
+    // Create the category with required fields
+    const categoryData = {
+      name: name.trim(),
+      hourly_rate: parseFloat(numericRate.toFixed(2)),
+      color: color || null,
+      is_active: is_active !== false,
+      created_by: user_id,
+      updated_by: user_id
+    }
+    
+    console.log('Category data to insert:', categoryData)
+
     const { data: newCategory, error } = await supabase
       .from('categories')
-      .insert({
-        name: name.trim(),
-        description: description?.trim() || null,
-        hourly_rate_usd: parseFloat(hourly_rate_usd.toFixed(2)),
-        color: color || null,
-        icon: icon || null,
-        is_active,
-        created_by: user_id,
-        updated_by: user_id
-      })
+      .insert(categoryData)
       .select(`
         id,
         name,
-        description,
-        hourly_rate_usd,
+        hourly_rate,
         color,
-        icon,
         is_active,
         created_at,
-        updated_at
+        updated_at,
+        created_by,
+        updated_by
       `)
       .single()
 
     if (error) {
-      console.error('Error creating category:', error)
-      return res.status(500).json({ error: 'Failed to create category' })
+      console.error('Error creating category in database:', error)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to create category',
+        details: error.message,
+        code: error.code
+      })
     }
 
+    console.log('Category created successfully:', newCategory)
     return res.status(201).json({
       success: true,
       data: newCategory,
@@ -198,6 +235,10 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
 
   } catch (error) {
     console.error('Error in createCategory:', error)
-    return res.status(500).json({ error: 'Failed to create category' })
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to create category',
+      details: error.message
+    })
   }
-} 
+}
