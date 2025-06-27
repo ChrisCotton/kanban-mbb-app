@@ -179,12 +179,13 @@ async function updateCategory(req: NextApiRequest, res: NextApiResponse, id: str
 }
 
 async function deleteCategory(req: NextApiRequest, res: NextApiResponse, id: string) {
-  const { user_id } = req.body
+  // Accept user_id from either request body or query parameters
+  const user_id = req.body.user_id || req.query.user_id
 
   if (!user_id) {
     return res.status(400).json({ 
       success: false,
-      error: 'user_id is required for authorization' 
+      error: 'user_id is required for authorization (in body or query params)' 
     })
   }
 
