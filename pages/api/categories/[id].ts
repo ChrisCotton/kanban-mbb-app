@@ -7,15 +7,19 @@ const supabase = createClient(
 )
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { method } = req
   const { id } = req.query
-
+  
   if (!id || typeof id !== 'string') {
-    return res.status(400).json({ error: 'Category ID is required' })
+    return res.status(400).json({ 
+      success: false,
+      error: 'Category ID is required' 
+    })
   }
 
+  console.log(`Categories API [${id}] called with method:`, req.method)
+  
   try {
-    switch (method) {
+    switch (req.method) {
       case 'GET':
         return await getCategory(req, res, id)
       case 'PUT':
@@ -24,80 +28,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return await deleteCategory(req, res, id)
       default:
         res.setHeader('Allow', ['GET', 'PUT', 'DELETE'])
-        return res.status(405).json({ error: `Method ${method} not allowed` })
+        return res.status(405).json({ 
+          success: false,
+          error: `Method ${req.method} not allowed` 
+        })
     }
   } catch (error) {
-    console.error('Category API error:', error)
+    console.error('Categories API error:', error)
     return res.status(500).json({ 
+      success: false,
       error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: error.message
     })
   }
 }
 
-async function getCategory(req: NextApiRequest, res: NextApiResponse, categoryId: string) {
-  const { user_id, include_stats = 'false' } = req.query
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' })
-  }
-
+async function getCategory(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
     const { data: category, error } = await supabase
       .from('categories')
-      .select(`
-        id,
-        name,
-        description,
-        hourly_rate_usd,
-        color,
-        icon,
-        is_active,
-        created_at,
-        updated_at
-      `)
-      .eq('id', categoryId)
-      .eq('created_by', user_id)
+      .select('*')
+      .eq('id', id)
       .single()
 
-    if (error || !category) {
-      return res.status(404).json({ error: 'Category not found' })
+    if (error) {
+      console.error('Supabase error fetching category:', error)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to fetch category', 
+        details: error.message 
+      })
     }
 
-    // Add stats if requested
-    if (include_stats === 'true') {
-      // Get task count for this category
-      const { count: taskCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('category_id', categoryId)
-
-      // Get total earnings for this category
-      const { data: sessionsData } = await supabase
-        .from('time_sessions')
-        .select('earnings_usd')
-        .eq('category_id', categoryId)
-        .not('earnings_usd', 'is', null)
-
-      const totalEarnings = sessionsData?.reduce((sum, session) => 
-        sum + (parseFloat(session.earnings_usd) || 0), 0) || 0
-
-      // Get total time spent
-      const { data: timeData } = await supabase
-        .from('time_sessions')
-        .select('duration_seconds')
-        .eq('category_id', categoryId)
-        .not('duration_seconds', 'is', null)
-
-      const totalSeconds = timeData?.reduce((sum, session) => 
-        sum + (session.duration_seconds || 0), 0) || 0
-
-      ;(category as any).stats = {
-        task_count: taskCount || 0,
-        total_earnings_usd: totalEarnings,
-        total_time_seconds: totalSeconds,
-        total_time_hours: Math.round((totalSeconds / 3600) * 100) / 100
-      }
+    if (!category) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      })
     }
 
     return res.status(200).json({
@@ -106,102 +73,93 @@ async function getCategory(req: NextApiRequest, res: NextApiResponse, categoryId
     })
 
   } catch (error) {
-    console.error('Error fetching category:', error)
-    return res.status(500).json({ error: 'Failed to fetch category' })
+    console.error('Error in getCategory:', error)
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch category', 
+      details: error.message 
+    })
   }
 }
 
-async function updateCategory(req: NextApiRequest, res: NextApiResponse, categoryId: string) {
-  const { 
-    name, 
-    description, 
-    hourly_rate_usd, 
-    color, 
-    icon, 
-    is_active,
-    user_id 
-  } = req.body
+async function updateCategory(req: NextApiRequest, res: NextApiResponse, id: string) {
+  const { name, hourly_rate_usd, color, user_id } = req.body
 
+  // Validate required fields
   if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' })
-  }
-
-  // Validation
-  if (name && name.length > 100) {
     return res.status(400).json({ 
-      error: 'Category name must be 100 characters or less' 
+      success: false,
+      error: 'user_id is required for authorization' 
     })
   }
 
-  if (hourly_rate_usd && (typeof hourly_rate_usd !== 'number' || hourly_rate_usd < 0)) {
-    return res.status(400).json({ 
-      error: 'hourly_rate_usd must be a positive number' 
-    })
+  // Build update object only with provided fields
+  const updateData: any = {
+    updated_by: user_id
+  }
+
+  if (name !== undefined) {
+    if (!name.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Category name cannot be empty' 
+      })
+    }
+    updateData.name = name.trim()
+  }
+
+  if (hourly_rate_usd !== undefined) {
+    const numericRate = parseFloat(hourly_rate_usd)
+    if (isNaN(numericRate) || numericRate < 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'hourly_rate_usd must be a positive number'
+      })
+    }
+    updateData.hourly_rate = numericRate
+  }
+
+  if (color !== undefined) {
+    updateData.color = color
   }
 
   try {
-    // Check if category exists and user owns it
-    const { data: existingCategory } = await supabase
+    // First check if category exists and belongs to user
+    const { data: existingCategory, error: checkError } = await supabase
       .from('categories')
-      .select('id, name')
-      .eq('id', categoryId)
-      .eq('created_by', user_id)
+      .select('created_by')
+      .eq('id', id)
       .single()
 
-    if (!existingCategory) {
-      return res.status(404).json({ error: 'Category not found or access denied' })
+    if (checkError || !existingCategory) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      })
     }
 
-    // Check for name conflicts if name is being changed
-    if (name && name !== existingCategory.name) {
-      const { data: conflictCategory } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('created_by', user_id)
-        .eq('name', name)
-        .neq('id', categoryId)
-        .single()
-
-      if (conflictCategory) {
-        return res.status(409).json({ 
-          error: 'Category with this name already exists' 
-        })
-      }
+    if (existingCategory.created_by !== user_id) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Not authorized to update this category' 
+      })
     }
 
-    // Prepare update data
-    const updateData: any = {
-      updated_by: user_id
-    }
-
-    if (name !== undefined) updateData.name = name.trim()
-    if (description !== undefined) updateData.description = description?.trim() || null
-    if (hourly_rate_usd !== undefined) updateData.hourly_rate_usd = parseFloat(hourly_rate_usd.toFixed(2))
-    if (color !== undefined) updateData.color = color || null
-    if (icon !== undefined) updateData.icon = icon || null
-    if (is_active !== undefined) updateData.is_active = is_active
-
+    // Update the category
     const { data: updatedCategory, error } = await supabase
       .from('categories')
       .update(updateData)
-      .eq('id', categoryId)
-      .eq('created_by', user_id)
-      .select(`
-        id,
-        name,
-        description,
-        hourly_rate_usd,
-        color,
-        icon,
-        is_active,
-        created_at,
-        updated_at
-      `)
+      .eq('id', id)
+      .select('*')
       .single()
 
     if (error) {
-      console.error('Error updating category:', error)
-      return res.status(500).json({ error: 'Failed to update category' })
+      console.error('Supabase error updating category:', error)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to update category',
+        details: error.message
+      })
     }
 
     return res.status(200).json({
@@ -212,91 +170,72 @@ async function updateCategory(req: NextApiRequest, res: NextApiResponse, categor
 
   } catch (error) {
     console.error('Error in updateCategory:', error)
-    return res.status(500).json({ error: 'Failed to update category' })
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to update category',
+      details: error.message
+    })
   }
 }
 
-async function deleteCategory(req: NextApiRequest, res: NextApiResponse, categoryId: string) {
-  const { user_id, reassign_to } = req.body
+async function deleteCategory(req: NextApiRequest, res: NextApiResponse, id: string) {
+  const { user_id } = req.body
 
   if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required' })
+    return res.status(400).json({ 
+      success: false,
+      error: 'user_id is required for authorization' 
+    })
   }
 
   try {
-    // Check if category exists and user owns it
-    const { data: category } = await supabase
+    // First check if category exists and belongs to user
+    const { data: existingCategory, error: checkError } = await supabase
       .from('categories')
-      .select('id, name')
-      .eq('id', categoryId)
-      .eq('created_by', user_id)
+      .select('created_by')
+      .eq('id', id)
       .single()
 
-    if (!category) {
-      return res.status(404).json({ error: 'Category not found or access denied' })
+    if (checkError || !existingCategory) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      })
     }
 
-    // Check if there are tasks using this category
-    const { count: taskCount } = await supabase
-      .from('tasks')
-      .select('*', { count: 'exact', head: true })
-      .eq('category_id', categoryId)
-
-    if (taskCount && taskCount > 0) {
-      if (reassign_to) {
-        // Verify the reassignment category exists and belongs to the user
-        const { data: reassignCategory } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('id', reassign_to)
-          .eq('created_by', user_id)
-          .single()
-
-        if (!reassignCategory) {
-          return res.status(400).json({ 
-            error: 'Invalid reassignment category' 
-          })
-        }
-
-        // Reassign tasks to the new category
-        await supabase
-          .from('tasks')
-          .update({ category_id: reassign_to })
-          .eq('category_id', categoryId)
-
-        // Reassign time sessions to the new category
-        await supabase
-          .from('time_sessions')
-          .update({ category_id: reassign_to })
-          .eq('category_id', categoryId)
-      } else {
-        return res.status(400).json({ 
-          error: `Cannot delete category with ${taskCount} associated tasks. Provide reassign_to category ID or reassign tasks manually.`,
-          task_count: taskCount
-        })
-      }
+    if (existingCategory.created_by !== user_id) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Not authorized to delete this category' 
+      })
     }
 
     // Delete the category
     const { error } = await supabase
       .from('categories')
       .delete()
-      .eq('id', categoryId)
-      .eq('created_by', user_id)
+      .eq('id', id)
 
     if (error) {
-      console.error('Error deleting category:', error)
-      return res.status(500).json({ error: 'Failed to delete category' })
+      console.error('Supabase error deleting category:', error)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to delete category',
+        details: error.message
+      })
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Category deleted successfully',
-      reassigned_tasks: taskCount || 0
+      message: 'Category deleted successfully'
     })
 
   } catch (error) {
     console.error('Error in deleteCategory:', error)
-    return res.status(500).json({ error: 'Failed to delete category' })
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete category',
+      details: error.message
+    })
   }
 } 

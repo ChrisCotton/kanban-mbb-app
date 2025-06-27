@@ -1,16 +1,17 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Task } from '../../lib/database/kanban-queries'
+import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import DatePicker from '../ui/DatePicker'
 import PrioritySelector from '../ui/PrioritySelector'
+import CategorySelector from '../ui/CategorySelector'
 import SubtaskList from './SubtaskList'
 
 interface TaskModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (taskData: Partial<Task>) => Promise<void>
-  task?: Task | null // If provided, we're editing; if null/undefined, we're creating
+  task?: TaskWithCategory | null // If provided, we're editing; if null/undefined, we're creating
   initialStatus?: Task['status'] // For creating tasks in a specific column
 }
 
@@ -26,7 +27,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
     description: '',
     status: initialStatus,
     priority: 'medium',
-    due_date: ''
+    due_date: '',
+    category_id: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -41,7 +43,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
           description: task.description || '',
           status: task.status,
           priority: task.priority || 'medium',
-          due_date: task.due_date || ''
+          due_date: task.due_date || '',
+          category_id: task.category_id || ''
         })
       } else {
         // Creating new task
@@ -50,7 +53,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
           description: '',
           status: initialStatus,
           priority: 'medium',
-          due_date: ''
+          due_date: '',
+          category_id: ''
         })
       }
       setErrors({})
@@ -99,7 +103,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
         ...formData,
         title: formData.title?.trim(),
         description: formData.description?.trim() || undefined,
-        due_date: formData.due_date || undefined
+        due_date: formData.due_date || undefined,
+        category_id: formData.category_id || undefined
       }
 
       await onSave(taskData)
@@ -225,6 +230,23 @@ const TaskModal: React.FC<TaskModalProps> = ({
                 disabled={isLoading}
               />
             </div>
+          </div>
+
+          {/* Category Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Category
+            </label>
+            <CategorySelector
+              value={formData.category_id || undefined}
+              onChange={(categoryId) => setFormData(prev => ({ ...prev, category_id: categoryId || '' }))}
+              disabled={isLoading}
+              error={errors.category_id}
+              allowNone={true}
+            />
+            {errors.category_id && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category_id}</p>
+            )}
           </div>
 
           {/* Due Date Field */}

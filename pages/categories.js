@@ -97,7 +97,10 @@ const CategoriesPage = () => {
       const response = await fetch(`/api/categories/${categoryId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData)
+        body: JSON.stringify({
+          ...updatedData,
+          user_id: user.id
+        })
       })
 
       if (!response.ok) throw new Error('Failed to update category')
@@ -118,7 +121,7 @@ const CategoriesPage = () => {
     if (!window.confirm('Are you sure you want to delete this category?')) return
 
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
+      const response = await fetch(`/api/categories/${categoryId}?user_id=${user.id}`, {
         method: 'DELETE'
       })
 
@@ -253,7 +256,7 @@ const CategoriesPage = () => {
                           <div>
                             <h3 className="text-lg font-medium text-white">{category.name}</h3>
                             <p className="text-white/70">
-                              ${category.hourly_rate_usd?.toFixed(2) || '0.00'} per hour
+                              ${category.hourly_rate?.toFixed(2) || '0.00'} per hour
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -261,7 +264,7 @@ const CategoriesPage = () => {
                               onClick={() => setEditingCategory({
                                 id: category.id,
                                 name: category.name,
-                                hourly_rate_usd: category.hourly_rate_usd?.toString() || '0'
+                                hourly_rate_usd: category.hourly_rate?.toString() || '0'
                               })}
                               className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                             >

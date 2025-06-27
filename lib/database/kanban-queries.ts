@@ -8,10 +8,27 @@ export interface Task {
   status: 'backlog' | 'todo' | 'doing' | 'done'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   due_date?: string
+  category_id?: string
   created_at: string
   updated_at: string
   user_id: string
   order_index: number
+}
+
+export interface Category {
+  id: string
+  name: string
+  hourly_rate: number
+  color?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  created_by: string
+  updated_by?: string
+}
+
+export interface TaskWithCategory extends Task {
+  category?: Category
 }
 
 export interface Comment {

@@ -2,16 +2,17 @@
 
 import React from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { Task } from '../../lib/database/kanban-queries'
+import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
 import { useSubtaskProgress } from '../../hooks/useSubtaskProgress'
+import { formatCurrency } from '../../lib/utils/currency-formatter'
 
 interface TaskCardProps {
-  task: Task
+  task: TaskWithCategory
   index: number
   onTaskMove?: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => void
-  onTaskEdit?: (task: Task) => void
-  onTaskView?: (task: Task) => void
+  onTaskEdit?: (task: TaskWithCategory) => void
+  onTaskView?: (task: TaskWithCategory) => void
   onTaskDelete?: (taskId: string) => void
   // Multi-select props
   isMultiSelectMode?: boolean
@@ -44,6 +45,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return dueDate < today
+  }
+
+  const getCategoryIcon = (categoryName: string) => {
+    const name = categoryName.toLowerCase()
+    if (name.includes('develop') || name.includes('code') || name.includes('programming')) return '💻'
+    if (name.includes('design') || name.includes('ui') || name.includes('ux')) return '🎨'
+    if (name.includes('research') || name.includes('analysis')) return '🔍'
+    if (name.includes('meeting') || name.includes('discussion')) return '🗣️'
+    if (name.includes('writing') || name.includes('content')) return '✍️'
+    if (name.includes('marketing') || name.includes('promotion')) return '📢'
+    if (name.includes('admin') || name.includes('management')) return '📋'
+    return '📁'
   }
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -121,6 +134,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
               />
             )}
           </div>
+
+          {/* Category Display */}
+          {task.category && (
+            <div className="flex flex-wrap items-center gap-1 text-xs mt-1">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-blue-700 bg-blue-100 border border-blue-200">
+                <span>{getCategoryIcon(task.category.name)}</span>
+                <span className="font-medium">{task.category.name}</span>
+                <span className="text-blue-600">{formatCurrency(task.category.hourly_rate)}/hr</span>
+              </span>
+            </div>
+          )}
 
           {task.description && (
             <p className="text-gray-600 dark:text-gray-400 text-xs mb-1 sm:mb-2 line-clamp-2">

@@ -133,22 +133,22 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 3.9 Implement Calendar view showing existing tasks by due date
   - [x] 3.10 Set up routing and navigation between pages with persistent layout
   - [x] 3.11 Ensure all pages maintain carousel header and timer footer structure
-- [ ] 4.0 Task Categories & Hourly Rate System
-  - [ ] 4.1 Create CategorySelector component for task creation/editing
-  - [ ] 4.2 Build category management interface for defining custom categories
-  - [ ] 4.3 Create CategoryBulkUpload component for CSV upload functionality
-  - [ ] 4.4 Create CategoryList component for displaying and managing categories
-  - [ ] 4.5 Implement CSV parsing utility with validation for category data
-  - [ ] 4.6 Build currency formatter utility for USD hourly rate display
-  - [ ] 4.7 Create bulk upload API endpoint for processing CSV files
-  - [ ] 4.8 Modify TaskCard component to display category information with USD rates
-  - [ ] 4.9 Update TaskModal component to include category selection
-  - [ ] 4.10 Implement database queries for category management and bulk operations
-  - [ ] 4.11 Create useCategories hook for category state management
-  - [ ] 4.12 Add category field validation to task creation/editing with USD format
-  - [ ] 4.13 Update existing task data to support categories (migration script)
-  - [ ] 4.14 Add CSV template download functionality for category upload
-  - [ ] 4.15 Implement error handling and validation for CSV bulk upload
+- [x] 4.0 Task Categories & Hourly Rate System
+  - [x] 4.1 Create CategorySelector component for task creation/editing
+  - [x] 4.2 Build category management interface for defining custom categories
+  - [x] 4.3 Create CategoryBulkUpload component for CSV upload functionality
+  - [x] 4.4 Create CategoryList component for displaying and managing categories
+  - [x] 4.5 Implement CSV parsing utility with validation for category data
+  - [x] 4.6 Build currency formatter utility for USD hourly rate display
+  - [x] 4.7 Create bulk upload API endpoint for processing CSV files
+  - [x] 4.8 Modify TaskCard component to display category information with USD rates
+  - [x] 4.9 Update TaskModal component to include category selection
+  - [x] 4.10 Implement database queries for category management and bulk operations
+  - [x] 4.11 Create useCategories hook for category state management
+  - [x] 4.12 Add category field validation to task creation/editing with USD format
+  - [x] 4.13 Update existing task data to support categories (migration script)
+  - [x] 4.14 Add CSV template download functionality for category upload
+  - [x] 4.15 Implement error handling and validation for CSV bulk upload
 - [ ] 5.0 MBB Timer Section Implementation
   - [ ] 5.1 Create MBBTimerSection component for bottom dashboard
   - [ ] 5.2 Build TimerControls component with play/stop/pause/reset buttons
