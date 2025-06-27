@@ -43,25 +43,51 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const { data: categories, error } = await supabase
+    // First get all categories for the user
+    const { data: categories, error: categoriesError } = await supabase
       .from('categories')
       .select('*')
       .eq('created_by', user_id)
       .order('name', { ascending: true })
 
-    if (error) {
-      console.error('Supabase error fetching categories:', error)
+    if (categoriesError) {
+      console.error('Supabase error fetching categories:', categoriesError)
       return res.status(500).json({ 
         success: false,
         error: 'Failed to fetch categories', 
-        details: error.message 
+        details: categoriesError.message 
       })
     }
 
+    // Add task counts using a single query with LEFT JOIN
+    try {
+      const { data: categoriesWithCounts, error: joinError } = await supabase
+        .rpc('get_categories_with_task_counts', { 
+          p_user_id: user_id 
+        })
+
+      if (!joinError && categoriesWithCounts) {
+        return res.status(200).json({
+          success: true,
+          data: categoriesWithCounts,
+          count: categoriesWithCounts.length
+        })
+      }
+    } catch (rpcError) {
+      console.log('RPC function not available, falling back to manual count')
+    }
+
+    // Fallback: Add task_count = 0 to all categories for now
+    const categoriesWithZeroCounts = (categories || []).map(category => ({
+      ...category,
+      task_count: 0
+    }))
+
     return res.status(200).json({
       success: true,
-      data: categories || [],
-      count: categories?.length || 0
+      data: categoriesWithZeroCounts,
+      count: categoriesWithZeroCounts.length,
+      note: 'Task counts temporarily set to 0 - database optimization pending'
     })
 
   } catch (error) {

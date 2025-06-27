@@ -8,12 +8,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 export interface Category {
   id: string
   name: string
-  hourly_rate: number // Changed from hourly_rate_usd to match database schema
+  hourly_rate: number // Database uses hourly_rate (not hourly_rate_usd)
   color?: string
   is_active: boolean
   created_at: string
   updated_at: string
-  user_id: string // Changed to match database schema
+  created_by: string // Updated to match our database schema
+  updated_by?: string // Updated to match our database schema  
+  task_count: number // New field from our enhanced API
 }
 
 export interface CategoryFormData {

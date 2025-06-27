@@ -106,11 +106,20 @@ const MBBPage = () => {
     const targetValue = parseFloat(newTarget)
     if (isNaN(targetValue) || targetValue < 0) return
 
+    if (!user?.id) {
+      console.error('No user ID available')
+      alert('User not authenticated')
+      return
+    }
+
     try {
       const response = await fetch('/api/mbb', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetBalance: targetValue })
+        body: JSON.stringify({ 
+          user_id: user.id,
+          target_balance_usd: targetValue 
+        })
       })
 
       if (!response.ok) throw new Error('Failed to update target')
