@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Task } from '../lib/database/kanban-queries'
+import { supabase } from '../lib/supabase'
 
 export interface TasksByStatus {
   backlog: Task[]
@@ -112,12 +113,24 @@ export const useKanban = (): UseKanbanReturn => {
     try {
       setError(null)
 
+      // Get current user from Supabase auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('User not authenticated')
+      }
+
+      // Include user_id in task data
+      const taskDataWithUser = {
+        ...taskData,
+        user_id: user.id
+      }
+
       const response = await fetch('/api/kanban/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(taskData)
+        body: JSON.stringify(taskDataWithUser)
       })
 
       if (!response.ok) {

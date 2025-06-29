@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Subtask } from '../lib/database/kanban-queries'
+import { supabase } from '../lib/supabase'
 
 interface UseSubtasksReturn {
   subtasks: Subtask[]
@@ -47,6 +48,12 @@ export function useSubtasks(taskId: string): UseSubtasksReturn {
     try {
       setError(null)
       
+      // Get current user from Supabase auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('User not authenticated')
+      }
+      
       const response = await fetch(`/api/kanban/tasks/${taskId}/subtasks`, {
         method: 'POST',
         headers: {
@@ -54,7 +61,8 @@ export function useSubtasks(taskId: string): UseSubtasksReturn {
         },
         body: JSON.stringify({
           title,
-          order_index: subtasks.length
+          order_index: subtasks.length,
+          user_id: user.id
         }),
       })
 

@@ -43,12 +43,18 @@ async function handleGetTasks(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function handleCreateTask(req: NextApiRequest, res: NextApiResponse) {
-  const { title, description, status, priority, due_date, order_index } = req.body
+  const { title, description, status, priority, due_date, order_index, user_id } = req.body
 
   // Validate required fields
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
     return res.status(400).json({ 
       error: 'Title is required and must be a non-empty string' 
+    })
+  }
+
+  if (!user_id || typeof user_id !== 'string') {
+    return res.status(400).json({ 
+      error: 'user_id is required' 
     })
   }
 
@@ -88,7 +94,8 @@ async function handleCreateTask(req: NextApiRequest, res: NextApiResponse) {
     status: status || 'backlog',
     priority: priority || 'medium',
     due_date: due_date || undefined,
-    order_index: order_index || 0
+    order_index: order_index || 0,
+    user_id: user_id
   }
 
   const newTask = await createTask(taskData)

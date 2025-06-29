@@ -58,42 +58,7 @@ CREATE TRIGGER trigger_categories_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_categories_updated_at();
 
--- Create tasks table with category reference
-CREATE TABLE IF NOT EXISTS tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(50) DEFAULT 'todo',
-    priority VARCHAR(20) DEFAULT 'medium',
-    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create indexes for tasks
-CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_category_id ON tasks(category_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-
--- Enable RLS for tasks
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies for tasks
-CREATE POLICY "Users can view their own tasks" ON tasks
-    FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own tasks" ON tasks
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own tasks" ON tasks
-    FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own tasks" ON tasks
-    FOR DELETE USING (auth.uid() = user_id);
-
 -- Add comments for documentation
 COMMENT ON TABLE categories IS 'Task categories with standardized hourly_rate_usd column naming';
 COMMENT ON COLUMN categories.hourly_rate_usd IS 'Hourly rate in USD for MBB calculations';
-COMMENT ON COLUMN categories.created_by IS 'User ID of category creator (used for RLS)';
-COMMENT ON COLUMN tasks.category_id IS 'Foreign key reference to categories table'; 
+COMMENT ON COLUMN categories.created_by IS 'User ID of category creator (used for RLS)'; 

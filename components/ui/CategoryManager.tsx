@@ -1,7 +1,6 @@
-'use client'
-
 import React, { useState } from 'react'
 import { useCategories, type Category, type CategoryFormData } from '../../hooks/useCategories'
+import CategoryList from './CategoryList'
 
 interface CategoryManagerProps {
   onCategoryChange?: () => void
@@ -31,6 +30,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [showCSVDropdown, setShowCSVDropdown] = useState(false)
   const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
     hourly_rate_usd: '',
@@ -106,19 +106,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
     }
   }
 
-  // Handle delete
-  const handleDelete = async (categoryId: string, categoryName: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${categoryName}"? This cannot be undone.`)) {
-      return
-    }
-
-    const success = await deleteCategory(categoryId)
-    if (!success && error) {
-      alert(error)
-    }
-  }
-
-  // Handle edit
+  // Handle edit from CategoryList
   const handleEdit = (category: Category) => {
     setEditingCategory(category)
     setFormData({
@@ -146,140 +134,141 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
     setFormErrors({})
   }
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
-
-  // Get category icon
-  const getCategoryIcon = (categoryName: string) => {
-    // Simple icon mapping based on category name
-    const name = categoryName.toLowerCase()
-    if (name.includes('development') || name.includes('coding') || name.includes('programming')) {
-      return '💻'
-    } else if (name.includes('design') || name.includes('ui') || name.includes('ux')) {
-      return '🎨'
-    } else if (name.includes('meeting') || name.includes('call') || name.includes('discussion')) {
-      return '💬'
-    } else if (name.includes('research') || name.includes('analysis') || name.includes('study')) {
-      return '🔍'
-    } else if (name.includes('writing') || name.includes('content') || name.includes('documentation')) {
-      return '📝'
-    } else {
-      return '📁'
+  // Handle CSV export
+  const handleExportCSV = async () => {
+    try {
+      const response = await fetch('/api/categories/export')
+      if (!response.ok) throw new Error('Failed to export categories')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `categories-export-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export error:', error)
+      setError('Failed to export categories')
     }
   }
 
+  // Handle CSV template download
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/categories/template')
+      if (!response.ok) throw new Error('Failed to download template')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'categories-template.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Template download error:', error)
+      setError('Failed to download template')
+    }
+  }
+
+  // Handle category change from CategoryList
+  const handleCategoryChange = () => {
+    onCategoryChange?.()
+  }
+
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow ${className}`}>
+      {/* Header with Controls */}
       {showHeader && (
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Task Categories</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Manage your task categories and hourly rates for time tracking and billing
-          </p>
-          <button
-            onClick={handleAddNew}
-            className="ml-4 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-          >
-            Add Category
-          </button>
-        </div>
-      )}
-
-      <div className={`p-4 ${maxHeight} overflow-y-auto`}>
-        {loading && (
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading categories...</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center justify-center p-8">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Task Categories</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Manage your task categories and hourly rates for time tracking and billing</p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {/* CSV Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCSVDropdown(!showCSVDropdown)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  CSV
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {showCSVDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20">
+                    <button
+                      onClick={() => {
+                        handleExportCSV()
+                        setShowCSVDropdown(false)
+                      }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDownloadTemplate()
+                        setShowCSVDropdown(false)
+                      }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border-t border-gray-200 dark:border-gray-600"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download Template
+                    </button>
+                  </div>
+                )}
               </div>
-              <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Error Loading Categories</p>
-              <p className="text-xs text-red-500 dark:text-red-400 mb-3">{error}</p>
+              
               <button
-                onClick={() => {
-                  setError(null)
-                }}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                onClick={handleAddNew}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
               >
-                Try Again
+                Add Category
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {!loading && !error && categories.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📁</span>
-            </div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">No Categories Yet</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
-              Create your first category to start organizing tasks and tracking time
-            </p>
-            <button
-              onClick={handleAddNew}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-            >
-              Add Your First Category
-            </button>
-          </div>
-        )}
+      {/* Click outside to close dropdown */}
+      {showCSVDropdown && (
+        <div 
+          className="fixed inset-0 z-10" 
+          onClick={() => setShowCSVDropdown(false)}
+        />
+      )}
 
-        {!loading && !error && categories.length > 0 && (
-          <div className="space-y-3">
-            {categories.map((category) => (
-              <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center text-lg">
-                    {getCategoryIcon(category.name)}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{category.name}</h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {formatCurrency(category.hourly_rate)} per hour
-                      {category.task_count !== undefined && (
-                        <span className="ml-2">• {category.task_count} task{category.task_count !== 1 ? 's' : ''}</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleEdit(category)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    title="Edit category"
-                  >
-                    <span className="sr-only">Edit</span>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(category.id, category.name)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    title="Delete category"
-                  >
-                    <span className="sr-only">Delete</span>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 102 0v3a1 1 0 11-2 0V9zm4 0a1 1 0 10-2 0v3a1 1 0 002 0V9z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Enhanced CategoryList with pagination, filtering, and sorting */}
+      <div className={`${maxHeight === 'max-h-96' ? '' : maxHeight}`}>
+        <CategoryList
+          onCategoryChange={handleCategoryChange}
+          className="border-0 shadow-none"
+          showActions={true}
+          selectable={false}
+          searchable={true}
+          sortable={true}
+          maxHeight="max-h-none"
+          emptyMessage="No categories found. Create your first category to get started."
+        />
       </div>
 
       {/* Add/Edit Category Modal */}
@@ -350,16 +339,9 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg transition-colors"
                 >
-                  {submitting ? (
-                    <>
-                      <div className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                      {editingCategory ? 'Updating...' : 'Creating...'}
-                    </>
-                  ) : (
-                    editingCategory ? 'Update Category' : 'Create Category'
-                  )}
+                  {submitting ? 'Saving...' : (editingCategory ? 'Update Category' : 'Add Category')}
                 </button>
               </div>
             </form>

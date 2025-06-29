@@ -33,21 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function getCategories(req: NextApiRequest, res: NextApiResponse) {
-  const { user_id } = req.query
-
-  if (!user_id) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'user_id is required' 
-    })
-  }
-
   try {
-    // First get all categories for the user
+    // Get all categories - authentication handled at database level via RLS
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*')
-      .eq('created_by', user_id)
+      .select('*, total_hours')
+      .eq('is_active', true)
       .order('name', { ascending: true })
 
     if (categoriesError) {
@@ -59,35 +50,16 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
       })
     }
 
-    // Add task counts using a single query with LEFT JOIN
-    try {
-      const { data: categoriesWithCounts, error: joinError } = await supabase
-        .rpc('get_categories_with_task_counts', { 
-          p_user_id: user_id 
-        })
-
-      if (!joinError && categoriesWithCounts) {
-        return res.status(200).json({
-          success: true,
-          data: categoriesWithCounts,
-          count: categoriesWithCounts.length
-        })
-      }
-    } catch (rpcError) {
-      console.log('RPC function not available, falling back to manual count')
-    }
-
-    // Fallback: Add task_count = 0 to all categories for now
-    const categoriesWithZeroCounts = (categories || []).map(category => ({
+    // Ensure total_hours is always a number (hourly_rate_usd field already exists in DB)
+    const categoriesWithCorrectField = (categories || []).map(category => ({
       ...category,
-      task_count: 0
+      total_hours: category.total_hours || 0 // Ensure total_hours is always a number
     }))
 
     return res.status(200).json({
       success: true,
-      data: categoriesWithZeroCounts,
-      count: categoriesWithZeroCounts.length,
-      note: 'Task counts temporarily set to 0 - database optimization pending'
+      data: categoriesWithCorrectField,
+      count: categoriesWithCorrectField.length
     })
 
   } catch (error) {
@@ -101,12 +73,12 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function createCategory(req: NextApiRequest, res: NextApiResponse) {
-  const { name, hourly_rate_usd, color, user_id } = req.body
+  const { name, hourly_rate_usd, color } = req.body
 
-  if (!name || !user_id || hourly_rate_usd === undefined) {
+  if (!name || hourly_rate_usd === undefined) {
     return res.status(400).json({ 
       success: false,
-      error: 'Missing required fields: name, hourly_rate_usd, user_id'
+      error: 'Missing required fields: name, hourly_rate_usd'
     })
   }
 
@@ -123,10 +95,8 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
       .from('categories')
       .insert({
         name: name.trim(),
-        hourly_rate: numericRate,
-        color: color || null,
-        created_by: user_id,
-        updated_by: user_id
+        hourly_rate_usd: numericRate,
+        color: color || null
       })
       .select('*')
       .single()

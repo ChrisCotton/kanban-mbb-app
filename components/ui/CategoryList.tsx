@@ -1,14 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useCategories, Category } from '../../hooks/useCategories'
 
-interface Category {
-  id: string
-  name: string
-  hourly_rate_usd: number
-  created_at: string
-  updated_at: string
-}
+type SortField = 'name' | 'hourly_rate' | 'total_hours' | 'created_at' | 'updated_at'
+type SortDirection = 'asc' | 'desc'
 
 interface CategoryListProps {
   onCategorySelect?: (category: Category) => void
@@ -22,9 +18,6 @@ interface CategoryListProps {
   emptyMessage?: string
 }
 
-type SortField = 'name' | 'hourly_rate_usd' | 'created_at' | 'updated_at'
-type SortDirection = 'asc' | 'desc'
-
 const CategoryList: React.FC<CategoryListProps> = ({
   onCategorySelect,
   onCategoryChange,
@@ -36,135 +29,119 @@ const CategoryList: React.FC<CategoryListProps> = ({
   maxHeight = 'max-h-96',
   emptyMessage = 'No categories found. Create your first category to get started.'
 }) => {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [filteredCategories, setFilteredCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { 
+    categories, 
+    loading, 
+    error: loadError, 
+    deleteCategory, 
+    loadCategories 
+  } = useCategories()
+
+  // State for search, sort, pagination
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
 
-  // Load categories from API
-  const loadCategories = useCallback(async () => {
-    setLoading(true)
-    setLoadError(null)
-    
-    try {
-      const response = await fetch('/api/categories')
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to load categories')
-      }
-      
-      setCategories(result.data || [])
-      onCategoryChange?.()
-    } catch (err) {
-      console.error('Error loading categories:', err)
-      setLoadError(err instanceof Error ? err.message : 'Failed to load categories')
-    } finally {
-      setLoading(false)
-    }
-  }, [onCategoryChange])
-
+  // Load categories on mount
   useEffect(() => {
     loadCategories()
   }, [loadCategories])
 
-  // Filter and sort categories
+  // Call onCategoryChange when categories change
   useEffect(() => {
-    let filtered = categories.filter(category =>
-      category.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-    // Sort categories
-    filtered.sort((a, b) => {
-      let aValue: string | number = a[sortField]
-      let bValue: string | number = b[sortField]
-
-      if (sortField === 'hourly_rate_usd') {
-        aValue = Number(aValue)
-        bValue = Number(bValue)
-      } else {
-        aValue = String(aValue).toLowerCase()
-        bValue = String(bValue).toLowerCase()
-      }
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
-
-    setFilteredCategories(filtered)
-  }, [categories, searchTerm, sortField, sortDirection])
-
-  // Handle delete
-  const handleDelete = async (categoryId: string, categoryName: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${categoryName}"?\n\nThis action cannot be undone and may affect existing tasks.`)) {
-      return
+    if (onCategoryChange) {
+      onCategoryChange()
     }
+  }, [categories, onCategoryChange])
 
-    try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'DELETE'
-      })
+  // Filter categories by search term
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete category')
-      }
+  // Sort categories
+  const sortedCategories = [...filteredCategories].sort((a, b) => {
+    const aValue = a[sortField]
+    const bValue = b[sortField]
+    
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      const comparison = aValue.localeCompare(bValue)
+      return sortDirection === 'asc' ? comparison : -comparison
+    }
+    
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      const comparison = aValue - bValue
+      return sortDirection === 'asc' ? comparison : -comparison
+    }
+    
+    return 0
+  })
 
-      await loadCategories()
-      
-      // Clear selection if deleted category was selected
-      if (selectedCategory?.id === categoryId) {
-        setSelectedCategory(null)
+  // Calculate pagination
+  const totalPages = Math.ceil(sortedCategories.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedCategories = sortedCategories.slice(startIndex, endIndex)
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, itemsPerPage])
+
+  const handleDelete = async (categoryId: string, categoryName: string) => {
+    if (window.confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
+      const success = await deleteCategory(categoryId)
+      if (success) {
+        // Reset selection if deleted category was selected
+        if (selectedCategory?.id === categoryId) {
+          setSelectedCategory(null)
+        }
+        // Reset to first page if current page becomes empty
+        const newTotal = Math.ceil((sortedCategories.length - 1) / itemsPerPage)
+        if (currentPage > newTotal && newTotal > 0) {
+          setCurrentPage(newTotal)
+        }
       }
-      
-    } catch (err) {
-      console.error('Error deleting category:', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete category')
     }
   }
 
-  // Handle sort
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
       setSortDirection('asc')
     }
+    setCurrentPage(1) // Reset to first page when sorting changes
   }
 
-  // Handle category selection
   const handleCategoryClick = (category: Category) => {
-    if (selectable) {
+    if (selectable && onCategorySelect) {
       setSelectedCategory(category)
-      onCategorySelect?.(category)
+      onCategorySelect(category)
     }
   }
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '$0.00'
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount)
   }
 
-  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -173,13 +150,19 @@ const CategoryList: React.FC<CategoryListProps> = ({
     })
   }
 
-  // Get category icon
+  const formatHours = (hours: number | null | undefined) => {
+    if (hours === null || hours === undefined || isNaN(hours)) {
+      return '0.0h'
+    }
+    return `${hours.toFixed(1)}h`
+  }
+
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase()
-    if (name.includes('develop') || name.includes('code') || name.includes('programming')) return '💻'
-    if (name.includes('design') || name.includes('ui') || name.includes('ux')) return '🎨'
-    if (name.includes('research') || name.includes('analysis')) return '🔍'
-    if (name.includes('meeting') || name.includes('discussion')) return '🗣️'
+    if (name.includes('development') || name.includes('coding') || name.includes('programming')) return '💻'
+    if (name.includes('design') || name.includes('creative')) return '🎨'
+    if (name.includes('meeting') || name.includes('call')) return '📞'
+    if (name.includes('research')) return '🔍'
     if (name.includes('writing') || name.includes('content')) return '✍️'
     if (name.includes('marketing') || name.includes('promotion')) return '📢'
     if (name.includes('admin') || name.includes('management')) return '📋'
@@ -190,6 +173,16 @@ const CategoryList: React.FC<CategoryListProps> = ({
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return '↕️'
     return sortDirection === 'asc' ? '⬆️' : '⬇️'
+  }
+
+  // Pagination controls
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+  }
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1)
   }
 
   if (loading) {
@@ -223,27 +216,101 @@ const CategoryList: React.FC<CategoryListProps> = ({
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-lg shadow ${className}`}>
-      {/* Header with Search */}
-      {searchable && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-            <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+      {/* Header with Search and Controls */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col space-y-4">
+          {/* Top row: Search and Filter */}
+          <div className="flex items-center justify-between">
+            {searchable && (
+              <div className="relative flex-1 max-w-md">
+                <input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            )}
+            
+            {/* Filter/Sort Dropdown */}
+            {sortable && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className="flex items-center space-x-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span className="text-sm">Sort by {sortField}</span>
+                  <span className="text-xs">{getSortIcon(sortField)}</span>
+                </button>
+                
+                {showFilterDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10">
+                    <div className="py-1">
+                      <button
+                        onClick={() => { handleSort('name'); setShowFilterDropdown(false) }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between"
+                      >
+                        <span>Sort by Name</span>
+                        {sortField === 'name' && <span className="text-xs">{getSortIcon('name')}</span>}
+                      </button>
+                      <button
+                        onClick={() => { handleSort('hourly_rate'); setShowFilterDropdown(false) }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between"
+                      >
+                        <span>Sort by Hourly Rate</span>
+                        {sortField === 'hourly_rate' && <span className="text-xs">{getSortIcon('hourly_rate')}</span>}
+                      </button>
+                      <button
+                        onClick={() => { handleSort('total_hours'); setShowFilterDropdown(false) }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between"
+                      >
+                        <span>Sort by Total Hours</span>
+                        {sortField === 'total_hours' && <span className="text-xs">{getSortIcon('total_hours')}</span>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Bottom row: Per-page selector */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value={5}>5 per page</option>
+                <option value={10}>10 per page</option>
+                <option value={20}>20 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+              </select>
+            </div>
+            
+            {filteredCategories.length > 0 && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {startIndex + 1}-{Math.min(endIndex, sortedCategories.length)} of {sortedCategories.length} categories
+                {searchTerm && ` matching "${searchTerm}"`}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Category List */}
       <div className={`overflow-y-auto ${maxHeight}`}>
-        {filteredCategories.length === 0 ? (
+        {paginatedCategories.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
             {searchTerm ? (
               <>
@@ -276,11 +343,18 @@ const CategoryList: React.FC<CategoryListProps> = ({
                     <span className="text-xs">{getSortIcon('name')}</span>
                   </button>
                   <button
-                    onClick={() => handleSort('hourly_rate_usd')}
+                    onClick={() => handleSort('hourly_rate')}
                     className="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     <span>Rate</span>
-                    <span className="text-xs">{getSortIcon('hourly_rate_usd')}</span>
+                    <span className="text-xs">{getSortIcon('hourly_rate')}</span>
+                  </button>
+                  <button
+                    onClick={() => handleSort('total_hours')}
+                    className="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    <span>Hours</span>
+                    <span className="text-xs">{getSortIcon('total_hours')}</span>
                   </button>
                   <button
                     onClick={() => handleSort('created_at')}
@@ -295,7 +369,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
             )}
 
             {/* Category Items */}
-            {filteredCategories.map((category) => (
+            {paginatedCategories.map((category) => (
               <div
                 key={category.id}
                 className={`px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
@@ -314,7 +388,10 @@ const CategoryList: React.FC<CategoryListProps> = ({
                       </h4>
                       <div className="flex items-center space-x-4 mt-1">
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {formatCurrency(category.hourly_rate_usd)}/hr
+                          {formatCurrency(category.hourly_rate)}/hr
+                        </span>
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          {formatHours(category.total_hours)}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           Created {formatDate(category.created_at)}
@@ -359,11 +436,62 @@ const CategoryList: React.FC<CategoryListProps> = ({
         )}
       </div>
 
-      {/* Results Summary */}
-      {filteredCategories.length > 0 && (
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600">
-          Showing {filteredCategories.length} of {categories.length} categories
-          {searchTerm && ` matching "${searchTerm}"`}
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Page {currentPage} of {totalPages}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              {/* Page numbers */}
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`px-3 py-1 text-sm border rounded ${
+                        currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

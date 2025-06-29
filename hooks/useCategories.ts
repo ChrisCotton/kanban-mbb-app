@@ -11,6 +11,7 @@ export interface Category {
   hourly_rate: number // Database uses hourly_rate (not hourly_rate_usd)
   color?: string
   is_active: boolean
+  total_hours: number // NEW: Total hours tracked for this category
   created_at: string
   updated_at: string
   created_by: string // Updated to match our database schema
@@ -77,10 +78,7 @@ export function useCategories(): UseCategoriesReturn {
     setError(null)
     
     try {
-      // Get user ID from localStorage or session
-      const userId = localStorage.getItem('user_id') || 'current_user'
-      
-      const response = await fetch(`/api/categories?user_id=${userId}`, {
+      const response = await fetch('/api/categories', {
         signal: controller.signal
       })
       

@@ -25,6 +25,8 @@ The current category management system suffers from database schema inconsistenc
 - View all my categories with their current task counts and hourly rates in one place
 - Assign a single category to my tasks to enable proper time tracking and billing
 - See my accumulated earnings per category based on time spent and hourly rates
+- Export all my categories to a CSV file for backup, analysis, or sharing with external tools
+- Import categories from a CSV file to quickly set up multiple categories or migrate from other systems
 
 **As a system user, I want to:**
 - Have confidence that category operations will succeed without database errors
@@ -56,18 +58,31 @@ The current category management system suffers from database schema inconsistenc
 14. **Balance Aggregation**: The system must support aggregating earnings by category for reporting
 15. **Currency Consistency**: The system must handle all rates in USD with proper decimal precision
 
+### CSV Import/Export Requirements
+16. **CSV Export**: The system must allow users to export all their categories to a CSV file with columns: name, hourly_rate_usd, color, is_active, created_at
+17. **CSV Import**: The system must allow users to import categories from a properly formatted CSV file
+18. **Import Validation**: The system must validate CSV data before import, checking for required fields, data types, and duplicate names
+19. **Import Preview**: The system must show a preview of categories to be imported before final confirmation
+20. **Import Error Handling**: The system must provide detailed feedback on import errors with line-by-line validation results
+21. **CSV Template Download**: The system must provide a downloadable CSV template with proper headers and example data
+
 ### User Interface Requirements
-16. **Category List View**: The system must display categories in a clean, sortable table/list format
-17. **Category Creation Modal**: The system must provide an intuitive modal for creating new categories
-18. **Category Edit Interface**: The system must allow in-place editing or modal-based editing of categories
-19. **Confirmation Dialogs**: The system must show confirmation dialogs for destructive operations (delete)
-20. **Error Feedback**: The system must display clear, actionable error messages for failed operations
+22. **Category List View**: The system must display categories in a clean, sortable table/list format
+23. **Category Creation Modal**: The system must provide an intuitive modal for creating new categories
+24. **Category Edit Interface**: The system must allow in-place editing or modal-based editing of categories
+25. **Confirmation Dialogs**: The system must show confirmation dialogs for destructive operations (delete)
+26. **Error Feedback**: The system must display clear, actionable error messages for failed operations
+27. **Import/Export Controls**: The system must provide clearly labeled buttons for CSV import and export operations
 
 ### API Requirements
-21. **RESTful Endpoints**: The system must provide standard REST endpoints for category CRUD operations
-22. **Proper HTTP Status Codes**: The system must return appropriate status codes for all operations
-23. **Error Response Format**: The system must return consistent error response formats
-24. **Request Validation**: The system must validate all incoming requests and reject invalid data
+28. **RESTful Endpoints**: The system must provide standard REST endpoints for category CRUD operations
+29. **CSV Export Endpoint**: The system must provide a GET endpoint (`/api/categories/export`) that returns CSV data with proper headers
+30. **CSV Import Endpoint**: The system must provide a POST endpoint (`/api/categories/import`) that accepts multipart/form-data with CSV files
+31. **Import Validation Endpoint**: The system must provide a POST endpoint (`/api/categories/validate`) for pre-import validation and preview
+32. **Template Download Endpoint**: The system must provide a GET endpoint (`/api/categories/template`) that returns a sample CSV template
+33. **Proper HTTP Status Codes**: The system must return appropriate status codes for all operations
+34. **Error Response Format**: The system must return consistent error response formats
+35. **Request Validation**: The system must validate all incoming requests and reject invalid data
 
 ## Non-Goals (Out of Scope)
 
@@ -76,7 +91,7 @@ The current category management system suffers from database schema inconsistenc
 - **Category Sharing**: No sharing categories between different users
 - **Category Templates**: No predefined category templates or suggestions
 - **Category Archives**: No soft-delete or archive functionality for categories
-- **Bulk Operations**: No bulk category creation, editing, or deletion
+- **UI Bulk Operations**: No bulk category editing or deletion through the UI (beyond CSV import/export)
 - **Category Permissions**: No role-based access control for categories
 - **Category History**: No audit trail or version history for category changes
 
@@ -110,15 +125,29 @@ The current category management system suffers from database schema inconsistenc
 
 ### Integration Points
 - Categories API (`/api/categories/*`)
+- CSV Import/Export API (`/api/categories/export`, `/api/categories/import`, `/api/categories/validate`, `/api/categories/template`)
 - Tasks API (`/api/kanban/tasks/*`) for category assignment
 - MBB calculation system for earnings aggregation
-- Frontend components: CategoryManager, CategorySelector, TaskCard, TaskModal
+- Frontend components: CategoryManager, CategorySelector, TaskCard, TaskModal, CategoryBulkUpload
+- File handling utilities for CSV parsing and generation
+- Browser File API for file upload/download operations
 
 ### Error Handling
 - Implement comprehensive error handling for database operations
 - Provide user-friendly error messages for common failures
 - Log technical errors for debugging while showing simple messages to users
 - Handle edge cases like network failures and concurrent modifications
+- **CSV Import Error Handling**: Validate file format, size limits, required columns, data types, and duplicate detection
+- **CSV Export Error Handling**: Handle large datasets, memory limitations, and file generation failures
+- **File Upload Security**: Validate file types, implement size limits, and sanitize file contents
+
+### CSV Data Format Specifications
+- **Required Columns**: name (string), hourly_rate_usd (decimal)
+- **Optional Columns**: color (hex string), description (text)
+- **File Format**: UTF-8 encoded CSV with comma delimiters
+- **File Size Limit**: Maximum 10MB or 10,000 categories per import
+- **Data Validation**: Names must be 1-100 characters, rates must be positive decimals ≤ 999,999.99
+- **Duplicate Handling**: Import process will skip existing categories with same name (case-insensitive)
 
 ## Success Metrics
 
@@ -133,11 +162,15 @@ The current category management system suffers from database schema inconsistenc
 - **Category Management Engagement**: Users actively create and manage multiple categories
 - **Support Ticket Reduction**: 90% reduction in category-related error reports
 - **Time Tracking Accuracy**: Improved accuracy in MBB calculations due to proper category assignment
+- **CSV Export Usage**: >30% of users export their categories at least once per month
+- **CSV Import Success Rate**: >95% of CSV imports complete successfully without errors
+- **Bulk Category Creation**: Average 5+ categories created per CSV import session
 
 ### Business Metrics
 - **User Retention**: Maintain or improve retention rates due to improved functionality
 - **Feature Adoption**: Increased usage of MBB tracking features
 - **Data Quality**: Improved consistency in time tracking and billing data
+- **User Onboarding**: Faster category setup for new users through CSV import templates
 
 ## Open Questions
 
@@ -147,6 +180,9 @@ The current category management system suffers from database schema inconsistenc
 4. **Category Name Uniqueness**: Should category names be unique per user or allow duplicates?
 5. **Deletion Confirmation**: What level of confirmation is needed for category deletion (simple confirm vs. typing category name)?
 6. **Task Reassignment**: When a category is deleted, should tasks be automatically unassigned or offer bulk reassignment to another category?
+7. **CSV Import Conflicts**: How should the system handle importing categories with names that already exist?
+8. **CSV Export Filters**: Should users be able to filter which categories are exported (active only, by date range, etc.)?
+9. **File Size Limits**: What are appropriate limits for CSV import file size and number of categories?
 
 ## Implementation Priority
 
@@ -165,7 +201,13 @@ The current category management system suffers from database schema inconsistenc
 - Add confirmation dialogs
 - Implement task count tracking
 
-### Phase 4 (Integration & Polish)
+### Phase 4 (CSV Import/Export)
+- Implement CSV export functionality
+- Add CSV import with validation and preview
+- Create CSV template download feature
+- Add bulk upload UI components
+
+### Phase 5 (Integration & Polish)
 - Complete MBB integration
 - Performance optimization
 - Comprehensive testing 

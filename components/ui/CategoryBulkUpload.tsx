@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
+import { parseCSV, ParsedCategoryRow, CSVParseError } from '../../lib/utils/csv-parser'
 
 interface CategoryBulkUploadProps {
   onUploadComplete?: (uploadedCount: number) => void
@@ -8,17 +9,11 @@ interface CategoryBulkUploadProps {
   className?: string
 }
 
-interface CSVRow {
-  name: string
-  hourly_rate_usd: string
-  description?: string
-}
-
 interface ValidationError {
   row: number
   field: string
   message: string
-  data: CSVRow
+  data: { name: string, hourly_rate_usd: string }
 }
 
 const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
@@ -27,104 +22,16 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
   className = ''
 }) => {
   const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [parseErrors, setParseErrors] = useState<ValidationError[]>([])
+  const [previewData, setPreviewData] = useState<ParsedCategoryRow[]>([])
+  const [showPreview, setShowPreview] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{
     success: number
     errors: number
     total: number
   } | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
-  const [previewData, setPreviewData] = useState<CSVRow[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Parse CSV content
-  const parseCSV = (content: string): { data: CSVRow[], errors: ValidationError[] } => {
-    const lines = content.trim().split('\n')
-    const data: CSVRow[] = []
-    const errors: ValidationError[] = []
-
-    if (lines.length < 2) {
-      errors.push({
-        row: 0,
-        field: 'file',
-        message: 'CSV file must have at least a header row and one data row',
-        data: { name: '', hourly_rate_usd: '' }
-      })
-      return { data, errors }
-    }
-
-    // Check header row
-    const header = lines[0].toLowerCase().split(',').map(h => h.trim())
-    const requiredColumns = ['name', 'hourly_rate_usd']
-    const missingColumns = requiredColumns.filter(col => !header.includes(col))
-    
-    if (missingColumns.length > 0) {
-      errors.push({
-        row: 0,
-        field: 'header',
-        message: `Missing required columns: ${missingColumns.join(', ')}. Expected: name, hourly_rate_usd`,
-        data: { name: '', hourly_rate_usd: '' }
-      })
-      return { data, errors }
-    }
-
-    // Parse data rows
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (!line) continue // Skip empty lines
-
-      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, '')) // Remove surrounding quotes
-      const row: CSVRow = {
-        name: '',
-        hourly_rate_usd: '',
-        description: ''
-      }
-
-      // Map values to columns
-      header.forEach((col, index) => {
-        if (values[index] !== undefined) {
-          switch (col) {
-            case 'name':
-              row.name = values[index]
-              break
-            case 'hourly_rate_usd':
-              row.hourly_rate_usd = values[index]
-              break
-            case 'description':
-              row.description = values[index]
-              break
-          }
-        }
-      })
-
-      // Validate row
-      if (!row.name || row.name.length < 2) {
-        errors.push({
-          row: i + 1,
-          field: 'name',
-          message: 'Category name is required and must be at least 2 characters',
-          data: row
-        })
-      }
-
-      const hourlyRate = parseFloat(row.hourly_rate_usd)
-      if (isNaN(hourlyRate) || hourlyRate < 0) {
-        errors.push({
-          row: i + 1,
-          field: 'hourly_rate_usd',
-          message: 'Hourly rate must be a valid number (0 or greater)',
-          data: row
-        })
-      }
-
-      if (errors.filter(e => e.row === i + 1).length === 0) {
-        data.push(row)
-      }
-    }
-
-    return { data, errors }
-  }
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,14 +55,22 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
     if (!file) return
 
     const content = await file.text()
-    const { data, errors } = parseCSV(content)
+    const parseResult = parseCSV(content)
+    
+    // Convert CSVParseError to ValidationError format for display
+    const errors: ValidationError[] = parseResult.errors.map(error => ({
+      row: error.line,
+      field: error.field,
+      message: error.message,
+      data: { name: error.value, hourly_rate_usd: '' }
+    }))
     
     setParseErrors(errors)
-    setPreviewData(data)
+    setPreviewData(parseResult.data)
     setShowPreview(true)
   }
 
-  // Handle upload
+  // Handle upload using FormData to the correct endpoint
   const handleUpload = async () => {
     if (!file) return
 
@@ -164,20 +79,14 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
     setUploadResult(null)
 
     try {
-      const content = await file.text()
-      const { data, errors } = parseCSV(content)
+      // Create FormData to upload the file
+      const formData = new FormData()
+      formData.append('file', file)
 
-      if (errors.length > 0) {
-        setParseErrors(errors)
-        setUploading(false)
-        return
-      }
-
-      // Upload to API
-      const response = await fetch('/api/categories/bulk-upload', {
+      // Upload to correct import API endpoint
+      const response = await fetch('/api/categories/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: data })
+        body: formData
       })
 
       if (!response.ok) {
@@ -190,12 +99,12 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
       }
 
       setUploadResult({
-        success: result.data?.success || 0,
-        errors: result.data?.errors || 0,
-        total: data.length
+        success: result.imported || 0,
+        errors: result.errors?.length || 0,
+        total: result.imported + result.skipped + (result.errors?.length || 0)
       })
 
-      onUploadComplete?.(result.data?.success || 0)
+      onUploadComplete?.(result.imported || 0)
 
     } catch (err) {
       console.error('Error uploading categories:', err)
@@ -333,7 +242,8 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
                   <tr className="border-b border-gray-300 dark:border-gray-600">
                     <th className="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Name</th>
                     <th className="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Hourly Rate</th>
-                    <th className="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Description</th>
+                    <th className="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Color</th>
+                    <th className="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Active</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,12 +251,25 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
                     <tr key={index} className="border-b border-gray-200 dark:border-gray-600">
                       <td className="py-2 px-3 text-gray-900 dark:text-white">{row.name}</td>
                       <td className="py-2 px-3 text-gray-900 dark:text-white">${row.hourly_rate_usd}</td>
-                      <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{row.description || '-'}</td>
+                      <td className="py-2 px-3 text-gray-600 dark:text-gray-400">
+                        {row.color ? (
+                          <span className="flex items-center">
+                            <span 
+                              className="w-4 h-4 rounded mr-2 border border-gray-300" 
+                              style={{ backgroundColor: row.color }}
+                            ></span>
+                            {row.color}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className="py-2 px-3 text-gray-600 dark:text-gray-400">
+                        {row.is_active ? '✅ Yes' : '❌ No'}
+                      </td>
                     </tr>
                   ))}
                   {previewData.length > 5 && (
                     <tr>
-                      <td colSpan={3} className="py-2 px-3 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={4} className="py-2 px-3 text-center text-gray-500 dark:text-gray-400">
                         ... and {previewData.length - 5} more rows
                       </td>
                     </tr>
@@ -379,10 +302,11 @@ const CategoryBulkUpload: React.FC<CategoryBulkUploadProps> = ({
             CSV Format Instructions
           </h4>
           <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-            <p>• Required columns: <code>name</code>, <code>hourly_rate_usd</code></p>
-            <p>• Optional columns: <code>description</code></p>
+            <p>• Required columns: <code>name</code></p>
+            <p>• Optional columns: <code>hourly_rate_usd</code>, <code>description</code>, <code>color</code>, <code>is_active</code></p>
             <p>• Name must be at least 2 characters long</p>
-            <p>• Hourly rate must be a valid number (0 or greater)</p>
+            <p>• Hourly rate defaults to $0 if empty (great for personal activities)</p>
+            <p>• Hourly rate must be a valid number (0 or greater) when provided</p>
             <p>• Download the template above for the correct format</p>
           </div>
         </div>

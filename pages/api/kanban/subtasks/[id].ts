@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { updateSubtask, toggleSubtask, deleteSubtask } from '../../../../lib/database/kanban-queries'
+import { createClient } from '@supabase/supabase-js'
+
+// Use service role key to bypass RLS for server-side operations
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
@@ -59,7 +65,16 @@ async function handleUpdateSubtask(req: NextApiRequest, res: NextApiResponse, id
   if (order_index !== undefined) updates.order_index = order_index
 
   try {
-    const updatedSubtask = await updateSubtask(id, updates)
+    const { data: updatedSubtask, error } = await supabase
+      .from('subtasks')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to update subtask: ${error.message}`)
+    }
     
     return res.status(200).json({
       success: true,
@@ -79,7 +94,28 @@ async function handleUpdateSubtask(req: NextApiRequest, res: NextApiResponse, id
 
 async function handleToggleSubtask(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    const toggledSubtask = await toggleSubtask(id)
+    // First get the current status
+    const { data: subtask, error: fetchError } = await supabase
+      .from('subtasks')
+      .select('completed')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch subtask: ${fetchError.message}`)
+    }
+
+    // Toggle the completion status
+    const { data: toggledSubtask, error } = await supabase
+      .from('subtasks')
+      .update({ completed: !subtask.completed })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to toggle subtask: ${error.message}`)
+    }
     
     return res.status(200).json({
       success: true,
@@ -99,7 +135,14 @@ async function handleToggleSubtask(req: NextApiRequest, res: NextApiResponse, id
 
 async function handleDeleteSubtask(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    await deleteSubtask(id)
+    const { error } = await supabase
+      .from('subtasks')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      throw new Error(`Failed to delete subtask: ${error.message}`)
+    }
     
     return res.status(200).json({
       success: true,

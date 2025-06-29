@@ -125,7 +125,7 @@ export async function getTask(id: string, includeDetails = false) {
 /**
  * Create a new task
  */
-export async function createTask(taskData: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'user_id'>) {
+export async function createTask(taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'>) {
   const { data, error } = await supabase
     .from('tasks')
     .insert([taskData])
@@ -237,7 +237,7 @@ export async function getTaskComments(taskId: string) {
 /**
  * Create a new comment on a task
  */
-export async function createComment(commentData: Omit<Comment, 'id' | 'created_at' | 'updated_at' | 'user_id'>) {
+export async function createComment(commentData: Omit<Comment, 'id' | 'created_at' | 'updated_at'>) {
   const { data, error } = await supabase
     .from('comments')
     .insert([commentData])
@@ -307,9 +307,9 @@ export async function getTaskSubtasks(taskId: string) {
 }
 
 /**
- * Create a new subtask
+ * Create a new subtask for a task
  */
-export async function createSubtask(subtaskData: Omit<Subtask, 'id' | 'created_at' | 'updated_at' | 'user_id'>) {
+export async function createSubtask(subtaskData: Omit<Subtask, 'id' | 'created_at' | 'updated_at'>) {
   const { data, error } = await supabase
     .from('subtasks')
     .insert([subtaskData])

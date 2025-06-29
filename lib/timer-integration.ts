@@ -3,26 +3,16 @@ import {
   calculateFocusSessionReward, 
   MentalBankConfig, 
   DEFAULT_MENTAL_BANK_CONFIG,
-  EnergyTransaction 
+  EnergyTransaction
 } from './mental-bank-integration'
-import { TimerSession } from '../hooks/useTimer'
 
 // Timer Session Types
 export interface TimerSession {
-  id: string
-  taskId?: string
-  type: 'focus' | 'break' | 'long_break'
-  duration: number // in minutes
+  taskId: string
+  duration: number
+  earnings: number
   startTime: Date
   endTime?: Date
-  isActive: boolean
-  isCompleted: boolean
-  metadata?: {
-    taskTitle?: string
-    taskPriority?: string
-    interruptions?: number
-    notes?: string
-  }
 }
 
 // Timer Configuration
@@ -94,16 +84,11 @@ export function createTimerSession(
       : config.longBreakDuration
 
   return {
-    id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     taskId,
-    type,
     duration,
+    earnings: 0,
     startTime: new Date(),
-    isActive: true,
-    isCompleted: false,
-    metadata: {
-      interruptions: 0
-    }
+    endTime: undefined,
   }
 }
 
@@ -125,8 +110,7 @@ export function completeTimerSession(
   const completedSession: TimerSession = {
     ...session,
     endTime,
-    isActive: false,
-    isCompleted: true,
+    earnings: 0,
     duration: actualMinutes
   }
 
@@ -134,20 +118,20 @@ export function completeTimerSession(
   let energyTransaction: EnergyTransaction | undefined
 
   // Calculate energy rewards for focus sessions
-  if (session.type === 'focus') {
+  if (session.taskId) {
     const energyReward = calculateFocusSessionReward(actualMinutes, mentalBankConfig)
     
     if (energyReward > 0) {
       energyTransaction = {
-        id: `energy_${session.id}`,
+        id: `energy_${session.taskId}`,
         taskId: session.taskId,
         type: 'focus_session',
         energyDelta: energyReward,
         timestamp: endTime,
         metadata: {
           sessionDuration: actualMinutes,
-          taskTitle: session.metadata?.taskTitle,
-          priority: session.metadata?.taskPriority
+          taskTitle: session.taskId,
+          priority: session.taskId
         }
       }
 
@@ -164,7 +148,7 @@ export function completeTimerSession(
   }
 
   // Achievement for taking breaks
-  if (session.type === 'break' || session.type === 'long_break') {
+  if (session.taskId === 'break' || session.taskId === 'long_break') {
     achievements.push('😌 Good job taking a break!')
   }
 
@@ -185,11 +169,7 @@ export function startTaskTimer(
   const session = createTimerSession('focus', task.id, config)
   
   // Add task metadata to session
-  session.metadata = {
-    ...session.metadata,
-    taskTitle: task.title,
-    taskPriority: task.priority
-  }
+  session.taskId = task.id
   
   return session
 }

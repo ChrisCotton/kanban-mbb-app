@@ -149,7 +149,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         </button>
 
         {isOpen && !loading && (
-          <div className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <div className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0">
             <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
               {allowNone && (
                 <button
@@ -265,7 +265,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 
       {/* Dropdown */}
       {isOpen && !loading && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0">
           <div className="p-2">
             <div className="mb-2">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">Select Category</p>

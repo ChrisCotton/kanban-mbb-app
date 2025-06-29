@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+do not use `npm run dev` to start or restart the dev server. always use `./restart-dev.sh -f`

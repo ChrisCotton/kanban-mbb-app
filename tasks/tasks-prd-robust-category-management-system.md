@@ -3,25 +3,38 @@
 - `database/migrations/013_standardize_categories_schema.sql` - New migration to fix schema inconsistencies and standardize column naming
 - `pages/api/categories/index.ts` - Categories API endpoint requiring updates for consistent column naming
 - `pages/api/categories/[id].ts` - Individual category API endpoint for update/delete operations
+- `pages/api/categories/export.ts` - CSV export API endpoint to generate downloadable category data
+- `pages/api/categories/import.ts` - CSV import API endpoint to handle file uploads and bulk category creation
+- `pages/api/categories/validate.ts` - CSV validation API endpoint for pre-import data validation and preview
+- `pages/api/categories/template.ts` - CSV template download API endpoint for sample file generation
 - `lib/database/kanban-queries.ts` - Database query functions that need column name updates
+- `lib/utils/csv-parser.ts` - CSV parsing utility functions for import/export operations
 - `components/ui/CategoryManager.tsx` - Main category management component requiring updates
 - `components/ui/CategorySelector.tsx` - Category selection component for task assignment
+- `components/ui/CategoryBulkUpload.tsx` - New component for CSV import functionality with drag-and-drop
 - `components/kanban/TaskCard.tsx` - Task card component to display category information
 - `components/kanban/TaskModal.tsx` - Task modal for category assignment and editing
 - `hooks/useCategories.ts` - Custom hook for category management operations
 - `lib/mental-bank-integration.ts` - MBB integration for earnings calculations
 - `pages/categories.js` - Category management page requiring UI/UX improvements
 - `pages/api/categories/index.test.ts` - Unit tests for categories API
+- `pages/api/categories/export.test.ts` - Unit tests for CSV export API
+- `pages/api/categories/import.test.ts` - Unit tests for CSV import API
+- `pages/api/categories/validate.test.ts` - Unit tests for CSV validation API
 - `components/ui/CategoryManager.test.tsx` - Unit tests for CategoryManager component
+- `components/ui/CategoryBulkUpload.test.tsx` - Unit tests for CategoryBulkUpload component
 - `hooks/useCategories.test.ts` - Unit tests for useCategories hook
 - `lib/database/kanban-queries.test.ts` - Unit tests for database query functions
+- `lib/utils/csv-parser.test.ts` - Unit tests for CSV parsing utility functions
 
 ### Notes
 
 - Database migrations should be run in sequence and tested thoroughly before production
 - All API endpoints must be updated to use consistent column naming (`hourly_rate_usd`)
+- CSV files must be UTF-8 encoded with comma delimiters and proper validation
 - Frontend components need updates to handle new error states and loading states
-- Tests should cover both success and error scenarios for all CRUD operations
+- File upload security must validate file types, sizes, and sanitize content
+- Tests should cover both success and error scenarios for all CRUD operations including CSV operations
 - Use `npx jest [optional/path/to/test/file]` to run tests after implementation
 
 ## Tasks
@@ -58,26 +71,80 @@
   - [ ] 3.9 Update `components/kanban/TaskModal.tsx` for category assignment in tasks
   - [ ] 3.10 Improve overall UI/UX of categories page with dark theme consistency
 
-- [ ] 4.0 **Phase 4: MBB Integration and System Optimization**
-  - [ ] 4.1 Update `lib/mental-bank-integration.ts` to use standardized category rates
-  - [ ] 4.2 Implement earnings calculation: (category hourly rate × time spent)
-  - [ ] 4.3 Add category-based earnings aggregation for reporting
-  - [ ] 4.4 Update time tracking to capture category rates at session start
-  - [ ] 4.5 Create category performance analytics and insights
-  - [ ] 4.6 Optimize database queries for category-related operations
-  - [ ] 4.7 Implement caching strategy for frequently accessed category data
-  - [ ] 4.8 Add database indexes for optimal query performance
+- [ ] 3.0 **Phase 3: Frontend Components and User Experience Enhancements**
+  - [ ] 3.1 Update `hooks/useCategories.ts` to handle new API response format
+  - [ ] 3.2 Fix category creation form in `components/ui/CategoryManager.tsx`
+  - [ ] 3.3 Add loading states and error handling to category creation modal
+  - [ ] 3.4 Implement category editing functionality with inline editing or modal
+  - [ ] 3.5 Add category deletion with confirmation dialog
+  - [ ] 3.6 Update `components/ui/CategorySelector.tsx` for task assignment
+  - [ ] 3.7 Display task count and hourly rate in category list view
+  - [ ] 3.8 Update `components/kanban/TaskCard.tsx` to show category information
+  - [ ] 3.9 Update `components/kanban/TaskModal.tsx` for category assignment in tasks
+  - [ ] 3.10 Improve overall UI/UX of categories page with dark theme consistency
 
-- [ ] 5.0 **Phase 5: Testing and Quality Assurance**
-  - [ ] 5.1 Create unit tests for `/api/categories/index.ts` endpoint
-  - [ ] 5.2 Create unit tests for `/api/categories/[id].ts` endpoint
-  - [ ] 5.3 Write tests for `hooks/useCategories.ts` custom hook
-  - [ ] 5.4 Add component tests for `CategoryManager.tsx`
-  - [ ] 5.5 Add component tests for `CategorySelector.tsx`
-  - [ ] 5.6 Test database migration scripts on test database
-  - [ ] 5.7 Create integration tests for category CRUD operations
-  - [ ] 5.8 Test category-task assignment functionality end-to-end
-  - [ ] 5.9 Verify MBB calculations with category rates are accurate
-  - [ ] 5.10 Perform load testing on category-related database operations
-  - [ ] 5.11 Test error scenarios and edge cases (network failures, invalid data)
-  - [ ] 5.12 Verify all success metrics from PRD are achievable 
+- [ ] 4.0 **Phase 4: CSV Import/Export Implementation**
+  - [ ] 4.1 Create `/api/categories/export.ts` endpoint for CSV export functionality
+  - [ ] 4.2 Implement CSV export with proper headers: name, hourly_rate_usd, color, is_active, created_at
+  - [ ] 4.3 Create `/api/categories/import.ts` endpoint for CSV file upload and bulk category creation
+  - [ ] 4.4 Implement file upload validation (file type, size limits, UTF-8 encoding)
+  - [ ] 4.5 Create `/api/categories/validate.ts` endpoint for pre-import data validation and preview
+  - [ ] 4.6 Add CSV parsing with detailed error reporting for invalid rows
+  - [ ] 4.7 Create `/api/categories/template.ts` endpoint for downloadable CSV template
+  - [ ] 4.8 Implement duplicate handling logic for CSV imports (skip existing names)
+  - [ ] 4.9 Add comprehensive error handling for all CSV operations
+  - [ ] 4.10 Create utility functions in `lib/utils/csv-parser.ts` for CSV processing
+  - [ ] 4.11 Create `components/ui/CategoryBulkUpload.tsx` component for CSV import functionality
+  - [ ] 4.12 Implement drag-and-drop file upload interface for CSV files
+  - [ ] 4.13 Add CSV import preview modal showing categories to be imported
+  - [ ] 4.14 Implement import validation feedback with line-by-line error reporting
+  - [ ] 4.15 Add CSV export button to CategoryManager with download functionality
+  - [ ] 4.16 Create CSV template download link with proper sample data
+  - [ ] 4.17 Add import/export loading states and progress indicators
+  - [ ] 4.18 Implement file upload security validation on frontend
+  - [ ] 4.19 Add success/error toast notifications for CSV operations
+  - [ ] 4.20 Update `hooks/useCategories.ts` to include CSV import/export functions
+  - [ ] 4.21 Add CSV import confirmation dialog with import summary
+  - [ ] 4.22 Ensure CSV components follow existing dark theme and design patterns
+
+- [ ] 5.0 **Phase 5: MBB Integration and System Optimization**
+  - [ ] 5.1 Update `lib/mental-bank-integration.ts` to use standardized category rates
+  - [ ] 5.2 Implement earnings calculation: (category hourly rate × time spent)
+  - [ ] 5.3 Add category-based earnings aggregation for reporting
+  - [ ] 5.4 Update time tracking to capture category rates at session start
+  - [ ] 5.5 Create category performance analytics and insights
+  - [ ] 5.6 Optimize database queries for category-related operations
+  - [ ] 5.7 Implement caching strategy for frequently accessed category data
+  - [ ] 5.8 Add database indexes for optimal query performance
+
+- [ ] 6.0 **Phase 6: Testing and Quality Assurance**
+  - [ ] 6.1 Create unit tests for `/api/categories/index.ts` endpoint
+  - [ ] 6.2 Create unit tests for `/api/categories/[id].ts` endpoint
+  - [ ] 6.3 Write tests for `hooks/useCategories.ts` custom hook
+  - [ ] 6.4 Add component tests for `CategoryManager.tsx`
+  - [ ] 6.5 Add component tests for `CategorySelector.tsx`
+  - [ ] 6.6 Test database migration scripts on test database
+  - [ ] 6.7 Create integration tests for category CRUD operations
+  - [ ] 6.8 Test category-task assignment functionality end-to-end
+  - [ ] 6.9 Verify MBB calculations with category rates are accurate
+  - [ ] 6.10 Perform load testing on category-related database operations
+  - [ ] 6.11 Test error scenarios and edge cases (network failures, invalid data)
+  - [ ] 6.12 Verify all success metrics from PRD are achievable
+  - [ ] 6.13 Create unit tests for `/api/categories/export.ts` CSV export endpoint
+  - [ ] 6.14 Create unit tests for `/api/categories/import.ts` CSV import endpoint
+  - [ ] 6.15 Create unit tests for `/api/categories/validate.ts` CSV validation endpoint
+  - [ ] 6.16 Create unit tests for `/api/categories/template.ts` CSV template endpoint
+  - [ ] 6.17 Add component tests for `CategoryBulkUpload.tsx`
+  - [ ] 6.18 Create unit tests for `lib/utils/csv-parser.ts` utility functions
+  - [ ] 6.19 Test CSV export functionality with various data sets and edge cases
+  - [ ] 6.20 Test CSV import with valid, invalid, and malformed files
+  - [ ] 6.21 Test file upload security validations (file types, sizes, content)
+  - [ ] 6.22 Test CSV import preview and validation feedback accuracy
+  - [ ] 6.23 Test duplicate handling during CSV import operations
+  - [ ] 6.24 Verify CSV template download contains correct headers and sample data
+  - [ ] 6.25 Test CSV import/export performance with large datasets (10,000+ categories)
+  - [ ] 6.26 Test CSV operations error handling and user feedback
+  - [ ] 6.27 Perform end-to-end testing of complete CSV import workflow
+  - [ ] 6.28 Verify CSV export data integrity and format correctness
+  - [ ] 6.29 Test CSV import success rate meets PRD requirement (>95%)
+  - [ ] 6.30 Validate CSV functionality works across different browsers and devices 

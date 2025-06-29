@@ -13,6 +13,9 @@
 # Just check server status without restarting
 # ./restart-dev.sh -s
 #
+# Just kill the server without restarting
+# ./restart-dev.sh -k
+#
 # Show help with all options
 # ./restart-dev.sh -h
 #
@@ -33,6 +36,7 @@ PROJECT_DIR="$HOME/Learn/AI/MBB_Kanban/MBB_Kanban_cursor/kanban-mbb-app"
 BACKGROUND_MODE=false
 STATUS_ONLY=false
 FOLLOW_MODE=false
+KILL_ONLY=false
 
 # Function to show running server processes
 show_server_processes() {
@@ -66,6 +70,28 @@ show_server_processes() {
     fi
 }
 
+# Function to kill running server processes
+kill_server_processes() {
+    echo -e "${YELLOW}💀 Killing existing Next.js dev servers...${NC}"
+
+    # Kill Next.js dev processes
+    pkill -f "next dev" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Killed Next.js dev processes${NC}"
+    else
+        echo -e "${YELLOW}⚠️  No Next.js dev processes found${NC}"
+    fi
+
+    # Kill any processes on port 3000
+    PORT_PIDS=$(lsof -ti:3000 2>/dev/null)
+    if [ ! -z "$PORT_PIDS" ]; then
+        echo "$PORT_PIDS" | xargs kill -9 2>/dev/null
+        echo -e "${GREEN}✅ Killed processes on port 3000${NC}"
+    else
+        echo -e "${YELLOW}⚠️  No processes found on port 3000${NC}"
+    fi
+}
+
 # Function to show dev server logs hyperlink
 show_logs_hyperlink() {
     local log_file="$1"
@@ -89,6 +115,7 @@ show_usage() {
     echo -e "${CYAN}Options:${NC}"
     echo -e "  ${YELLOW}-b, --background${NC}    Run dev server in background (script exits, server continues)"
     echo -e "  ${YELLOW}-f, --follow${NC}        Restart server and tail the server log file"
+    echo -e "  ${YELLOW}-k, --kill${NC}          Kill running server processes and exit"
     echo -e "  ${YELLOW}-s, --status${NC}        Show running server processes without restarting"
     echo -e "  ${YELLOW}-h, --help${NC}          Show this help message"
     echo ""
@@ -100,6 +127,7 @@ show_usage() {
     echo -e "  ${GREEN}./restart-dev.sh -f${NC}           # Restart server and follow logs"
     echo -e "  ${GREEN}./restart-dev.sh -b${NC}           # Background mode"
     echo -e "  ${GREEN}./restart-dev.sh -s${NC}           # Just show server status"
+    echo -e "  ${GREEN}./restart-dev.sh -k${NC}           # Just kill the server"
 }
 
 # Parse command line arguments
@@ -111,6 +139,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--follow)
             FOLLOW_MODE=true
+            shift
+            ;;
+        -k|--kill)
+            KILL_ONLY=true
             shift
             ;;
         -s|--status)
@@ -129,47 +161,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Handle status-only mode
-if [ "$STATUS_ONLY" = true ]; then
-    echo -e "${BLUE}🔍 Checking Kanban Dev Server Status...${NC}"
-    
-    # Change to project directory
-    echo -e "${YELLOW}📂 Changing to project directory...${NC}"
-    cd "$PROJECT_DIR" || {
-        echo -e "${RED}❌ Error: Could not change to project directory: $PROJECT_DIR${NC}"
-        exit 1
-    }
-    
-    # Show running processes and exit
-    show_server_processes
-    exit 0
-fi
-
-# Change to project directory
+# Change to project directory first
 echo -e "${YELLOW}📂 Changing to project directory...${NC}"
 cd "$PROJECT_DIR" || {
     echo -e "${RED}❌ Error: Could not change to project directory: $PROJECT_DIR${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}💀 Killing existing Next.js dev servers...${NC}"
-
-# Kill Next.js dev processes
-pkill -f "next dev" 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Killed Next.js dev processes${NC}"
-else
-    echo -e "${YELLOW}⚠️  No Next.js dev processes found${NC}"
+# Handle modes that don't start a server
+if [ "$STATUS_ONLY" = true ]; then
+    echo -e "${BLUE}🔍 Checking Kanban Dev Server Status...${NC}"
+    show_server_processes
+    exit 0
 fi
 
-# Kill any processes on port 3000
-PORT_PIDS=$(lsof -ti:3000 2>/dev/null)
-if [ ! -z "$PORT_PIDS" ]; then
-    echo "$PORT_PIDS" | xargs kill -9 2>/dev/null
-    echo -e "${GREEN}✅ Killed processes on port 3000${NC}"
-else
-    echo -e "${YELLOW}⚠️  No processes found on port 3000${NC}"
+if [ "$KILL_ONLY" = true ]; then
+    echo -e "${RED}🔪 Killing Kanban Dev Server...${NC}"
+    kill_server_processes
+    exit 0
 fi
+
+# For all other modes, we restart the server, which involves killing it first.
+kill_server_processes
 
 # Wait a moment for processes to fully terminate
 sleep 2

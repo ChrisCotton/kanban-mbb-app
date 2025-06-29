@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Comment } from '../lib/database/kanban-queries'
+import { supabase } from '../lib/supabase'
 
 interface UseCommentsReturn {
   comments: Comment[]
@@ -51,12 +52,21 @@ export const useComments = (taskId: string): UseCommentsReturn => {
     setError(null)
 
     try {
+      // Get current user from Supabase auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('User not authenticated')
+      }
+
       const response = await fetch(`/api/kanban/tasks/${taskId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: content.trim() }),
+        body: JSON.stringify({ 
+          content: content.trim(),
+          user_id: user.id
+        }),
       })
 
       if (!response.ok) {

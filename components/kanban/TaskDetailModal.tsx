@@ -11,6 +11,7 @@ import SubtaskList from './SubtaskList'
 import PrioritySelector from '../ui/PrioritySelector'
 import DatePicker from '../ui/DatePicker'
 import PositionalMoveDropdown from './PositionalMoveDropdown'
+import CategorySelector from '../ui/CategorySelector'
 import { formatDistanceToNow, format } from 'date-fns'
 
 interface TaskDetailModalProps {
@@ -82,6 +83,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [editDescription, setEditDescription] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editPriority, setEditPriority] = useState<Task['priority']>('medium')
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null)
   
   const {
     comments,
@@ -99,6 +101,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setEditDescription(task.description || '')
       setEditDueDate(task.due_date || '')
       setEditPriority(task.priority)
+      setEditCategoryId(task.category_id || null)
     }
   }, [task])
 
@@ -107,7 +110,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     editTitle !== task.title ||
     editDescription !== (task.description || '') ||
     editDueDate !== (task.due_date || '') ||
-    editPriority !== task.priority
+    editPriority !== task.priority ||
+    editCategoryId !== (task.category_id || null)
   )
 
   // Handle closing animation
@@ -134,6 +138,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setEditDescription(task.description || '')
       setEditDueDate(task.due_date || '')
       setEditPriority(task.priority)
+      setEditCategoryId(task.category_id || null)
     }
   }
 
@@ -166,6 +171,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       if (editDescription !== (task.description || '')) updates.description = editDescription
       if (editDueDate !== (task.due_date || '')) updates.due_date = editDueDate || null
       if (editPriority !== task.priority) updates.priority = editPriority
+      if (editCategoryId !== (task.category_id || null)) updates.category_id = editCategoryId
 
       await onUpdate(task.id, updates)
       setIsEditing(false)
@@ -270,7 +276,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
       <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden transition-all duration-150 ${
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] transition-all duration-150 ${
           isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
         }`}
       >
@@ -596,6 +602,20 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       onChange={isEditing ? setEditPriority : () => {}}
                     variant="compact"
                       disabled={!isEditing}
+                  />
+                </div>
+
+                {/* Category */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Category
+                  </span>
+                  <CategorySelector
+                    value={isEditing ? editCategoryId : (task.category_id || null)}
+                    onChange={isEditing ? setEditCategoryId : () => {}}
+                    variant="compact"
+                    disabled={!isEditing}
+                    allowNone={true}
                   />
                 </div>
 
