@@ -86,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // Get existing categories to check for conflicts (authentication handled by RLS)
+    // Get existing categories to check for conflicts
     const { data: existingCategories, error: existingError } = await supabase
       .from('categories')
       .select('name, id')
@@ -120,9 +120,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .insert({
             name: category.name,
             hourly_rate_usd: category.hourly_rate_usd,
-            color: category.color,
+            color: category.color || '#3B82F6',
             is_active: category.is_active !== false,
-            created_by: null, // Will be handled by RLS policies
             total_hours: 0 // Default value for new categories
           })
           .select()
