@@ -14,6 +14,22 @@ export default function DebugEnv() {
       }}>
         Check Server Environment Variables
       </button>
+      
+      <br/><br/>
+      <button onClick={async () => {
+        try {
+          const response = await fetch('/api/test-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          const data = await response.json()
+          alert(JSON.stringify(data, null, 2))
+        } catch (error) {
+          alert('Error: ' + error.message)
+        }
+      }}>
+        Test Category Creation
+      </button>
     </div>
   )
 } 
