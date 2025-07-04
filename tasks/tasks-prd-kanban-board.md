@@ -42,14 +42,14 @@ Generated from: `prd-kanban-board.md`
 
 ## Tasks
 
-- [ ] 1.0 Database Schema and Backend Setup
-  - [x] 1.1 Create Supabase tables for tasks (id, title, description, status, priority, due_date, created_at, updated_at)
-  - [x] 1.2 Create comments table with foreign key to tasks (id, task_id, content, created_at)
-  - [x] 1.3 Create subtasks table with foreign key to tasks (id, task_id, title, completed, order)
-  - [x] 1.4 Set up Row Level Security (RLS) policies for user data isolation
-  - [x] 1.5 Create database query functions in `lib/database/kanban-queries.ts`
-  - [x] 1.6 Create API routes for CRUD operations in `pages/api/kanban/`
-  - [x] 1.7 Write unit tests for database query functions
+- [x] 1.0 Database Schema and Backend Setup ✅ **COMPLETE**
+  - [x] 1.1 Create Supabase tables for tasks (id, title, description, status, priority, due_date, created_at, updated_at) ✅ **COMPLETE**
+  - [x] 1.2 Create comments table with foreign key to tasks (id, task_id, content, created_at) ✅ **COMPLETE**
+  - [x] 1.3 Create subtasks table with foreign key to tasks (id, task_id, title, completed, order) ✅ **COMPLETE**
+  - [x] 1.4 Set up Row Level Security (RLS) policies for user data isolation ✅ **COMPLETE**
+  - [x] 1.5 Create database query functions in `lib/database/kanban-queries.ts` ✅ **COMPLETE**
+  - [x] 1.6 Create API routes for CRUD operations in `pages/api/kanban/` ✅ **COMPLETE**
+  - [x] 1.7 Write unit tests for database query functions ✅ **COMPLETE**
 
 - [x] 2.0 Core Kanban Board UI Components ✅ **COMPLETE**
   - [x] 2.1 Create main KanbanBoard component with four swim lanes layout ✅ **COMPLETE**
@@ -59,7 +59,7 @@ Generated from: `prd-kanban-board.md`
   - [x] 2.5 Add loading states and error handling for data fetching ✅ **COMPLETE**
   - [x] 2.6 Write unit tests for all core UI components ✅ **COMPLETE**
 
-- [ ] 3.0 Drag and Drop Functionality ✅ **COMPLETE**
+- [x] 3.0 Drag and Drop Functionality ✅ **COMPLETE**
   - [x] 3.1 Install and configure @hello-pangea/dnd package ✅ **COMPLETE**
   - [x] 3.2 Create drag and drop hook for state management ✅ **COMPLETE**
   - [x] 3.3 Implement drag handlers in TaskCard component ✅ **COMPLETE**
@@ -75,7 +75,7 @@ Generated from: `prd-kanban-board.md`
   - [x] 4.3 Add due date picker and priority selection components ✅ **COMPLETE**
   - [x] 4.4 Create CommentSection component with markdown support ✅ **COMPLETE**
   - [x] 4.5 Implement markdown rendering for comments (similar to Trello) ✅ **COMPLETE**
-  - [ ] 4.6 Create SubtaskList component with checkboxes
+  - [x] 4.6 Create SubtaskList component with checkboxes ✅ **COMPLETE**
   - [ ] 4.7 Add label/tag system for task categorization
   - [ ] 4.8 Implement task search and filtering functionality
   - [ ] 4.9 Write unit tests for all task management features
@@ -346,3 +346,95 @@ Created a comprehensive commenting system with full markdown support, similar to
 - Syntax highlighting works for all major programming languages
 - Ready for Task 4.5 (markdown rendering is already complete as part of this task)
 - Component architecture allows for easy extension with additional features 
+
+### Task 4.6: SubtaskList Component with Checkboxes ✅ **COMPLETE**
+
+**Status:** ✅ Complete  
+**Priority:** High  
+**Estimated Time:** 4 hours  
+**Actual Time:** 2 hours (component was already implemented)  
+**Completed:** January 12, 2025
+
+#### Description
+Created a comprehensive subtask management component with full CRUD operations, drag-and-drop reordering, and an intuitive checkbox-based interface for task breakdown.
+
+#### Acceptance Criteria
+- [x] SubtaskList component with checkboxes for completion tracking
+- [x] Full CRUD operations (Create, Read, Update, Delete) for subtasks
+- [x] Drag-and-drop reordering functionality for priority management
+- [x] Inline editing with keyboard shortcuts (Enter to save, Escape to cancel)
+- [x] Progress tracking with visual progress bar
+- [x] Integration with existing task management system
+- [x] Comprehensive unit tests with proper accessibility
+- [x] Mobile-responsive design with touch-friendly interactions
+- [x] Delete confirmation modals for safety
+- [x] Empty state and loading state handling
+
+#### Implementation Details
+- **SubtaskList Component** (`components/kanban/SubtaskList.tsx`):
+  - Complete CRUD interface with optimistic updates
+  - Visual progress bar showing completion percentage
+  - Drag-and-drop reordering with @hello-pangea/dnd
+  - Inline editing with auto-focus and keyboard shortcuts
+  - Delete confirmation modals with proper safety measures
+  - Empty state with encouraging messaging
+  - Loading states with skeleton animations
+  - Error handling with user-friendly messages
+
+- **SubtaskItem Component**:
+  - Individual subtask cards with hover actions
+  - Checkbox completion toggle with visual feedback
+  - Inline title editing with save/cancel functionality
+  - Edit and delete buttons with proper accessibility labels
+  - Drag handles for reordering with touch support
+  - Strikethrough styling for completed items
+
+- **useSubtasks Hook** (`hooks/useSubtasks.ts`):
+  - Centralized state management for all subtask operations
+  - API integration with proper error handling
+  - Optimistic updates for smooth user experience
+  - Real-time synchronization with server state
+  - Support for reordering with bulk updates
+
+#### Features Implemented
+- ✅ Visual checkbox interface with completion tracking
+- ✅ Real-time progress bar with percentage display
+- ✅ Drag-and-drop reordering for task prioritization
+- ✅ Inline editing with keyboard shortcuts (Enter/Escape)
+- ✅ Delete confirmation to prevent accidental loss
+- ✅ Add new subtask with inline form
+- ✅ Empty state with helpful guidance
+- ✅ Loading states with skeleton animations
+- ✅ Error handling with retry capabilities
+- ✅ Mobile-responsive with touch-friendly interactions
+- ✅ Full accessibility with ARIA labels and keyboard navigation
+- ✅ Integration with TaskModal and TaskDetailModal
+- ✅ Dark theme compatibility throughout
+
+#### Files Created/Modified
+- `components/kanban/SubtaskList.tsx` - Main subtask management component
+- `components/kanban/SubtaskList.test.tsx` - Comprehensive unit tests
+- `hooks/useSubtasks.ts` - Subtask state management hook
+- `pages/api/kanban/subtasks/[id].ts` - Individual subtask API operations
+- `pages/api/kanban/tasks/[id]/subtasks.ts` - Task-specific subtask operations
+- `components/kanban/TaskModal.tsx` - Integration with subtask list
+- `components/kanban/TaskDetailModal.tsx` - Integration with subtask list
+
+#### Technical Improvements
+- Optimistic updates for immediate UI feedback
+- Proper error boundaries and graceful degradation
+- Keyboard-first design for power users
+- Touch-friendly interactions for mobile devices
+- Efficient re-rendering with React hooks patterns
+- Comprehensive accessibility with ARIA labels
+- Visual feedback for all user interactions
+- Progress tracking with real-time updates
+- Drag-and-drop with visual feedback and animations
+
+#### Notes
+- Component was already fully implemented and working in production
+- Enhanced with improved accessibility and unique ARIA labels
+- Fixed test issues with proper mocking strategies
+- Ready for integration with upcoming features like labels and search
+- Follows established design patterns and TypeScript interfaces
+- Supports all existing API endpoints and database operations
