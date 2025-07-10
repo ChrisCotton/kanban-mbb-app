@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCategories, Category } from '../../hooks/useCategories'
 
-type SortField = 'name' | 'hourly_rate' | 'total_hours' | 'created_at' | 'updated_at'
+type SortField = 'name' | 'hourly_rate_usd' | 'total_hours' | 'created_at' | 'updated_at'
 type SortDirection = 'asc' | 'desc'
 
 interface CategoryListProps {
@@ -261,11 +261,11 @@ const CategoryList: React.FC<CategoryListProps> = ({
                         {sortField === 'name' && <span className="text-xs">{getSortIcon('name')}</span>}
                       </button>
                       <button
-                        onClick={() => { handleSort('hourly_rate'); setShowFilterDropdown(false) }}
+                        onClick={() => { handleSort('hourly_rate_usd'); setShowFilterDropdown(false) }}
                         className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between"
                       >
                         <span>Sort by Hourly Rate</span>
-                        {sortField === 'hourly_rate' && <span className="text-xs">{getSortIcon('hourly_rate')}</span>}
+                        {sortField === 'hourly_rate_usd' && <span className="text-xs">{getSortIcon('hourly_rate_usd')}</span>}
                       </button>
                       <button
                         onClick={() => { handleSort('total_hours'); setShowFilterDropdown(false) }}
@@ -343,11 +343,11 @@ const CategoryList: React.FC<CategoryListProps> = ({
                     <span className="text-xs">{getSortIcon('name')}</span>
                   </button>
                   <button
-                    onClick={() => handleSort('hourly_rate')}
+                    onClick={() => handleSort('hourly_rate_usd')}
                     className="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     <span>Rate</span>
-                    <span className="text-xs">{getSortIcon('hourly_rate')}</span>
+                    <span className="text-xs">{getSortIcon('hourly_rate_usd')}</span>
                   </button>
                   <button
                     onClick={() => handleSort('total_hours')}
@@ -388,7 +388,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
                       </h4>
                       <div className="flex items-center space-x-4 mt-1">
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {formatCurrency(category.hourly_rate)}/hr
+                          {formatCurrency(category.hourly_rate_usd)}/hr
                         </span>
                         <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                           {formatHours(category.total_hours)}

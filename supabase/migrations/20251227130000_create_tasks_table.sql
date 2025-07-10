@@ -20,9 +20,19 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 -- Create indexes for better query performance (only if they don't exist)
-CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+-- Only create user_id indexes if the column exists
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'tasks' AND column_name = 'user_id'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_user_status_order ON tasks(user_id, status, order_index);
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
-CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
-CREATE INDEX IF NOT EXISTS idx_tasks_user_status_order ON tasks(user_id, status, order_index); 
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at); 

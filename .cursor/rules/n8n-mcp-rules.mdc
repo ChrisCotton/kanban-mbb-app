@@ -1,0 +1,253 @@
+---
+description: "n8n workflow automation rules and n8n-mcp tool usage guidelines for MBB Kanban project"
+globs: ["**/n8n/**", "**/*workflow*", "**/*automation*", "**/pages/api/n8n-webhook/**"]
+alwaysApply: false
+---
+
+
+
+
+# n8n-MCP Rules & Guidelines
+
+## 🎯 Purpose
+This file provides context and rules specifically for n8n-mcp interactions within the MBB Kanban project.
+
+## 🏗️ Workflow Design Principles
+
+### Core Guidelines
+- **Start Simple**: Begin with basic trigger → action patterns
+- **Test Early**: Validate each node before adding complexity  
+- **Document Purpose**: Every workflow should have clear business value
+- **Error Handling**: Always include error paths and fallbacks
+- **Security First**: Never expose sensitive data in webhook responses
+
+### MBB Kanban Context
+- **Primary Use Cases**: Task automation, notifications, integrations, reporting
+- **Data Sources**: Supabase (tasks, categories, time sessions), external APIs
+- **Target Systems**: Slack, email, webhooks, database updates
+- **User Workflow**: Should enhance, not replace, the existing Kanban UI
+
+## 🔧 Node Selection Strategy
+
+### Preferred Nodes (Priority Order)
+1. **HTTP Request** - Most flexible for API calls
+2. **Supabase** - Direct database integration (if available)
+3. **Webhook** - For triggering from MBB Kanban app
+4. **Code** - TypeScript/JavaScript for complex logic
+5. **IF** - Simple conditional logic
+6. **Set** - Data transformation
+7. **Schedule Trigger** - Time-based automations
+
+### Node Selection Guidelines
+```
+Task: API Integration → HTTP Request node
+Task: Database Query → HTTP Request (Supabase API) or native Supabase node
+Task: Data Transform → Set node (simple) or Code node (complex)
+Task: Notifications → HTTP Request (Slack API) or Email node
+Task: Conditional Logic → IF node (simple) or Code node (complex)
+Task: Scheduling → Schedule Trigger or Cron node
+```
+
+### Avoid Unless Necessary
+- Overly complex nodes when simple ones suffice
+- Multiple nodes when one Code node could handle it
+- Deprecated or experimental nodes
+- Nodes requiring complex authentication setups
+
+## 🔄 Common Workflow Patterns
+
+### 1. MBB Kanban Integration Pattern
+```
+Webhook Trigger → Validate Data → Transform → Database Update → Notification
+```
+
+### 2. Reporting Pattern  
+```
+Schedule Trigger → Database Query → Data Processing → Format Report → Send
+```
+
+### 3. Task Automation Pattern
+```
+Database Trigger → IF Condition → Action (Slack/Email) → Log Result
+```
+
+### 4. External API Integration
+```
+Webhook → Validate → HTTP Request (External) → Transform → Database Update
+```
+
+## 🎛️ n8n-MCP Tool Usage Guidelines
+
+### Research & Planning Tools
+- `search_nodes` - Find nodes by functionality
+- `get_node_documentation` - Understand node capabilities
+- `get_node_essentials` - Quick configuration reference
+- `list_tasks` - Discover pre-configured patterns
+
+### Configuration Tools  
+- `get_node_for_task` - Get ready-to-use configurations
+- `validate_node_operation` - Check configuration before deployment
+- `get_property_dependencies` - Understand conditional fields
+
+### Workflow Management
+- `validate_workflow` - Complete workflow validation
+- `n8n_create_workflow` - Deploy to n8n instance
+- `n8n_list_workflows` - Check existing workflows
+- `n8n_health_check` - Verify API connectivity
+
+### Template & Examples
+- `search_templates` - Find community workflow examples
+- `get_template` - Download proven workflow patterns
+- `list_node_templates` - Find workflows using specific nodes
+
+## 🔐 Security & Authentication
+
+### MBB Kanban Specific
+- **Supabase**: Use service role key for database operations
+- **Webhooks**: Implement signature verification where possible
+- **API Keys**: Store in n8n credentials, never hardcode
+- **User Data**: Respect RLS policies, validate user permissions
+
+### Best Practices
+- Use n8n credential system for all sensitive data
+- Validate all incoming webhook data
+- Implement rate limiting for public endpoints
+- Log security events but not sensitive data
+
+## 📊 Data Handling
+
+### Supabase Integration
+```javascript
+// Preferred API pattern for tasks
+POST /rest/v1/tasks
+Headers: {
+  "apikey": "{{$credentials.supabase.api_key}}",
+  "Authorization": "Bearer {{$credentials.supabase.service_role}}",
+  "Content-Type": "application/json"
+}
+```
+
+### Data Transformation
+- Use Set node for simple field mapping
+- Use Code node for complex transformations
+- Always validate data types before database operations
+- Handle null/undefined values gracefully
+
+### MBB Categories Integration
+```javascript
+// Category validation pattern
+const validCategories = await supabase
+  .from('categories')
+  .select('id, name')
+  .eq('user_id', userId);
+```
+
+## 🧪 Testing & Validation
+
+### Pre-Deployment Checklist
+- [ ] All nodes validate successfully (`validate_node_operation`)
+- [ ] Workflow structure is valid (`validate_workflow`)  
+- [ ] Test data flows through successfully
+- [ ] Error handling paths tested
+- [ ] Security validations in place
+
+### Testing Strategy
+1. **Unit Level**: Test each node independently
+2. **Integration**: Test node connections and data flow
+3. **End-to-End**: Test complete workflow with real data
+4. **Error Cases**: Test with invalid/missing data
+
+## 🚨 Common Anti-Patterns
+
+### Avoid These Mistakes
+- ❌ Hardcoding API keys or sensitive data
+- ❌ Creating overly complex workflows that could be simpler
+- ❌ Missing error handling for external API calls
+- ❌ Not validating webhook payload data
+- ❌ Creating workflows without clear business purpose
+- ❌ Overusing Code nodes when built-in nodes exist
+- ❌ Not documenting workflow purpose and logic
+
+### Performance Anti-Patterns
+- ❌ Polling APIs too frequently
+- ❌ Making unnecessary API calls in loops
+- ❌ Not using batch operations when available
+- ❌ Creating workflows that could cause infinite loops
+
+## 🎯 MBB Kanban Specific Workflows
+
+### Priority Workflows
+1. **Task Status Notifications** - Slack alerts for important status changes
+2. **Daily Summaries** - Scheduled reports of task progress
+3. **Category Analytics** - Time tracking and category performance
+4. **Deadline Alerts** - Proactive notifications for approaching deadlines
+
+### Integration Points
+- **Webhook Endpoints**: `/api/n8n-webhook/{workflow-name}`
+- **Database Events**: Task creation, status updates, time logging
+- **External APIs**: Slack, calendar, email services
+- **Scheduled Tasks**: Daily summaries, cleanup operations
+
+## 🔄 Workflow Lifecycle
+
+### Development Process
+1. **Plan** - Define clear business requirement
+2. **Research** - Use n8n-mcp tools to find nodes and patterns
+3. **Build** - Create workflow with proper error handling
+4. **Validate** - Use validation tools before deployment
+5. **Test** - Comprehensive testing with real data
+6. **Deploy** - Create in n8n instance via MCP
+7. **Monitor** - Check execution logs and performance
+
+### Maintenance
+- Regular validation of existing workflows
+- Update credentials before expiration
+- Monitor execution times and error rates
+- Document any changes or updates
+
+## 📝 Documentation Standards
+
+### Workflow Documentation
+- Clear description of purpose and trigger conditions
+- Input/output data format specifications
+- Error handling and recovery procedures
+- Dependencies and external service requirements
+
+### Node Configuration Comments
+- Explain complex expressions or logic
+- Document any workarounds or special cases
+- Include links to relevant documentation
+- Note any MBB Kanban specific requirements
+
+## 🚀 Quick Reference Commands
+
+### Common n8n-mcp Patterns
+```bash
+# Find nodes for a task
+search_nodes("slack")
+
+# Get configuration help  
+get_node_essentials("nodes-base.httpRequest")
+
+# Validate before deploy
+validate_workflow(workflowJson)
+
+# Deploy to n8n
+n8n_create_workflow(name, nodes, connections)
+```
+
+### MBB Integration Endpoints
+- **Health Check**: `https://n8n.srv902802.hstgr.cloud/health`
+- **API Base**: `https://n8n.srv902802.hstgr.cloud/api/v1`
+- **Webhook Base**: `https://n8n.srv902802.hstgr.cloud/webhook`
+
+## 💡 Remember
+- Always use n8n-mcp tools for research and validation
+- Test workflows thoroughly before deployment  
+- Keep security and user privacy as top priorities
+- Document everything for future maintenance
+- Start simple and iterate toward complexity
+description:
+globs:
+alwaysApply: false
+---

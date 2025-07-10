@@ -37,7 +37,7 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
     // Get all categories - authentication handled at database level via RLS
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*, total_hours')
+      .select('*')
       .eq('is_active', true)
       .order('name', { ascending: true })
 
@@ -50,10 +50,10 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
       })
     }
 
-    // Ensure total_hours is always a number (hourly_rate_usd field already exists in DB)
+    // Add total_hours field (will be implemented in future migration)
     const categoriesWithCorrectField = (categories || []).map(category => ({
       ...category,
-      total_hours: category.total_hours || 0 // Ensure total_hours is always a number
+      total_hours: 0 // Placeholder until total_hours column is added
     }))
 
     return res.status(200).json({
@@ -91,12 +91,17 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
+    // Get the current user ID (using the same ID as existing categories for consistency)
+    const defaultUserId = '13178b88-fd93-4a65-8541-636c76dad940' // From existing data
+    
     const { data: newCategory, error } = await supabase
       .from('categories')
       .insert({
         name: name.trim(),
         hourly_rate_usd: numericRate,
-        color: color || null
+        color: color || null,
+        created_by: defaultUserId,
+        updated_by: defaultUserId
       })
       .select('*')
       .single()

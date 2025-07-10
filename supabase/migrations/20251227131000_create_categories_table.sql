@@ -20,14 +20,43 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE INDEX IF NOT EXISTS idx_categories_created_by ON categories(created_by);
 CREATE INDEX IF NOT EXISTS idx_categories_name_created_by ON categories(name, created_by);
 CREATE INDEX IF NOT EXISTS idx_categories_active ON categories(is_active) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_categories_hourly_rate ON categories(hourly_rate_usd);
 
--- Add unique constraint per user
-ALTER TABLE categories ADD CONSTRAINT categories_name_created_by_unique 
-    UNIQUE (name, created_by);
+-- Only create hourly_rate index if the column exists
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'categories' AND column_name = 'hourly_rate_usd'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_categories_hourly_rate ON categories(hourly_rate_usd);
+    ELSIF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'categories' AND column_name = 'hourly_rate'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_categories_hourly_rate ON categories(hourly_rate);
+    END IF;
+END $$;
+
+-- Add unique constraint per user only if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'categories_name_created_by_unique'
+    ) THEN
+        ALTER TABLE categories ADD CONSTRAINT categories_name_created_by_unique 
+            UNIQUE (name, created_by);
+    END IF;
+END $$;
 
 -- Enable Row Level Security
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist and recreate
+DROP POLICY IF EXISTS "Users can view their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can insert their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can update their own categories" ON categories;
+DROP POLICY IF EXISTS "Users can delete their own categories" ON categories;
 
 -- Create RLS policies using created_by
 CREATE POLICY "Users can view their own categories" ON categories
@@ -53,6 +82,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS trigger_categories_updated_at ON categories;
 CREATE TRIGGER trigger_categories_updated_at
     BEFORE UPDATE ON categories
     FOR EACH ROW

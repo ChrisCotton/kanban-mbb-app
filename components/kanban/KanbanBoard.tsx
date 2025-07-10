@@ -11,6 +11,8 @@ import BulkDeleteConfirmDialog from './BulkDeleteConfirmDialog'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { useKanban } from '../../hooks/useKanban'
 import { useMultiSelect } from '../../hooks/useMultiSelect'
+import { useTaskSearch } from '../../hooks/useTaskSearch'
+import SearchAndFilter, { SearchFilters } from './SearchAndFilter'
 
 interface KanbanBoardProps {
   className?: string
@@ -30,6 +32,26 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     clearError,
     refetchTasks
   } = useKanban()
+
+  // Search functionality
+  const {
+    organizedResults: searchResults,
+    searchStats,
+    isSearching,
+    searchError,
+    activeFilters,
+    isSearchMode,
+    hasActiveFilters,
+    performSearch,
+    clearSearch,
+    clearError: clearSearchError
+  } = useTaskSearch({
+    onError: (error) => console.error('Search error:', error)
+  })
+
+  // Use search results when in search mode, otherwise use regular tasks
+  const displayTasks = isSearchMode ? searchResults : tasks
+  const displayStats = isSearchMode ? searchStats : stats
 
   // Task Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -57,6 +79,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
   // Wrapper functions to match SwimLane interface expectations
   const handleTaskMove = async (taskId: string, newStatus: Task['status'], newOrderIndex: number) => {
     await moveTask(taskId, newStatus, newOrderIndex)
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
   }
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
@@ -66,10 +93,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     if (viewingTask && viewingTask.id === taskId) {
       setViewingTask(prev => prev ? { ...prev, ...updates } : null)
     }
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
   }
 
   const handleTaskDelete = async (taskId: string) => {
     await deleteTask(taskId)
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
+  }
+
+  // Search handlers
+  const handleSearch = async (filters: SearchFilters) => {
+    await performSearch(filters)
+  }
+
+  const handleClearSearch = () => {
+    clearSearch()
   }
 
   // Initialize drag and drop hook
@@ -79,7 +125,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     handleDragUpdate,
     handleDragEnd
   } = useDragAndDrop({
-    tasks,
+    tasks: displayTasks,
     onTaskMove: handleTaskMove,
     onOptimisticUpdate: handleOptimisticUpdate
   })
@@ -102,6 +148,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
         for (const taskId of taskIds) {
           await deleteTask(taskId)
         }
+        
+        // Refresh search results if in search mode
+        if (isSearchMode && hasActiveFilters) {
+          await performSearch(activeFilters)
+        }
       } finally {
         setIsBulkDeleting(false)
         setIsBulkDeleteDialogOpen(false)
@@ -111,6 +162,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       // Update tasks one by one
       for (const taskId of taskIds) {
         await updateTask(taskId, updates)
+      }
+      
+      // Refresh search results if in search mode
+      if (isSearchMode && hasActiveFilters) {
+        await performSearch(activeFilters)
       }
     }
   })
@@ -153,6 +209,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       // Creating new task
       await createTask(taskData)
     }
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
   }
 
   // Delete confirmation functions
@@ -171,6 +232,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       try {
         await deleteTask(taskToDelete.id)
         closeDeleteConfirm()
+        
+        // Refresh search results if in search mode
+        if (isSearchMode && hasActiveFilters) {
+          await performSearch(activeFilters)
+        }
       } catch (error) {
         // Error is already handled by the hook
         console.error('Delete failed:', error)
@@ -180,7 +246,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
 
   // Enhanced task delete wrapper with confirmation
   const handleTaskDeleteWithConfirm = async (taskId: string) => {
-    const task = Object.values(tasks).flat().find(t => t.id === taskId)
+    const allTasks = Object.values(displayTasks).flat()
+    const task = allTasks.find(t => t.id === taskId)
     if (task) {
       openDeleteConfirm(task)
     }
@@ -189,7 +256,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
   // Retry function for error handling
   const handleRetry = () => {
     clearError()
-    refetchTasks()
+    clearSearchError()
+    if (isSearchMode && hasActiveFilters) {
+      performSearch(activeFilters)
+    } else {
+      refetchTasks()
+    }
   }
 
   // Multi-select handlers
@@ -203,6 +275,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       await updateTask(taskId, updates)
     }
     clearSelection()
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
   }
 
   const handleBulkPriorityChange = async (priority: Task['priority']) => {
@@ -211,27 +288,35 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       await updateTask(taskId, updates)
     }
     clearSelection()
+    
+    // Refresh search results if in search mode
+    if (isSearchMode && hasActiveFilters) {
+      await performSearch(activeFilters)
+    }
   }
 
   const handleSelectAll = () => {
-    const allTaskIds = Object.values(tasks).flat().map(task => task.id)
+    const allTaskIds = Object.values(displayTasks).flat().map(task => task.id)
     selectAllTasks(allTaskIds)
   }
 
   const handleToggleTaskSelection = (taskId: string, shiftKey: boolean) => {
-    const allTasks = Object.values(tasks).flat()
+    const allTasks = Object.values(displayTasks).flat()
     toggleTaskSelection(taskId, shiftKey, allTasks)
   }
 
   const getSelectedTasks = (): Task[] => {
-    const allTasks = Object.values(tasks).flat()
+    const allTasks = Object.values(displayTasks).flat()
     return allTasks.filter(task => selectedTaskIds.includes(task.id))
   }
 
-  const totalTaskCount = Object.values(tasks).flat().length
+  const totalTaskCount = Object.values(displayTasks).flat().length
   const isAllSelected = selectedCount === totalTaskCount && totalTaskCount > 0
 
-  if (isLoading) {
+  const currentError = error || searchError
+  const currentIsLoading = isLoading || isSearching
+
+  if (currentIsLoading && !isSearchMode) {
     return (
       <div className={`flex items-center justify-center min-h-96 ${className}`}>
         <div className="flex flex-col items-center space-y-4 p-6">
@@ -248,7 +333,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
     )
   }
 
-  if (error) {
+  if (currentError && !isSearchMode) {
     return (
       <div className={`flex items-center justify-center min-h-96 ${className}`}>
         <div className="text-center p-6 max-w-md mx-auto">
@@ -260,7 +345,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Error Loading Board
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{error}</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{currentError}</p>
           <button
             onClick={handleRetry}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -279,19 +364,37 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
       onDragEnd={handleDragEnd}
     >
       <div className={`kanban-board ${className}`}>
+        {/* Search and Filter Component */}
+        <SearchAndFilter
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          isLoading={isSearching}
+          className="mb-6"
+        />
+
         {/* Board Header */}
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
-            Kanban Board
+            {isSearchMode ? 'Search Results' : 'Kanban Board'}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-            Manage your tasks across four swim lanes
+            {isSearchMode 
+              ? `Found ${displayStats.total} task${displayStats.total !== 1 ? 's' : ''} matching your search`
+              : 'Manage your tasks across four swim lanes'
+            }
           </p>
           
           {/* Task stats display */}
           <div className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            Total tasks: {stats.total} • Completed: {stats.done} • In progress: {stats.doing}
+            Total tasks: {displayStats.total} • Completed: {displayStats.done} • In progress: {displayStats.doing}
           </div>
+          
+          {/* Search error display */}
+          {searchError && (
+            <div className="mt-2 text-xs sm:text-sm text-red-600 dark:text-red-400">
+              Search error: {searchError}
+            </div>
+          )}
           
           {/* Drag status indicator */}
           {dragDropState.isDragging && (
@@ -306,7 +409,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           <SwimLane
             title="Backlog"
             status="backlog"
-            tasks={tasks.backlog}
+            tasks={displayTasks.backlog}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('backlog')}
             onTaskEdit={openEditModal}
@@ -323,7 +426,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           <SwimLane
             title="To Do"
             status="todo"
-            tasks={tasks.todo}
+            tasks={displayTasks.todo}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('todo')}
             onTaskEdit={openEditModal}
@@ -340,7 +443,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           <SwimLane
             title="Doing"
             status="doing"
-            tasks={tasks.doing}
+            tasks={displayTasks.doing}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('doing')}
             onTaskEdit={openEditModal}
@@ -357,7 +460,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           <SwimLane
             title="Done"
             status="done"
-            tasks={tasks.done}
+            tasks={displayTasks.done}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('done')}
             onTaskEdit={openEditModal}
@@ -375,19 +478,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
         {/* Task Statistics */}
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-gray-600">{stats.backlog}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-600">{displayStats.backlog}</div>
             <div className="text-xs sm:text-sm text-gray-500">Backlog</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.todo}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{displayStats.todo}</div>
             <div className="text-xs sm:text-sm text-gray-500">To Do</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.doing}</div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{displayStats.doing}</div>
             <div className="text-xs sm:text-sm text-gray-500">Doing</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.done}</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{displayStats.done}</div>
             <div className="text-xs sm:text-sm text-gray-500">Done</div>
           </div>
         </div>
@@ -408,7 +511,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           task={viewingTask}
           onUpdate={handleTaskUpdate}
           onMove={handleTaskMove}
-          allTasks={tasks}
+          allTasks={displayTasks}
         />
 
         {/* Bulk Actions Toolbar */}
@@ -438,6 +541,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
                 await deleteTask(taskId)
               }
               clearSelection()
+              
+              // Refresh search results if in search mode
+              if (isSearchMode && hasActiveFilters) {
+                await performSearch(activeFilters)
+              }
             } finally {
               setIsBulkDeleting(false)
               setIsBulkDeleteDialogOpen(false)
@@ -449,58 +557,26 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirmOpen && taskToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Delete Task
-                </h2>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Delete Task
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete "{taskToDelete.title}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
                 <button
                   onClick={closeDeleteConfirm}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L3.316 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2">
-                      Are you sure you want to delete this task?
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      <strong>"{taskToDelete.title}"</strong>
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500">
-                      This action cannot be undone. This will permanently delete the task and all associated data.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={closeDeleteConfirm}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  Delete Task
+                  Delete
                 </button>
               </div>
             </div>

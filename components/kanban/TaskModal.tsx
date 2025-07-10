@@ -6,6 +6,10 @@ import DatePicker from '../ui/DatePicker'
 import PrioritySelector from '../ui/PrioritySelector'
 import CategorySelector from '../ui/CategorySelector'
 import SubtaskList from './SubtaskList'
+import TagSelector from '../ui/TagSelector'
+import { useTaskTags } from '../../hooks/useTags'
+import { Tag } from '../../pages/api/tags/index'
+import { supabase } from '../../lib/supabase'
 
 interface TaskModalProps {
   isOpen: boolean
@@ -30,8 +34,27 @@ const TaskModal: React.FC<TaskModalProps> = ({
     due_date: '',
     category_id: ''
   })
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [userId, setUserId] = useState<string>('')
+  
+  // Use task tags hook for existing tasks
+  const { tags: taskTags, addTagToTask, removeTagFromTask } = useTaskTags(
+    task?.id || '', 
+    userId
+  )
+
+  // Get current user ID
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+      }
+    }
+    getUser()
+  }, [])
 
   // Reset form when modal opens/closes or task changes
   useEffect(() => {
@@ -248,6 +271,44 @@ const TaskModal: React.FC<TaskModalProps> = ({
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category_id}</p>
             )}
           </div>
+
+          {/* Tags Field */}
+          {userId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tags
+              </label>
+              <TagSelector
+                selectedTags={task ? taskTags : selectedTags}
+                onTagsChange={task ? async (tags) => {
+                  // For existing tasks, update via API
+                  const currentTagIds = taskTags.map(t => t.id)
+                  const newTagIds = tags.map(t => t.id)
+                  
+                  // Add new tags
+                  for (const tag of tags) {
+                    if (!currentTagIds.includes(tag.id)) {
+                      await addTagToTask(tag.id)
+                    }
+                  }
+                  
+                  // Remove removed tags
+                  for (const tagId of currentTagIds) {
+                    if (!newTagIds.includes(tagId)) {
+                      await removeTagFromTask(tagId)
+                    }
+                  }
+                } : setSelectedTags}
+                userId={userId}
+                disabled={isLoading}
+                error={errors.tags}
+                placeholder="Add tags to organize this task..."
+              />
+              {errors.tags && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tags}</p>
+              )}
+            </div>
+          )}
 
           {/* Due Date Field */}
           <div>

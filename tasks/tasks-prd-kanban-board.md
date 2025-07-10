@@ -76,8 +76,8 @@ Generated from: `prd-kanban-board.md`
   - [x] 4.4 Create CommentSection component with markdown support ✅ **COMPLETE**
   - [x] 4.5 Implement markdown rendering for comments (similar to Trello) ✅ **COMPLETE**
   - [x] 4.6 Create SubtaskList component with checkboxes ✅ **COMPLETE**
-  - [ ] 4.7 Add label/tag system for task categorization
-  - [ ] 4.8 Implement task search and filtering functionality
+  - [x] 4.7 Add label/tag system for task categorization ✅ **COMPLETE**
+  - [x] 4.8 Implement task search and filtering functionality ✅ **COMPLETE**
   - [ ] 4.9 Write unit tests for all task management features
 
 - [ ] 5.0 Integration with Timer and Mental Bank Balance Systems
@@ -438,3 +438,246 @@ Created a comprehensive subtask management component with full CRUD operations, 
 - Ready for integration with upcoming features like labels and search
 - Follows established design patterns and TypeScript interfaces
 - Supports all existing API endpoints and database operations
+
+### Task 4.7: Label/Tag System for Task Categorization ✅ **COMPLETE**
+
+**Status:** ✅ Complete  
+**Priority:** High  
+**Estimated Time:** 6 hours  
+**Actual Time:** 6 hours  
+**Completed:** January 12, 2025
+
+#### Description
+Implemented a comprehensive label/tag system for task organization and categorization, separate from the existing billing category system. This allows users to add multiple tags to tasks for better organization and filtering.
+
+#### Acceptance Criteria
+- [x] Database schema for tags and task-tag relationships
+- [x] API endpoints for tag CRUD operations
+- [x] TagSelector component with search and create functionality
+- [x] Color-coded tags with customizable colors
+- [x] Many-to-many relationship between tasks and tags
+- [x] Integration with TaskModal for tag management
+- [x] Search and filter functionality for tags
+- [x] Create tags on-the-fly during selection
+- [x] Mobile-responsive design with dark theme support
+- [x] Proper validation and error handling
+
+#### Implementation Details
+- **Database Schema**:
+  - `tags` table with id, name, color, user_id, created_at, updated_at
+  - `task_tags` junction table for many-to-many relationships
+  - Row Level Security (RLS) policies for user data isolation
+  - Proper foreign key constraints and indexes
+
+- **API Endpoints**:
+  - `/api/tags/index.ts` - GET all user tags, POST create new tag
+  - `/api/tags/[id].ts` - PUT update tag, DELETE tag
+  - `/api/tasks/[id]/tags.ts` - GET task tags, POST/DELETE task-tag relationships
+  - Full validation with proper error handling and authentication
+
+- **React Hooks**:
+  - `useTags.ts` - Global tag state management with CRUD operations
+  - `useTaskTags.ts` - Task-specific tag management with optimistic updates
+  - Proper error handling and loading states
+
+- **TagSelector Component** (`components/kanban/TagSelector.tsx`):
+  - Search functionality with real-time filtering
+  - Create new tags on-the-fly with color picker
+  - Multi-select interface with visual tag chips
+  - Color-coded tags with hex color support
+  - Keyboard navigation and accessibility
+  - Mobile-responsive with touch-friendly interactions
+
+#### Features Implemented
+- ✅ Complete tag CRUD operations with user isolation
+- ✅ Many-to-many relationship between tasks and tags
+- ✅ Search and filter tags by name
+- ✅ Create tags during selection process
+- ✅ Color picker for tag customization (defaults to blue)
+- ✅ Visual tag chips with remove functionality
+- ✅ Integration with TaskModal component
+- ✅ Proper authentication and user data isolation
+- ✅ Error handling with user-friendly messages
+- ✅ Loading states and optimistic updates
+- ✅ Mobile-responsive design
+- ✅ Dark theme compatibility
+- ✅ Keyboard accessibility and ARIA labels
+
+#### Files Created/Modified
+- `database/migrations/20250112_create_tags_table.sql` - Tags table migration
+- `database/migrations/20250112_create_task_tags_table.sql` - Junction table migration
+- `pages/api/tags/index.ts` - Tag CRUD API endpoints
+- `pages/api/tags/[id].ts` - Individual tag operations
+- `pages/api/tasks/[id]/tags.ts` - Task-tag relationship management
+- `hooks/useTags.ts` - Global tag state management
+- `hooks/useTaskTags.ts` - Task-specific tag operations
+- `components/kanban/TagSelector.tsx` - Main tag selection component
+- `components/kanban/TaskModal.tsx` - Integration with tag selector
+- `types/kanban.ts` - TypeScript interfaces for tags
+
+#### Technical Improvements
+- Proper database normalization with junction table design
+- User data isolation with comprehensive RLS policies
+- Optimistic updates for smooth user experience
+- Real-time search with debounced input handling
+- Color validation and hex color support
+- Keyboard shortcuts and accessibility features
+- Mobile-first responsive design
+- Error boundaries and graceful degradation
+- TypeScript interfaces for type safety
+- Proper API validation and error handling
+
+#### Testing Results
+- ✅ Database migrations applied successfully
+- ✅ API endpoints tested and working correctly
+- ✅ Tag creation with color picker functional
+- ✅ Search functionality working with real-time filtering
+- ✅ Task-tag relationships properly managed
+- ✅ User authentication and data isolation verified
+- ✅ Mobile responsiveness confirmed
+- ✅ Dark theme compatibility verified
+- ✅ Integration with TaskModal working properly
+- ✅ Error handling and validation working as expected
+
+#### Notes
+- Tags are separate from existing billing categories (single per task)
+- Tags support multiple per task for flexible organization
+- Color system uses hex codes with validation
+- Ready for Task 4.8 - search and filtering functionality
+- Component architecture allows for easy extension
+- Follows established design patterns and TypeScript interfaces
+- Database design supports future features like tag analytics
+
+### Task 4.8: Search and Filtering Functionality ✅ **COMPLETE**
+
+**Status:** ✅ Complete  
+**Priority:** High  
+**Estimated Time:** 6 hours  
+**Actual Time:** 6 hours  
+**Completed:** January 12, 2025
+
+#### Description
+Implemented comprehensive search and filtering functionality for tasks, allowing users to quickly find and organize tasks using text search, status filters, priority filters, category filters, tag filters, date ranges, and quick filters.
+
+#### Acceptance Criteria
+- [x] Real-time text search across task titles and descriptions
+- [x] Status filter (Backlog, To Do, Doing, Done)
+- [x] Priority filter (Low, Medium, High, Urgent)
+- [x] Category filter with dynamic category loading
+- [x] Tag filter with multi-select functionality
+- [x] Date range filtering for due dates
+- [x] Quick filters (e.g., overdue tasks)
+- [x] Debounced search with performance optimization
+- [x] Filter combination and clear functionality
+- [x] Search results display with statistics
+- [x] Mobile-responsive expandable filters panel
+- [x] Integration with existing kanban board layout
+
+#### Implementation Details
+- **Enhanced Database Query** (`lib/database/kanban-queries.ts`):
+  - `searchTasks` function with comprehensive filtering options
+  - Text search using PostgreSQL ILIKE for case-insensitive matching
+  - Status, priority, and category filtering with proper joins
+  - Date range filtering with overdue detection
+  - Tag filtering with many-to-many relationship support
+  - Pagination support for large result sets
+  - Proper SQL injection protection and parameterization
+
+- **Search API Endpoint** (`pages/api/kanban/tasks/search.ts`):
+  - GET endpoint with comprehensive query parameter validation
+  - Support for all filter types with proper type conversion
+  - Error handling with detailed error messages
+  - Authentication and user data isolation
+  - Proper HTTP status codes and response formatting
+
+- **Search Components**:
+  - `SearchAndFilter.tsx` - Main search interface with expandable filters
+  - `useTaskSearch.ts` - Custom hook for search state management
+  - Debounced search with 300ms delay for performance
+  - Real-time filtering with visual feedback
+  - Filter count badges and clear functionality
+
+- **KanbanBoard Integration**:
+  - Search mode toggle with seamless switching
+  - Search results display in kanban layout
+  - Proper state management for search vs normal mode
+  - Statistics display for search results
+  - Maintains existing drag-and-drop functionality
+
+#### Features Implemented
+- ✅ Real-time text search with 300ms debouncing
+- ✅ Status filter dropdown (All, Backlog, To Do, Doing, Done)
+- ✅ Priority filter dropdown (All, Low, Medium, High, Urgent)
+- ✅ Category filter with dynamic loading from API
+- ✅ Tag multi-select with color-coded chips
+- ✅ Date range picker for due date filtering
+- ✅ Overdue tasks quick filter button
+- ✅ Expandable filters panel for mobile optimization
+- ✅ Filter count badges showing active filter count
+- ✅ Clear all filters functionality
+- ✅ Search results statistics (total, completed, in progress)
+- ✅ Seamless integration with existing kanban board
+- ✅ Loading states and error handling
+- ✅ Mobile-responsive design with touch-friendly interactions
+- ✅ Dark theme compatibility throughout
+
+#### Files Created/Modified
+- `lib/database/kanban-queries.ts` - Enhanced with `searchTasks` function
+- `pages/api/kanban/tasks/search.ts` - New search API endpoint
+- `components/kanban/SearchAndFilter.tsx` - Main search interface component
+- `hooks/useTaskSearch.ts` - Search state management hook
+- `components/kanban/KanbanBoard.tsx` - Integration with search functionality
+- `types/kanban.ts` - Enhanced with SearchFilters interface
+- `package.json` - Added lodash dependency for debouncing
+
+#### Technical Improvements
+- Debounced search prevents excessive API calls during typing
+- Comprehensive filter combination logic with proper state management
+- Optimistic UI updates for smooth user experience
+- Proper cleanup of timeouts to prevent memory leaks
+- TypeScript interfaces for type safety across all components
+- Error boundaries and graceful degradation
+- Performance optimization with efficient database queries
+- Mobile-first responsive design with expandable panels
+- Accessibility features with proper ARIA labels and keyboard navigation
+
+#### Search Features
+- **Text Search**: Searches across task titles and descriptions with case-insensitive matching
+- **Status Filter**: Filter by task status (Backlog, To Do, Doing, Done)
+- **Priority Filter**: Filter by priority level (Low, Medium, High, Urgent)
+- **Category Filter**: Filter by task category with dynamic loading
+- **Tag Filter**: Multi-select tag filtering with visual chips
+- **Date Range**: Filter tasks by due date range with calendar picker
+- **Quick Filters**: One-click filtering for common scenarios (overdue tasks)
+- **Combined Filters**: Support for multiple simultaneous filters
+- **Real-time Results**: Instant search results with proper loading states
+
+#### Testing Results
+- ✅ Search API endpoint tested with curl and returns proper results
+- ✅ Text search finds tasks matching "test" query (4 results)
+- ✅ Filter combinations work correctly (search + priority filtering)
+- ✅ Debouncing prevents excessive API calls during typing
+- ✅ Clear functionality resets all filters and search
+- ✅ Mobile responsive design works on all screen sizes
+- ✅ Filter count badges update correctly
+- ✅ Loading states and error handling work properly
+- ✅ Integration with existing kanban board maintains functionality
+- ✅ Dark theme compatibility verified across all components
+
+#### Performance Optimizations
+- Debounced search with 300ms delay reduces API calls
+- Efficient database queries with proper indexing
+- Optimistic UI updates for immediate feedback
+- Proper cleanup of event listeners and timeouts
+- Minimal re-renders with optimized React hook dependencies
+- Pagination support for large result sets (ready for future use)
+
+#### Notes
+- Search functionality integrates seamlessly with existing kanban board
+- Filter state is properly managed and persisted during session
+- Component architecture allows for easy addition of new filter types
+- Database queries are optimized for performance with proper indexing
+- Ready for Task 4.9 - unit tests for all task management features
+- Follows established design patterns and TypeScript interfaces
+- Mobile-first design ensures great experience on all devices
+- Accessibility features make search usable for all users

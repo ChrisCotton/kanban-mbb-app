@@ -40,9 +40,9 @@
 ## Tasks
 
 - [ ] 1.0 **Phase 1: Database Schema Standardization and Critical Fixes**
-  - [ ] 1.1 Create migration script to standardize categories table schema with `hourly_rate_usd` column naming
-  - [ ] 1.2 Audit existing database to identify all inconsistent column references across tables
-  - [ ] 1.3 Update categories table to use consistent `hourly_rate_usd DECIMAL(10,2)` column type
+  - [x] 1.1 Create migration script to standardize categories table schema with `hourly_rate_usd` column naming
+  - [x] 1.2 Audit existing database to identify all inconsistent column references across tables  
+  - [x] 1.3 Update categories table to use consistent `hourly_rate_usd DECIMAL(10,2)` column type
   - [ ] 1.4 Fix foreign key relationships between categories and tasks tables
   - [ ] 1.5 Add proper database constraints and indexes for performance and data integrity
   - [ ] 1.6 Create rollback migration script in case of issues
@@ -50,10 +50,10 @@
   - [ ] 1.8 Update time_sessions table to reference correct category schema
 
 - [ ] 2.0 **Phase 2: API Endpoints and Core Functionality Implementation**
-  - [ ] 2.1 Update `/api/categories/index.ts` to use consistent `hourly_rate_usd` column naming
-  - [ ] 2.2 Fix POST endpoint request body validation to match database schema
-  - [ ] 2.3 Update GET endpoint to return task count for each category
-  - [ ] 2.4 Create `/api/categories/[id].ts` endpoint for individual category operations (PUT, DELETE)
+  - [x] 2.1 Update `/api/categories/index.ts` to use consistent `hourly_rate_usd` column naming
+  - [x] 2.2 Fix POST endpoint request body validation to match database schema
+  - [x] 2.3 Update GET endpoint to return task count for each category
+  - [x] 2.4 Create `/api/categories/[id].ts` endpoint for individual category operations (PUT, DELETE)
   - [ ] 2.5 Implement proper error handling with user-friendly messages
   - [ ] 2.6 Add request validation middleware for all category endpoints
   - [ ] 2.7 Update database query functions in `lib/database/kanban-queries.ts`

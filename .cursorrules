@@ -1,0 +1,121 @@
+# MCP Server Usage Rules
+
+## Complete MCP Server Selection Guidelines
+
+### 🌐 Use `browsermcp` (mcp_browsermcp_*) for:
+- Manual testing and experimentation
+- Sanity checks and quick validation
+- Interactive browser tasks
+- Ad-hoc web scraping
+- User-requested browser automation
+- Development and debugging tasks
+
+### 🎭 Use `playwright_mcp` (mcp_Playwright_*) for:
+- Regression testing
+- Integration testing
+- Automated test suites
+- Performance testing
+- Headless browser operations
+- Production-level browser automation
+
+### ⚙️ Use `n8n-mcp` (mcp_n8n-mcp_*) for:
+- Learning about n8n nodes and capabilities
+- Getting node documentation and configuration help
+- Validating n8n workflows and node configurations
+- Finding workflow templates and examples
+- Understanding node connections and dependencies
+- Building or planning automation workflows
+- Troubleshooting n8n setup and configuration
+- Searching for specific automation solutions
+
+**📋 n8n-mcp Context Rules:**
+When working with n8n-mcp tools, also reference `.cursor/rules/n8n-mcp-rules.md` for:
+- Workflow design principles specific to MBB Kanban project
+- Node selection strategy and best practices
+- Security guidelines for Supabase integration
+- Testing and validation procedures
+- Common workflow patterns and anti-patterns
+
+### 📋 Use `Atlassian` (Atlassian MCP) for:
+- Jira issue management and tracking
+- Confluence documentation access
+- Project management tasks
+- Team collaboration workflows
+- Sprint planning and management
+- Bug tracking and resolution
+
+## Enforcement Rules
+
+**NEVER mix MCP servers of the same type in one workflow**
+- Browser servers: Choose browsermcp OR playwright_mcp, not both
+- Each server maintains its own session/state
+- Mixing servers causes state confusion and inconsistency
+
+**Default Selection Logic:**
+
+**Browser Tasks:**
+- Manual/experimental → `browsermcp`
+- Automated/production → `playwright_mcp`
+
+**Workflow Automation:**
+- Learning/planning → `n8n-mcp`
+- Workflow documentation → `n8n-mcp`
+- Node configuration help → `n8n-mcp`
+
+**Project Management:**
+- Issue tracking → `Atlassian`
+- Documentation → `Atlassian`
+- Team collaboration → `Atlassian`
+
+**Keyword Triggers:**
+- "test", "experiment", "check", "try", "manual" → `browsermcp`
+- "regression", "integration", "automated", "production" → `playwright_mcp`
+- "n8n", "workflow", "automation", "node", "template" → `n8n-mcp`
+- "jira", "confluence", "issue", "project", "sprint" → `Atlassian`
+
+## Example Scenarios
+
+✅ **Correct Usage:**
+```
+User: "Test login functionality manually"
+→ Use browsermcp tools only
+
+User: "Run regression tests for checkout flow"
+→ Use playwright_mcp tools only
+
+User: "How do I configure an HTTP Request node in n8n?"
+→ Use n8n-mcp tools only
+
+User: "Create a Jira ticket for this bug"
+→ Use Atlassian tools only
+```
+
+❌ **Incorrect Usage:**
+```
+User: "Test login and take screenshot"
+→ DON'T mix: mcp_browsermcp_browser_navigate + mcp_Playwright_browser_take_screenshot
+→ DO use: mcp_browsermcp_browser_navigate + mcp_browsermcp_browser_screenshot
+
+User: "Find n8n nodes for email and test them in browser"
+→ DON'T mix: n8n-mcp + browsermcp in same workflow
+→ DO use: First n8n-mcp to research, then separate browsermcp session to test
+```
+
+## Multi-Server Scenarios
+
+**When combining servers IS appropriate:**
+- Sequential workflows: n8n-mcp research → browsermcp testing (separate sessions)
+- Different domains: Atlassian project management + n8n-mcp workflow building
+- Documentation: Atlassian notes + n8n-mcp technical details
+
+**When to ask for clarification:**
+- User request involves multiple automation types
+- Ambiguous keywords that could apply to different servers
+- Complex workflows spanning multiple domains
+
+## Override Clause
+Only use different MCP servers if:
+1. User explicitly requests a specific server
+2. One server lacks required functionality
+3. You explain the switch and get user confirmation
+4. Sequential workflows require different server capabilities 

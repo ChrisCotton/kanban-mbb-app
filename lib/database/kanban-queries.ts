@@ -90,6 +90,95 @@ export async function getTasks(status?: Task['status']) {
 }
 
 /**
+ * Search and filter tasks with comprehensive filtering options
+ */
+export async function searchTasks(params: {
+  query?: string
+  status?: Task['status']
+  priority?: Task['priority']
+  category?: string
+  tags?: string[]
+  overdue?: boolean
+  dateRange?: { start: string; end: string }
+  limit?: number
+  offset?: number
+}) {
+  let query = supabase
+    .from('tasks')
+    .select(`
+      *
+    `)
+    .order('order_index', { ascending: true })
+    .order('created_at', { ascending: false })
+
+  // Text search across title and description
+  if (params.query) {
+    query = query.or(`title.ilike.%${params.query}%,description.ilike.%${params.query}%`)
+  }
+
+  // Status filter
+  if (params.status) {
+    query = query.eq('status', params.status)
+  }
+
+  // Priority filter
+  if (params.priority) {
+    query = query.eq('priority', params.priority)
+  }
+
+  // Category filter
+  if (params.category) {
+    query = query.eq('category_id', params.category)
+  }
+
+  // Date range filter
+  if (params.dateRange) {
+    query = query.gte('due_date', params.dateRange.start)
+    query = query.lte('due_date', params.dateRange.end)
+  }
+
+  // Overdue filter
+  if (params.overdue) {
+    const today = new Date().toISOString().split('T')[0]
+    query = query.lt('due_date', today)
+    query = query.neq('status', 'done')
+  }
+
+  // Pagination
+  if (params.limit) {
+    query = query.limit(params.limit)
+  }
+  if (params.offset) {
+    query = query.range(params.offset, params.offset + (params.limit || 10) - 1)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(`Failed to search tasks: ${error.message}`)
+  }
+
+  // Filter by tags if specified (post-query filtering due to many-to-many relationship)
+  let filteredData = data as Task[]
+  if (params.tags && params.tags.length > 0) {
+    // Get tasks that have any of the specified tags
+    const { data: taskTagsData, error: taskTagsError } = await supabase
+      .from('task_tags')
+      .select('task_id')
+      .in('tag_id', params.tags)
+
+    if (taskTagsError) {
+      throw new Error(`Failed to filter by tags: ${taskTagsError.message}`)
+    }
+
+    const taskIdsWithTags = taskTagsData.map(tt => tt.task_id)
+    filteredData = filteredData.filter(task => taskIdsWithTags.includes(task.id))
+  }
+
+  return filteredData
+}
+
+/**
  * Get a single task by ID with optional related data
  */
 export async function getTask(id: string, includeDetails = false) {

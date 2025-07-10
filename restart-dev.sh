@@ -38,6 +38,44 @@ STATUS_ONLY=false
 FOLLOW_MODE=false
 KILL_ONLY=false
 
+# Function to load environment variables from .env.local
+load_environment_variables() {
+    echo -e "${CYAN}🔧 Loading environment variables from .env.local...${NC}"
+    
+    if [ -f ".env.local" ]; then
+        # Count lines in .env.local
+        local env_count=$(grep -c "=" .env.local 2>/dev/null || echo "0")
+        echo -e "${CYAN}   📄 Found .env.local with $env_count variables${NC}"
+        
+        # Source the file but also export the variables
+        set -a  # Automatically export all variables
+        source .env.local
+        set +a  # Turn off automatic export
+        
+        # Verify key variables are loaded
+        if [ ! -z "$NEXT_PUBLIC_SUPABASE_URL" ] && [ ! -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            local url_preview="${NEXT_PUBLIC_SUPABASE_URL:0:30}..."
+            local key_preview="${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
+            echo -e "${GREEN}   ✅ Supabase URL loaded: $url_preview${NC}"
+            echo -e "${GREEN}   ✅ Service key loaded: $key_preview${NC}"
+        else
+            echo -e "${YELLOW}   ⚠️  Warning: Supabase variables may not be loaded${NC}"
+            if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+                echo -e "${YELLOW}      - NEXT_PUBLIC_SUPABASE_URL is empty${NC}"
+            fi
+            if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+                echo -e "${YELLOW}      - SUPABASE_SERVICE_ROLE_KEY is empty${NC}"
+            fi
+        fi
+        
+        echo -e "${GREEN}   ✅ Environment variables loaded and exported${NC}"
+    else
+        echo -e "${RED}   ❌ Warning: .env.local file not found${NC}"
+        echo -e "${YELLOW}   🔍 Make sure .env.local exists in the project root${NC}"
+    fi
+    echo ""
+}
+
 # Function to show running server processes
 show_server_processes() {
     echo -e "${CYAN}🔍 Checking for running server processes...${NC}"
@@ -167,6 +205,11 @@ cd "$PROJECT_DIR" || {
     echo -e "${RED}❌ Error: Could not change to project directory: $PROJECT_DIR${NC}"
     exit 1
 }
+
+# Load environment variables for all modes that might need them
+if [ "$STATUS_ONLY" = false ] && [ "$KILL_ONLY" = false ]; then
+    load_environment_variables
+fi
 
 # Handle modes that don't start a server
 if [ "$STATUS_ONLY" = true ]; then

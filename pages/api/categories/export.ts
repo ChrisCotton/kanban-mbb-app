@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get all categories - authentication handled at database level via RLS
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*, total_hours')
+      .select('*')
       .eq('is_active', true)
       .order('name', { ascending: true })
 
@@ -25,10 +25,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch categories' })
     }
 
-    // Ensure total_hours is included and properly formatted for CSV export
+    // Add total_hours field for CSV export (placeholder until column is added)
     const categoriesWithCorrectField = (categories || []).map(category => ({
       ...category,
-      total_hours: category.total_hours || 0
+      total_hours: 0 // Placeholder until total_hours column is added
     }))
 
     // Generate CSV content

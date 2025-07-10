@@ -8,7 +8,7 @@ export default function DebugEnv() {
       
       <h2>Server-side Check</h2>
       <button onClick={async () => {
-        const response = await fetch('/api/debug-env')
+        const response = awai t fetch('/api/debug-env')
         const data = await response.json()
         alert(JSON.stringify(data, null, 2))
       }}>
