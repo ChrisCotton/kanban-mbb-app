@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useWeatherData, getCurrentMonthDateRange, formatDateForAPI } from '../../hooks/useWeatherData'
+import DailyWeatherCard, { DailyWeatherCardSkeleton } from '../weather/DailyWeatherCard'
 
 interface Task {
   id: string
@@ -27,6 +29,7 @@ interface CalendarDay {
   isCurrentMonth: boolean
   isToday: boolean
   tasks: Task[]
+  weather?: any // Weather data for this date
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -61,6 +64,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showTaskModal, setShowTaskModal] = useState(false)
 
+  // Weather data integration
+  const { startDate, endDate } = getCurrentMonthDateRange(currentDate)
+  const { 
+    weatherData, 
+    loading: weatherLoading, 
+    error: weatherError,
+    getWeatherForDate 
+  } = useWeatherData({
+    userId: userId || '',
+    startDate,
+    endDate,
+    autoRefresh: false
+  })
+
   // Get calendar days for current month
   const getCalendarDays = useCallback((): CalendarDay[] => {
     const year = currentDate.getFullYear()
@@ -93,12 +110,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         taskDate.setHours(0, 0, 0, 0)
         return taskDate.getTime() === date.getTime()
       })
+
+      // Find weather data for this date
+      const dateString = formatDateForAPI(date)
+      const dayWeather = getWeatherForDate(dateString)
       
       days.push({
         date,
         isCurrentMonth,
         isToday,
-        tasks: dayTasks
+        tasks: dayTasks,
+        weather: dayWeather
       })
     }
     
@@ -175,6 +197,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-white/70">Loading calendar...</p>
+          {weatherLoading && (
+            <p className="text-white/50 text-sm mt-2">Loading weather data...</p>
+          )}
         </div>
       </div>
     )
@@ -219,22 +244,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {error && (
+      {(error || weatherError) && (
         <div className="p-6 bg-red-500/20 border-b border-red-400/30">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-red-300">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-300"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          {error && (
+            <div className="flex items-center mb-2">
+              <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </button>
-          </div>
+              <span className="text-red-300">Tasks: {error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-400 hover:text-red-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {weatherError && (
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="text-yellow-300">Weather: {weatherError}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -249,7 +284,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
         <div className="grid grid-cols-7 gap-px bg-white/10">
           {calendarDays.map((day, index) => {
-            const dayClassName = `min-h-32 bg-white/5 p-2 ${
+            const dayClassName = `min-h-36 bg-white/5 p-2 ${
               day.isCurrentMonth ? '' : 'bg-white/5 opacity-50'
             } ${day.isToday ? 'bg-blue-500/20 border border-blue-400/30' : ''}`
             
@@ -263,8 +298,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   {day.date.getDate()}
                 </div>
 
+                {/* Weather Section */}
+                {day.weather && day.isCurrentMonth && (
+                  <div className="mb-2">
+                    <DailyWeatherCard
+                      date={day.date}
+                      weather={day.weather}
+                      compact={true}
+                      showDetails={false}
+                    />
+                  </div>
+                )}
+
+                {/* Weather Loading Skeleton */}
+                {!day.weather && weatherLoading && day.isCurrentMonth && (
+                  <div className="mb-2">
+                    <DailyWeatherCardSkeleton compact={true} />
+                  </div>
+                )}
+
+                {/* Tasks Section */}
                 <div className="space-y-1">
-                  {day.tasks.slice(0, 3).map(task => {
+                  {day.tasks.slice(0, day.weather ? 2 : 3).map(task => {
                     const taskClassName = `text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow backdrop-blur-sm ${
                       PRIORITY_COLORS[task.priority]
                     } ${STATUS_COLORS[task.status]}`
@@ -288,9 +343,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     )
                   })}
                   
-                  {day.tasks.length > 3 && (
+                  {day.tasks.length > (day.weather ? 2 : 3) && (
                     <div className="text-xs text-white/50 text-center">
-                      +{day.tasks.length - 3} more
+                      +{day.tasks.length - (day.weather ? 2 : 3)} more
                     </div>
                   )}
                 </div>
