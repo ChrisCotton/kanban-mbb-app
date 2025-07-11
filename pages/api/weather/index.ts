@@ -63,10 +63,8 @@ async function getWeatherData(req: NextApiRequest, res: NextApiResponse) {
   } = req.query
 
   if (!user_id) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'user_id is required' 
-    })
+    // Use a default user_id if none provided (temporary fix)
+    user_id = '00000000-0000-0000-0000-000000000000'
   }
 
   try {
