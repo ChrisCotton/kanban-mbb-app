@@ -10,6 +10,7 @@ interface SearchAndFilterProps {
   onClear: () => void
   isLoading?: boolean
   className?: string
+  userId?: string
 }
 
 export interface SearchFilters {
@@ -26,14 +27,15 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onSearch,
   onClear,
   isLoading = false,
-  className = ''
+  className = '',
+  userId
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [filters, setFilters] = useState<SearchFilters>({})
   const [searchQuery, setSearchQuery] = useState('')
   
   const { categories, loading: categoriesLoading } = useCategories()
-  const { tags, loading: tagsLoading } = useTags()
+  const { tags, loading: tagsLoading } = useTags(userId || '')
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Debounced search function

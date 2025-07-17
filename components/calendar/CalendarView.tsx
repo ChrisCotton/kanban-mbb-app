@@ -72,7 +72,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     error: weatherError,
     getWeatherForDate 
   } = useWeatherData({
-    userId: userId || '12345678-1234-1234-1234-123456789012', // Use same default as API
+    userId: userId || '',
     startDate,
     endDate,
     autoRefresh: false

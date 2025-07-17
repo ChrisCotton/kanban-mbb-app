@@ -136,8 +136,17 @@ async function createOrUpdateWeatherData(req: NextApiRequest, res: NextApiRespon
       reportDate
     } = req.body
 
-    // For n8n workflow data, use a default user_id (you can modify this later)
-    const defaultUserId = '12345678-1234-1234-1234-123456789012'
+    // For n8n workflow data, get or create a user (temporary solution)
+    // In production, you should pass the user_id from n8n workflow
+    const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers()
+    const defaultUserId = users && users.length > 0 ? users[0].id : null
+    
+    if (!defaultUserId) {
+      return res.status(500).json({
+        success: false,
+        error: 'No authenticated users found. Please create a user account first.'
+      })
+    }
     const today = new Date().toISOString().split('T')[0]
 
     const weatherData = {
