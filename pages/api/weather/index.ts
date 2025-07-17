@@ -53,14 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function getWeatherData(req: NextApiRequest, res: NextApiResponse) {
-  const { 
-    user_id, 
-    start_date, 
-    end_date, 
-    date,
-    location,
-    limit = '30' 
-  } = req.query
+  let user_id = req.query.user_id as string
 
   if (!user_id) {
     // Use a default user_id if none provided (temporary fix)
@@ -75,25 +68,25 @@ async function getWeatherData(req: NextApiRequest, res: NextApiResponse) {
       .order('date', { ascending: false })
 
     // Filter by specific date
-    if (date) {
-      query = query.eq('date', date)
+    if (req.query.date) {
+      query = query.eq('date', req.query.date as string)
     }
 
     // Filter by date range
-    if (start_date) {
-      query = query.gte('date', start_date)
+    if (req.query.start_date) {
+      query = query.gte('date', req.query.start_date as string)
     }
-    if (end_date) {
-      query = query.lte('date', end_date)
+    if (req.query.end_date) {
+      query = query.lte('date', req.query.end_date as string)
     }
 
     // Filter by location
-    if (location) {
-      query = query.ilike('location_name', `%${location}%`)
+    if (req.query.location) {
+      query = query.ilike('location_name', `%${req.query.location}%`)
     }
 
     // Apply limit
-    const limitNum = Math.min(parseInt(limit as string) || 30, 100)
+    const limitNum = Math.min(parseInt(req.query.limit as string) || 30, 100)
     query = query.limit(limitNum)
 
     const { data: weatherData, error } = await query
