@@ -28,6 +28,7 @@ export interface WeatherData {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log('Weather API called with method:', req.method)
+  console.log('Request body:', req.body)
   
   try {
     switch (req.method) {
@@ -118,6 +119,81 @@ async function getWeatherData(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function createOrUpdateWeatherData(req: NextApiRequest, res: NextApiResponse) {
+  console.log('POST data received:', JSON.stringify(req.body, null, 2))
+
+  // Handle data from n8n workflow (formatted weather data)
+  if (req.body.weatherReport && req.body.city) {
+    const {
+      city,
+      location,
+      temperature,
+      maxTemp,
+      minTemp,
+      conditions,
+      humidity,
+      windSpeed,
+      precipitation,
+      reportDate
+    } = req.body
+
+    // For n8n workflow data, use a default user_id (you can modify this later)
+    const defaultUserId = '12345678-1234-1234-1234-123456789012'
+    const today = new Date().toISOString().split('T')[0]
+
+    const weatherData = {
+      user_id: defaultUserId,
+      date: today,
+      location_name: city || 'Sacramento, CA',
+      latitude: 38.58, // Sacramento coordinates
+      longitude: -121.49,
+      temperature_current: temperature || null,
+      temperature_min: minTemp || null,
+      temperature_max: maxTemp || null,
+      weather_description: conditions || null,
+      weather_icon: null,
+      humidity: humidity || null,
+      wind_speed: windSpeed || null,
+      precipitation: precipitation || 0,
+      source: 'n8n-workflow-open-meteo'
+    }
+
+    try {
+      const { data: newWeatherData, error } = await supabase
+        .from('weather_data')
+        .upsert(weatherData, { 
+          onConflict: 'user_id,date,location_name' 
+        })
+        .select('*')
+        .single()
+
+      if (error) {
+        console.error('Supabase error creating/updating weather data:', error)
+        return res.status(500).json({ 
+          success: false,
+          error: 'Failed to save weather data',
+          details: error.message
+        })
+      }
+
+      console.log('Weather data from n8n saved successfully:', newWeatherData?.id)
+
+      return res.status(201).json({
+        success: true,
+        data: newWeatherData,
+        message: 'Weather data from n8n saved successfully'
+      })
+
+    } catch (error) {
+      console.error('Error saving n8n weather data:', error)
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to save weather data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  }
+
+  // Handle direct API calls (original format)
   const { 
     user_id, 
     date, 
@@ -135,7 +211,7 @@ async function createOrUpdateWeatherData(req: NextApiRequest, res: NextApiRespon
     source = 'open-meteo'
   } = req.body
 
-  // Validate required fields
+  // Validate required fields for direct API calls
   if (!user_id || !date || !latitude || !longitude) {
     return res.status(400).json({ 
       success: false,

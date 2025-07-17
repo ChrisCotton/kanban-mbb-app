@@ -56,39 +56,65 @@ export const useWeatherData = (options: UseWeatherDataOptions): UseWeatherDataRe
       setLoading(true)
       setError(null)
 
-      const params = new URLSearchParams({
-        user_id: userId,
-        limit: '50'
-      })
+      // If we have a single date (startDate === endDate) or just startDate, use the date-specific endpoint
+      if (startDate && (!endDate || startDate === endDate)) {
+        console.log(`Fetching weather data for single date: ${startDate}, user: ${userId}`)
+        
+        const response = await fetch(`/api/weather/${startDate}?user_id=${userId}`)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
-      if (startDate) {
-        params.append('start_date', startDate)
+        const result = await response.json()
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch weather data')
+        }
+
+        // Convert single result to array format
+        const weatherArray = result.data ? [result.data] : []
+        console.log('Weather data fetched successfully:', weatherArray.length, 'entries')
+        setWeatherData(weatherArray)
+        
+      } else {
+        // For date ranges, we'll need to fetch multiple dates or use a different approach
+        // For now, let's handle the range by fetching each date individually
+        const weatherResults: WeatherData[] = []
+        
+        if (startDate && endDate) {
+          const start = new Date(startDate)
+          const end = new Date(endDate)
+          const dates: string[] = []
+          
+          // Generate array of dates between start and end
+          for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+            dates.push(date.toISOString().split('T')[0])
+          }
+          
+          console.log(`Fetching weather data for date range: ${startDate} to ${endDate} (${dates.length} dates)`)
+          
+          // Fetch weather for each date
+          for (const date of dates) {
+            try {
+              const response = await fetch(`/api/weather/${date}?user_id=${userId}`)
+              
+              if (response.ok) {
+                const result = await response.json()
+                if (result.success && result.data) {
+                  weatherResults.push(result.data)
+                }
+              }
+              // Continue even if one date fails
+            } catch (err) {
+              console.warn(`Failed to fetch weather for ${date}:`, err)
+            }
+          }
+        }
+        
+        console.log('Weather data fetched successfully:', weatherResults.length, 'entries')
+        setWeatherData(weatherResults)
       }
-
-      if (endDate) {
-        params.append('end_date', endDate)
-      }
-
-      if (location) {
-        params.append('location', location)
-      }
-
-      console.log('Fetching weather data with params:', params.toString())
-
-      const response = await fetch(`/api/weather?${params}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch weather data')
-      }
-
-      console.log('Weather data fetched successfully:', result.data?.length || 0, 'entries')
-      setWeatherData(result.data || [])
 
     } catch (err) {
       console.error('Error fetching weather data:', err)
