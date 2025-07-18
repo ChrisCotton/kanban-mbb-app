@@ -121,7 +121,7 @@
   - [ ] 6.1 Create unit tests for `/api/categories/index.ts` endpoint
   - [ ] 6.2 Create unit tests for `/api/categories/[id].ts` endpoint
   - [ ] 6.3 Write tests for `hooks/useCategories.ts` custom hook
-  - [ ] 6.4 Add component tests for `CategoryManager.tsx`
+  - [x] 6.4 Add component tests for `CategoryManager.tsx`
   - [ ] 6.5 Add component tests for `CategorySelector.tsx`
   - [ ] 6.6 Test database migration scripts on test database
   - [ ] 6.7 Create integration tests for category CRUD operations
