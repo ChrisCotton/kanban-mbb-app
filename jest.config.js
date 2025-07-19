@@ -13,6 +13,8 @@ const customJestConfig = {
     '^@/components/(.*)$': '<rootDir>/components/$1',
     '^@/pages/(.*)$': '<rootDir>/pages/$1',
     '^@/lib/(.*)$': '<rootDir>/lib/$1',
+    '^remark-gfm$': '<rootDir>/__mocks__/remark-gfm.js',
+    '^rehype-highlight$': '<rootDir>/__mocks__/rehype-highlight.js',
   },
   testEnvironment: 'jest-environment-jsdom',
   collectCoverageFrom: [

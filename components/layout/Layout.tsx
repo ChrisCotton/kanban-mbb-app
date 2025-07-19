@@ -4,6 +4,7 @@ import React from 'react'
 import Head from 'next/head'
 import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
 import Navigation from './Navigation'
+import MBBTimerSection from '../timer/MBBTimerSection'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -13,6 +14,18 @@ interface LayoutProps {
   showNavigation?: boolean
   showTimer?: boolean
   carouselImages?: any[] // Will be properly typed when we have the full vision board system
+  activeTask?: {
+    id: string
+    title: string
+    category?: {
+      id: string
+      name: string
+      hourly_rate: number
+      color?: string
+    }
+  } | null
+  userId?: string
+  onTaskSelect?: () => void
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -22,7 +35,10 @@ const Layout: React.FC<LayoutProps> = ({
   showCarousel = true,
   showNavigation = true,
   showTimer = true,
-  carouselImages = []
+  carouselImages = [],
+  activeTask,
+  userId,
+  onTaskSelect
 }) => {
   return (
     <>
@@ -69,31 +85,11 @@ const Layout: React.FC<LayoutProps> = ({
 
           {/* MBB Timer Footer */}
           {showTimer && (
-            <div className="w-full bg-black/30 backdrop-blur-sm border-t border-white/10">
-              <div className="container mx-auto px-4 py-4">
-                {/* Placeholder for MBBTimerSection component */}
-                <div className="flex items-center justify-between text-white">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm font-medium">MBB Balance:</div>
-                    <div className="text-xl font-bold text-green-400">$0.00</div>
-                    <div className="text-sm opacity-60">Target: $1,000.00</div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm">Timer:</div>
-                    <div className="text-lg font-mono">00:00:00</div>
-                    <div className="flex space-x-2">
-                      <button className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition-colors">
-                        Start
-                      </button>
-                      <button className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition-colors">
-                        Stop
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <MBBTimerSection 
+              activeTask={activeTask}
+              userId={userId}
+              onTaskSelect={onTaskSelect}
+            />
           )}
         </div>
       </div>

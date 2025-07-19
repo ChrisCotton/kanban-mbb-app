@@ -46,10 +46,11 @@ Based on: `prd-integrated-dashboard-layout.md`
 - `components/kanban/TaskCard.tsx` - Modified to display category information (existing file).
 - `components/kanban/TaskCard.test.tsx` - Updated unit tests for TaskCard component (existing file).
 - `components/kanban/TaskModal.tsx` - Modified to include category selection (existing file).
-- `components/timer/MBBTimerSection.tsx` - Bottom dashboard timer component with MBB calculations.
-- `components/timer/MBBTimerSection.test.tsx` - Unit tests for MBBTimerSection component.
-- `components/timer/TimerControls.tsx` - Timer control buttons (play/stop/pause/reset).
-- `components/timer/TimerControls.test.tsx` - Unit tests for TimerControls component.
+- `components/timer/MBBTimerSection.tsx` - Timer section component for the bottom dashboard with glassmorphic styling and timer controls.
+- `components/timer/MBBTimerSection.test.tsx` - Comprehensive unit tests for the MBBTimerSection component covering all timer functionality.
+- `components/timer/TimerControls.tsx` - Modular and reusable timer control buttons component with multiple size and variant options.
+- `components/timer/TimerControls.test.tsx` - Comprehensive unit tests for the TimerControls component covering all states and customization options.
+- `components/mbb/MentalBankDisplay.tsx` - Mental Bank Balance display component.
 - `components/timer/MBBDisplay.tsx` - Component showing MBB balance and progress.
 - `components/timer/MBBDisplay.test.tsx` - Unit tests for MBBDisplay component.
 - `pages/calendar.js` - New page for calendar view of tasks with persistent carousel.
@@ -150,8 +151,8 @@ Based on: `prd-integrated-dashboard-layout.md`
   - [x] 4.14 Add CSV template download functionality for category upload
   - [x] 4.15 Implement error handling and validation for CSV bulk upload
 - [ ] 5.0 MBB Timer Section Implementation
-  - [ ] 5.1 Create MBBTimerSection component for bottom dashboard
-  - [ ] 5.2 Build TimerControls component with play/stop/pause/reset buttons
+  - [x] 5.1 Create MBBTimerSection component for bottom dashboard ✅ **COMPLETE** (with comprehensive unit tests)
+  - [x] 5.2 Build TimerControls component with play/stop/pause/reset buttons ✅ **COMPLETE** (with comprehensive unit tests and refactored into MBBTimerSection)
   - [ ] 5.3 Create MBBDisplay component showing balance and progress
   - [ ] 5.4 Implement useTimer hook for timer state management
   - [ ] 5.5 Build real-time MBB calculation functionality

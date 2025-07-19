@@ -21,6 +21,7 @@ interface TaskDetailModalProps {
   onUpdate?: (taskId: string, updates: Partial<Task>) => Promise<void>
   onMove?: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => Promise<void>
   allTasks?: Record<Task['status'], Task[]>
+  onStartTiming?: (task: Task) => void // New prop for starting timer
 }
 
 interface ConfirmationModalProps {
@@ -37,7 +38,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm" data-testid="confirmation-modal">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Discard Changes?
@@ -70,7 +71,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   task,
   onUpdate,
   onMove,
-  allTasks
+  allTasks,
+  onStartTiming
 }) => {
   const [isClosing, setIsClosing] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -291,32 +293,50 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </span>
           </div>
           <div className="flex items-center space-x-2">
-              {isEditing ? (
-                <>
+            {isEditing ? (
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleCancel}
+                  disabled={isUpdating}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdate}
+                  disabled={isUpdating || !hasChanges}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isUpdating && (
+                    <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  )}
+                  {isUpdating ? 'Updating...' : 'Update Task'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3">
+                {onMove && allTasks && task && task.status && (
+                  <PositionalMoveDropdown
+                    currentTask={task}
+                    allTasks={allTasks}
+                    onMove={onMove}
+                  />
+                )}
+                {onStartTiming && task && (
                   <button
-                    onClick={handleCancel}
-                    disabled={isUpdating}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                    onClick={() => onStartTiming(task)}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Cancel
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                    Start Timing
                   </button>
-                  <button
-                    onClick={handleUpdate}
-                    disabled={isUpdating || !hasChanges}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isUpdating && (
-                      <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                    )}
-                    {isUpdating ? 'Updating...' : 'Update Task'}
-                  </button>
-                </>
-              ) : (
-                onUpdate && (
-              <button
-                    onClick={() => setIsEditing(true)}
+                )}
+                <button
+                  onClick={() => setIsEditing(true)}
                 className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,11 +344,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </svg>
                 Edit Task
               </button>
-                )
+              </div>
             )}
             <button
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Close modal"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -576,7 +597,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {/* Task Metadata */}
               <div className="space-y-4">
                   {/* Position & Status */}
-                  {onMove && allTasks && (
+                  {onMove && allTasks && task && task.status && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Position

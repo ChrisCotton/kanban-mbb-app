@@ -19,6 +19,11 @@ const PositionalMoveDropdown: React.FC<PositionalMoveDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [isMoving, setIsMoving] = useState(false)
 
+  // Safety check: ensure currentTask and status exist
+  if (!currentTask || !currentTask.status) {
+    return null
+  }
+
   const statusOptions: { value: Task['status']; label: string; color: string }[] = [
     { value: 'backlog', label: 'Backlog', color: 'text-gray-600' },
     { value: 'todo', label: 'To Do', color: 'text-blue-600' },

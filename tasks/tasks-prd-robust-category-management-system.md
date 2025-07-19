@@ -1,6 +1,7 @@
 ## Relevant Files
 
 - `database/migrations/013_standardize_categories_schema.sql` - New migration to fix schema inconsistencies and standardize column naming
+- `database/migrations/020_fix_foreign_key_relationships.sql` - Migration to fix foreign key relationships and add proper constraints between categories and tasks tables
 - `pages/api/categories/index.ts` - Categories API endpoint requiring updates for consistent column naming
 - `pages/api/categories/[id].ts` - Individual category API endpoint for update/delete operations
 - `pages/api/categories/export.ts` - CSV export API endpoint to generate downloadable category data
@@ -43,7 +44,7 @@
   - [x] 1.1 Create migration script to standardize categories table schema with `hourly_rate_usd` column naming
   - [x] 1.2 Audit existing database to identify all inconsistent column references across tables  
   - [x] 1.3 Update categories table to use consistent `hourly_rate_usd DECIMAL(10,2)` column type
-  - [ ] 1.4 Fix foreign key relationships between categories and tasks tables
+  - [x] 1.4 Fix foreign key relationships between categories and tasks tables ✅ **COMPLETE**
   - [ ] 1.5 Add proper database constraints and indexes for performance and data integrity
   - [ ] 1.6 Create rollback migration script in case of issues
   - [ ] 1.7 Test migration script on development database

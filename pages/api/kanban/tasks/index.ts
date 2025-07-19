@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getTasks, createTask, Task } from '../../../../lib/database/kanban-queries'
+import { validateUUID } from '../../../../lib/utils/uuid'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -55,6 +56,15 @@ async function handleCreateTask(req: NextApiRequest, res: NextApiResponse) {
   if (!user_id || typeof user_id !== 'string') {
     return res.status(400).json({ 
       error: 'user_id is required' 
+    })
+  }
+
+  // Validate UUID format
+  try {
+    validateUUID(user_id, 'user_id')
+  } catch (error) {
+    return res.status(400).json({ 
+      error: error.message 
     })
   }
 

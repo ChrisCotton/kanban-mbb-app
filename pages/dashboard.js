@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [visionBoardImages, setVisionBoardImages] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeTask, setActiveTask] = useState(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -50,11 +51,17 @@ export default function Dashboard() {
     return null
   }
 
+  const handleStartTiming = (task) => {
+    setActiveTask(task)
+  }
+
   return (
     <Layout 
       title="Dashboard - Mental Bank Balance"
       description="Manage your tasks and track productivity with the Kanban board"
       carouselImages={visionBoardImages}
+      activeTask={activeTask}
+      userId={user?.id}
     >
       <main className="flex-1 container mx-auto px-4 py-8">
         <KanbanProvider>
@@ -69,7 +76,7 @@ export default function Dashboard() {
             </div>
             
             <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-              <KanbanBoard className="w-full" />
+              <KanbanBoard className="w-full" onStartTiming={handleStartTiming} />
             </div>
           </div>
         </KanbanProvider>

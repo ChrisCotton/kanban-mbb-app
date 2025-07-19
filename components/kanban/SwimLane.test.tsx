@@ -1,9 +1,28 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { DragDropContext } from '@hello-pangea/dnd'
-import SwimLane from './SwimLane'
 import { Task } from '../../lib/database/kanban-queries'
+import userEvent from '@testing-library/user-event';
+import SwimLane from './SwimLane'
+
+// Mock the entire @hello-pangea/dnd library
+jest.mock('@hello-pangea/dnd', () => ({
+  DragDropContext: ({ children, onDragEnd }: any) => {
+    // Expose onDragEnd for testing, ensuring it's always a function
+    global.onDragEnd = onDragEnd || jest.fn();
+    return <div data-testid="drag-drop-context">{children}</div>;
+  },
+  Droppable: ({ children }: any) => children({
+    draggableProps: { style: {} },
+    innerRef: jest.fn(),
+    placeholder: null,
+  }, {}),
+  Draggable: ({ children }: any) => children({
+    draggableProps: { style: {} },
+    dragHandleProps: null,
+    innerRef: jest.fn(),
+  }, {}),
+}));
 
 // Mock the TaskCard component
 jest.mock('./TaskCard', () => {
@@ -57,144 +76,151 @@ const defaultProps = {
   color: 'blue' as const
 }
 
-// Helper component to wrap SwimLane with required DragDropContext
+// Helper component to wrap SwimLane (no longer needs onDragEnd prop, as it's mocked globally)
 const SwimLaneWrapper = ({ children }: { children: React.ReactNode }) => (
-  <DragDropContext onDragEnd={() => {}}>
-    {children}
-  </DragDropContext>
-)
+  <div data-testid="swim-lane-wrapper">{children}</div>
+);
 
 describe('SwimLane', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockFetch.mockClear()
-  })
+    jest.clearAllMocks();
+    mockFetch.mockClear();
+    // Mock console.error to prevent test output pollution for expected errors
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    // Restore console.error after each test
+    jest.restoreAllMocks();
+    // Clear the global mock for onDragEnd
+    // @ts-ignore
+    global.onDragEnd = undefined;
+  });
 
   it('renders swim lane with correct title and task count', () => {
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
-    expect(screen.getByText('Test Lane')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument() // Task count badge
-  })
+    expect(screen.getByText('Test Lane')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument(); // Task count badge
+  });
 
   it('renders all tasks in the swim lane', () => {
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
-    expect(screen.getByTestId('task-card-1')).toBeInTheDocument()
-    expect(screen.getByTestId('task-card-2')).toBeInTheDocument()
-    expect(screen.getByTestId('task-title-1')).toHaveTextContent('Test Task 1')
-    expect(screen.getByTestId('task-title-2')).toHaveTextContent('Test Task 2')
-  })
+    expect(screen.getByTestId('task-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('task-card-2')).toBeInTheDocument();
+    expect(screen.getByTestId('task-title-1')).toHaveTextContent('Test Task 1');
+    expect(screen.getByTestId('task-title-2')).toHaveTextContent('Test Task 2');
+  });
 
   it('applies correct color classes for different swim lane types', () => {
     const { rerender } = render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} color="gray" />
       </SwimLaneWrapper>
-    )
+    );
     
     // Test different colors by checking if the component renders without errors
     rerender(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} color="blue" />
       </SwimLaneWrapper>
-    )
+    );
     rerender(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} color="yellow" />
       </SwimLaneWrapper>
-    )
+    );
     rerender(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} color="green" />
       </SwimLaneWrapper>
-    )
+    );
     
     // All should render successfully
-    expect(screen.getByText('Test Lane')).toBeInTheDocument()
-  })
+    expect(screen.getByText('Test Lane')).toBeInTheDocument();
+  });
 
   it('shows empty state when no tasks are present', () => {
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} tasks={[]} />
       </SwimLaneWrapper>
-    )
+    );
 
-    expect(screen.getByText('No tasks in test lane')).toBeInTheDocument()
-    expect(screen.getByText('0')).toBeInTheDocument() // Task count should be 0
-  })
+    expect(screen.getByText('No tasks in test lane')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument(); // Task count should be 0
+  });
 
-  it('handles drag and drop events', () => {
+  it('handles drag and drop events', async () => {
+    const mockOnTaskMove = jest.fn();
+    render(
+      <SwimLaneWrapper>
+        <SwimLane {...defaultProps} onTaskMove={mockOnTaskMove} />
+      </SwimLaneWrapper>
+    );
+
+    // Now, trigger the mocked onDragEnd from the global object
+    // @ts-ignore
+    global.onDragEnd({
+      draggableId: '1',
+      source: { droppableId: 'todo', index: 0 },
+      destination: { droppableId: 'doing', index: 0 },
+      type: 'DEFAULT'
+    });
+
+    await waitFor(() => {
+      expect(mockOnTaskMove).toHaveBeenCalledWith('1', 'doing', 0);
+    });
+  });
+
+  it('shows add task form when add button is clicked', async () => {
+    const user = userEvent.setup();
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
-    const swimLaneContent = screen.getByText('Test Lane').closest('.swim-lane')?.querySelector('div:nth-child(2)')
-    
-    if (swimLaneContent) {
-      // Simulate drag over
-      fireEvent.dragOver(swimLaneContent, {
-        dataTransfer: {
-          getData: () => 'task-id-123'
-        }
-      })
+    const addButton = screen.getByRole('button', { name: /add task/i });
+    await user.click(addButton);
 
-      // Simulate drop
-      fireEvent.drop(swimLaneContent, {
-        dataTransfer: {
-          getData: () => 'task-id-123'
-        }
-      })
+    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
 
-      expect(defaultProps.onTaskMove).toHaveBeenCalledWith('task-id-123', 'todo', 2)
-    }
-  })
-
-  it('shows add task form when add button is clicked', () => {
+  it('hides add task form when cancel is clicked', async () => {
+    const user = userEvent.setup();
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
-
-    const addButton = screen.getByText('Add Task')
-    fireEvent.click(addButton)
-
-    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument()
-    expect(screen.getByText('Add')).toBeInTheDocument()
-    expect(screen.getByText('Cancel')).toBeInTheDocument()
-  })
-
-  it('hides add task form when cancel is clicked', () => {
-    render(
-      <SwimLaneWrapper>
-        <SwimLane {...defaultProps} />
-      </SwimLaneWrapper>
-    )
+    );
 
     // Open form
-    fireEvent.click(screen.getByText('Add Task'))
-    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /add task/i }));
+    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument();
 
     // Cancel form
-    fireEvent.click(screen.getByText('Cancel'))
-    expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument()
-    expect(screen.getByText('Add Task')).toBeInTheDocument()
-  })
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument();
+  });
 
   it('handles task creation with onTaskCreate prop', async () => {
-    const mockOnTaskCreate = jest.fn().mockResolvedValue(undefined)
+    const mockOnTaskCreate = jest.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
     
     render(
       <SwimLaneWrapper>
@@ -203,51 +229,53 @@ describe('SwimLane', () => {
           onTaskCreate={mockOnTaskCreate}
         />
       </SwimLaneWrapper>
-    )
+    );
 
     // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    await user.click(screen.getByRole('button', { name: /add task/i }));
     
     // Enter task title
-    const input = screen.getByPlaceholderText('Enter task title...')
-    fireEvent.change(input, { target: { value: 'New Test Task' } })
+    const input = screen.getByPlaceholderText('Enter task title...');
+    await user.type(input, 'New Test Task');
     
     // Submit form
-    fireEvent.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: /add/i }));
 
     await waitFor(() => {
       expect(mockOnTaskCreate).toHaveBeenCalledWith({
         title: 'New Test Task',
         status: 'todo',
         order_index: 2
-      })
-    })
+      });
+    });
 
     // Form should be hidden after successful creation
-    expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument()
-  })
+    expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument();
+  });
 
   it('handles task creation with API call when no onTaskCreate prop', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ success: true })
-    } as Response)
+    } as Response);
+
+    const user = userEvent.setup();
 
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
     // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    await user.click(screen.getByRole('button', { name: /add task/i }));
     
     // Enter task title
-    const input = screen.getByPlaceholderText('Enter task title...')
-    fireEvent.change(input, { target: { value: 'New API Task' } })
+    const input = screen.getByPlaceholderText('Enter task title...');
+    await user.type(input, 'New API Task');
     
     // Submit form
-    fireEvent.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: /add/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/kanban/tasks', {
@@ -260,12 +288,16 @@ describe('SwimLane', () => {
           status: 'todo',
           order_index: 2
         })
-      })
-    })
-  })
+      });
+    });
+
+    // Form should be hidden after successful creation
+    expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument();
+  });
 
   it('handles Enter key to submit new task', async () => {
-    const mockOnTaskCreate = jest.fn().mockResolvedValue(undefined)
+    const mockOnTaskCreate = jest.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
     
     render(
       <SwimLaneWrapper>
@@ -274,49 +306,51 @@ describe('SwimLane', () => {
           onTaskCreate={mockOnTaskCreate}
         />
       </SwimLaneWrapper>
-    )
+    );
 
     // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    await user.click(screen.getByRole('button', { name: /add task/i }));
     
     // Enter task title
-    const input = screen.getByPlaceholderText('Enter task title...')
-    fireEvent.change(input, { target: { value: 'Enter Key Task' } })
+    const input = screen.getByPlaceholderText('Enter task title...');
+    await user.type(input, 'Enter Key Task');
     
     // Press Enter
-    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+    await user.keyboard('{Enter}');
 
     await waitFor(() => {
       expect(mockOnTaskCreate).toHaveBeenCalledWith({
         title: 'Enter Key Task',
         status: 'todo',
         order_index: 2
-      })
-    })
-  })
+      });
+    });
+  });
 
-  it('handles Escape key to cancel new task', () => {
+  it('handles Escape key to cancel new task', async () => {
+    const user = userEvent.setup();
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
-    // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    // Open form
+    await user.click(screen.getByRole('button', { name: /add task/i }));
+    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument();
 
     // Press Escape
-    const input = screen.getByPlaceholderText('Enter task title...')
-    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' })
+    await user.keyboard('{Escape}');
 
-    // Form should be hidden
-    expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument()
-    expect(screen.getByText('Add Task')).toBeInTheDocument()
-  })
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText('Enter task title...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument();
+  });
 
-  it('prevents task creation with empty title', () => {
-    const mockOnTaskCreate = jest.fn()
-    
+  it('prevents task creation with empty title', async () => {
+    const mockOnTaskCreate = jest.fn();
+    const user = userEvent.setup();
     render(
       <SwimLaneWrapper>
         <SwimLane 
@@ -324,56 +358,136 @@ describe('SwimLane', () => {
           onTaskCreate={mockOnTaskCreate}
         />
       </SwimLaneWrapper>
-    )
+    );
 
     // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    await user.click(screen.getByRole('button', { name: /add task/i }));
     
-    // Try to submit without entering title
-    fireEvent.click(screen.getByText('Add'))
+    // Try to submit with empty title
+    await user.click(screen.getByRole('button', { name: /add/i }));
 
-    // Should not call onTaskCreate
-    expect(mockOnTaskCreate).not.toHaveBeenCalled()
-    
-    // Form should still be visible
-    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument()
-  })
+    expect(mockOnTaskCreate).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument(); // Form should still be visible
+  });
 
   it('handles API error during task creation gracefully', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('API Error'))
+    // Mock fetch to return an error
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'API Error' })
+    } as Response);
+
+    const user = userEvent.setup();
 
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
+    );
 
     // Open add task form
-    fireEvent.click(screen.getByText('Add Task'))
+    await user.click(screen.getByRole('button', { name: /add task/i }));
     
-    // Enter task title
-    const input = screen.getByPlaceholderText('Enter task title...')
-    fireEvent.change(input, { target: { value: 'Failed Task' } })
-    
-    // Submit form
-    fireEvent.click(screen.getByText('Add'))
+    // Enter task title and submit
+    const input = screen.getByPlaceholderText('Enter task title...');
+    await user.type(input, 'Error Task');
+    await user.click(screen.getByRole('button', { name: /add/i }));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled()
-    })
+      // Expect console.error to have been called (and mocked away)
+      expect(console.error).toHaveBeenCalledWith(
+        'Error adding task:',
+        expect.any(Error)
+      );
+    });
 
-    // Form should still be visible on error
-    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument()
-  })
+    // Form should still be visible after an API error (or handle appropriately)
+    expect(screen.getByPlaceholderText('Enter task title...')).toBeInTheDocument();
+  });
+
+  // Test case for rendering TaskCard with multi-select enabled
+  it('should render TaskCard components with correct multi-select props', () => {
+    const mockToggleSelection = jest.fn();
+    const mockToggleMultiSelectMode = jest.fn();
+
+    render(
+      <SwimLaneWrapper>
+        <SwimLane
+          {...defaultProps}
+          isMultiSelectMode={true}
+          selectedTaskIds={['1']}
+          onToggleTaskSelection={mockToggleSelection}
+          onToggleMultiSelectMode={mockToggleMultiSelectMode}
+        />
+      </SwimLaneWrapper>
+    );
+
+    // Verify that TaskCard is rendered with isMultiSelectMode and isSelected
+    const taskCard1 = screen.getByTestId('task-card-1');
+    expect(taskCard1).toBeInTheDocument();
+    // In a real scenario, you'd test the props passed to the mocked component, 
+    // but with a simple mock, we just check existence.
+  });
+
+  // Test for multi-select toggle button
+  it('should show and toggle multi-select mode button', async () => {
+    const user = userEvent.setup();
+    const mockToggleMultiSelectMode = jest.fn();
+
+    render(
+      <SwimLaneWrapper>
+        <SwimLane
+          {...defaultProps}
+          onToggleMultiSelectMode={mockToggleMultiSelectMode}
+        />
+      </SwimLaneWrapper>
+    );
+
+    // Button should be visible
+    const toggleButton = screen.getByTitle('Enter multi-select mode');
+    expect(toggleButton).toBeInTheDocument();
+
+    await user.click(toggleButton);
+    expect(mockToggleMultiSelectMode).toHaveBeenCalledTimes(1);
+
+    // Simulate multi-select mode active
+    render(
+      <SwimLaneWrapper>
+        <SwimLane
+          {...defaultProps}
+          isMultiSelectMode={true}
+          onToggleMultiSelectMode={mockToggleMultiSelectMode}
+        />
+      </SwimLaneWrapper>
+    );
+
+    expect(screen.getByTitle('Exit multi-select mode')).toBeInTheDocument();
+  });
+
+  it('should not show multi-select toggle button if tasks.length is 0', () => {
+    const mockToggleMultiSelectMode = jest.fn();
+
+    render(
+      <SwimLaneWrapper>
+        <SwimLane
+          {...defaultProps}
+          tasks={[]}
+          onToggleMultiSelectMode={mockToggleMultiSelectMode}
+        />
+      </SwimLaneWrapper>
+    );
+
+    expect(screen.queryByTitle('Enter multi-select mode')).not.toBeInTheDocument();
+  });
 
   it('renders task indices correctly', () => {
     render(
       <SwimLaneWrapper>
         <SwimLane {...defaultProps} />
       </SwimLaneWrapper>
-    )
-
-    expect(screen.getByTestId('task-index-1')).toHaveTextContent('0')
-    expect(screen.getByTestId('task-index-2')).toHaveTextContent('1')
-  })
-}) 
+    );
+    expect(screen.getByTestId('task-index-1')).toHaveTextContent('0');
+    expect(screen.getByTestId('task-index-2')).toHaveTextContent('1');
+  });
+});

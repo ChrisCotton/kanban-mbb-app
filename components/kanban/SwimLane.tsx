@@ -160,13 +160,13 @@ const SwimLane: React.FC<SwimLaneProps> = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 transition-all duration-200 ${
+            className={`flex flex-col flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 transition-all duration-200 min-h-[100px] ${
               snapshot.isDraggingOver ? colors.dropZone : ''
             }`}
           >
             {/* Tasks Container with Scrolling */}
-            <div className="h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-              <div className="space-y-2 sm:space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent py-2 px-1">
+              <div className="space-y-2 sm:space-y-3">
                 {tasks.map((task, index) => (
                   <TaskCard
                     key={task.id}
@@ -198,58 +198,47 @@ const SwimLane: React.FC<SwimLaneProps> = ({
             )}
 
             {/* Add Task Section */}
-            <div className="mt-3 sm:mt-4">
-              {onOpenCreateModal ? (
+            {!showAddTask && ( // Only show if not adding
+              <div className="">
                 <button
-                  onClick={onOpenCreateModal}
-                  className={`w-full p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg ${colors.addButton} hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center space-x-2`}
+                  onClick={onOpenCreateModal || (() => setShowAddTask(true))}
+                  className={`w-full flex items-center justify-center p-2 rounded-lg border-2 border-dashed ${colors.addButton} transition-colors`}
+                  title="Add new task"
                 >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span className="text-sm">Add Task</span>
+                  Add Task
                 </button>
-              ) : showAddTask ? (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Enter task title..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus
-                  />
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={handleAddTask}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddTask(false)
-                        setNewTaskTitle('')
-                      }}
-                      className="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+              </div>
+            )}
+            {showAddTask && (
+              <div className="flex flex-col space-y-2">
+                <textarea
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Enter task title..."
+                  className="w-full p-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  autoFocus
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleAddTask}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => setShowAddTask(false)}
+                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowAddTask(true)}
-                  className={`w-full p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg ${colors.addButton} hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center space-x-2`}
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span className="text-sm">Add Task</span>
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </Droppable>

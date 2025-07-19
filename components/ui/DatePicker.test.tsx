@@ -494,4 +494,23 @@ describe('DatePicker', () => {
       expect(onChange).not.toHaveBeenCalled();
     });
   });
+
+  describe('Date Selection', () => {
+    it('does not call onChange when a past date is manually entered and minDate is not met', async () => {
+      const user = userEvent.setup();
+      const onChange = jest.fn();
+      render(<DatePicker {...defaultProps} onChange={onChange} minDate="2025-01-15" />);
+
+      await user.click(screen.getByRole('button'));
+
+      const dateInput = screen.getByDisplayValue('');
+      // Attempt to type a past date
+      await user.type(dateInput, '2025-01-14');
+
+      // The onChange should not be called with an invalid past date
+      expect(onChange).not.toHaveBeenCalled();
+      // Optionally, check if an error message is displayed or the input remains unchanged
+      // This depends on the component's internal logic for invalid dates
+    });
+  });
 }); 

@@ -16,9 +16,10 @@ import SearchAndFilter, { SearchFilters } from './SearchAndFilter'
 
 interface KanbanBoardProps {
   className?: string
+  onStartTiming?: (task: Task) => void
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming }) => {
   // Use centralized kanban hook for all task management
   const {
     tasks,
@@ -512,6 +513,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '' }) => {
           onUpdate={handleTaskUpdate}
           onMove={handleTaskMove}
           allTasks={displayTasks}
+          onStartTiming={onStartTiming}
         />
 
         {/* Bulk Actions Toolbar */}
