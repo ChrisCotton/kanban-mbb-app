@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
+import { validateUUID } from '../../../lib/utils/uuid'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ error: 'Tag ID is required' })
+    }
+
+    // Validate UUID format
+    try {
+      validateUUID(id, 'Tag ID')
+    } catch (error) {
+      return res.status(400).json({ 
+        error: error.message 
+      })
     }
 
     if (req.method === 'PUT') {

@@ -106,9 +106,13 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
               <div className="text-white font-medium">
                 {activeTask ? activeTask.title : 'No task selected'}
               </div>
-              {activeTask?.category && (
+              {activeTask?.category ? (
                 <div className="text-sm text-white/70">
                   {activeTask.category.name}
+                </div>
+              ) : (
+                <div className="text-sm text-blue-300">
+                  👆 Click a task and select "Start Timing" to begin
                 </div>
               )}
             </div>
@@ -141,6 +145,7 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
             size="md"
             variant="default"
             showLabels={true}
+            disabled={!activeTask} // Disable when no task is selected
           />
         </div>
       </div>

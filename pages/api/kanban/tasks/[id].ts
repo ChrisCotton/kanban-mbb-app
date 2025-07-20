@@ -1,11 +1,21 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getTask, updateTask, deleteTask, Task } from '../../../../lib/database/kanban-queries'
+import { validateUUID } from '../../../../lib/utils/uuid'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Task ID is required' })
+  }
+
+  // Validate UUID format
+  try {
+    validateUUID(id, 'Task ID')
+  } catch (error) {
+    return res.status(400).json({ 
+      error: error.message 
+    })
   }
 
   try {
