@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import SwimLane from './SwimLane'
@@ -110,14 +110,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     }
   }
 
-  // Search handlers
-  const handleSearch = async (filters: SearchFilters) => {
+  // Search handlers (memoized to prevent infinite re-renders)
+  const handleSearch = useCallback(async (filters: SearchFilters) => {
     await performSearch(filters)
-  }
+  }, [performSearch])
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     clearSearch()
-  }
+  }, [clearSearch])
 
   // Initialize drag and drop hook
   const {
