@@ -62,6 +62,8 @@ export default function Dashboard() {
       carouselImages={visionBoardImages}
       activeTask={activeTask}
       userId={user?.id}
+      // Note: showCarousel defaults to true, but actual visibility is controlled by
+      // useCarouselPreference hook (defaults to OFF for performance)
     >
       <main className="flex-1 container mx-auto px-4 py-8">
         <KanbanProvider>

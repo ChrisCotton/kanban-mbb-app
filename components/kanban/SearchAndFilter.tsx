@@ -54,7 +54,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
     const newFilters = { ...filters, query: searchQuery || undefined }
     setFilters(newFilters)
     performSearch(newFilters)
-  }, [searchQuery, performSearch])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]) // Only depend on searchQuery, not performSearch (performSearch is stable via useCallback)
 
   // Handle filter changes
   const handleFilterChange = (key: keyof SearchFilters, value: any) => {

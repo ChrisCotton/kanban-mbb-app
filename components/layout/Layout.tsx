@@ -5,6 +5,7 @@ import Head from 'next/head'
 import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
 import Navigation from './Navigation'
 import MBBTimerSection from '../timer/MBBTimerSection'
+import { useCarouselPreference } from '../../hooks/useCarouselPreference'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -40,6 +41,17 @@ const Layout: React.FC<LayoutProps> = ({
   userId,
   onTaskSelect
 }) => {
+  // Get carousel preference from hook
+  const { enabled: carouselEnabled } = useCarouselPreference()
+  
+  // Debug logging
+  console.log('[Layout] Render:', {
+    showCarousel,
+    carouselEnabled,
+    willRenderCarousel: showCarousel && carouselEnabled,
+    imageCount: carouselImages.length
+  })
+  
   return (
     <>
       <Head>
@@ -61,7 +73,8 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="relative z-10 flex flex-col min-h-screen">
           
           {/* Vision Board Carousel Header */}
-          {showCarousel && (
+          {/* Hook preference (carouselEnabled) AND showCarousel prop must both be true */}
+          {showCarousel && carouselEnabled && (
             <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10">
               <VisionBoardCarousel 
                 images={carouselImages}
