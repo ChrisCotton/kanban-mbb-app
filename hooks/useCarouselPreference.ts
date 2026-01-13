@@ -48,12 +48,48 @@ export const useCarouselPreference = (): UseCarouselPreferenceReturn => {
 
   const [enabled, setEnabledState] = useState<boolean>(getInitialValue)
 
+  // Listen for storage changes from other components/tabs
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue !== null) {
+        const newValue = e.newValue === 'true'
+        console.log('[useCarouselPreference] Storage changed from another source:', newValue)
+        setEnabledState(newValue)
+      }
+    }
+
+    // Listen for storage events (from other tabs/windows)
+    window.addEventListener('storage', handleStorageChange)
+
+    // CRITICAL FIX: Listen for custom events from THIS window/tab
+    const handleCustomStorageChange = ((e: CustomEvent) => {
+      console.log('[useCarouselPreference] Custom storage event received:', e.detail)
+      setEnabledState(e.detail.enabled)
+    }) as EventListener
+
+    window.addEventListener('carousel-preference-changed', handleCustomStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('carousel-preference-changed', handleCustomStorageChange)
+    }
+  }, [])
+
   // Save to localStorage whenever enabled changes
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     try {
       localStorage.setItem(STORAGE_KEY, String(enabled))
+      
+      // Dispatch custom event to notify other components in THIS tab
+      const event = new CustomEvent('carousel-preference-changed', {
+        detail: { enabled }
+      })
+      window.dispatchEvent(event)
+      console.log('[useCarouselPreference] Dispatched storage change event:', enabled)
     } catch (error) {
       console.error('Error saving carousel preference to localStorage:', error)
     }
@@ -61,7 +97,11 @@ export const useCarouselPreference = (): UseCarouselPreferenceReturn => {
 
   // Toggle function
   const toggle = useCallback(() => {
-    setEnabledState((prev) => !prev)
+    setEnabledState((prev) => {
+      const newValue = !prev
+      console.log('[useCarouselPreference] Toggling carousel:', { from: prev, to: newValue })
+      return newValue
+    })
   }, [])
 
   // Set enabled to specific value
