@@ -20,6 +20,15 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const router = useRouter()
   const { enabled: carouselEnabled, toggle: toggleCarousel } = useCarouselPreference()
+  
+  // Debug: Log carousel state
+  console.log('[Navigation] Carousel state:', { carouselEnabled })
+  
+  // Wrapper to add logging
+  const handleToggleClick = () => {
+    console.log('[Navigation] Toggle button clicked!', { currentState: carouselEnabled })
+    toggleCarousel()
+  }
 
   const navItems: NavItem[] = [
     {
@@ -149,7 +158,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
             {/* Carousel Toggle Button */}
             <div className="hidden md:flex items-center space-x-3">
               <button
-                onClick={toggleCarousel}
+                onClick={handleToggleClick}
                 className="p-2 rounded-md bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors duration-200 border border-white/20"
                 aria-label="Toggle vision board carousel"
                 title={`Carousel: ${carouselEnabled ? 'On' : 'Off'}`}
@@ -229,7 +238,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
               
               {/* Carousel Toggle in Mobile Menu */}
               <button
-                onClick={toggleCarousel}
+                onClick={handleToggleClick}
                 className="w-full block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 flex items-center space-x-3 text-white/70 hover:text-white hover:bg-white/10"
                 aria-label="Toggle vision board carousel"
               >
