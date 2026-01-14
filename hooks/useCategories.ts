@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { supabase } from '../lib/supabase'
 
 export interface Category {
   id: string
@@ -218,18 +219,36 @@ export function useCategories(): UseCategoriesReturn {
 
   /**
    * Delete a category
+   * FIXED: Use Supabase auth user ID instead of localStorage
    */
   const deleteCategory = useCallback(async (id: string): Promise<boolean> => {
     setSubmitting(true)
     setError(null)
     
     try {
-      // Get user ID from localStorage or session
-      const userId = localStorage.getItem('user_id') || 'current_user'
+      console.log('[deleteCategory] Starting delete for category:', id)
       
-      const response = await fetch(`/api/categories/${id}?user_id=${userId}`, {
+      // Get actual authenticated user from Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      console.log('[deleteCategory] Auth result:', {
+        user: user ? { id: user.id, email: user.email } : null,
+        error: authError
+      })
+      
+      if (authError || !user) {
+        console.error('[deleteCategory] Auth failed:', authError)
+        throw new Error('Not authenticated. Please log in again.')
+      }
+      
+      const apiUrl = `/api/categories/${id}?user_id=${user.id}`
+      console.log('[deleteCategory] Calling API:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         method: 'DELETE'
       })
+      
+      console.log('[deleteCategory] Response status:', response.status)
 
       if (!response.ok) {
         const errorResult = await response.json()

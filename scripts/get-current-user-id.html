@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Get Current User ID</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .output {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    .sql {
+      background: #e8f4f8;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 4px solid #0066cc;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    .copy {
+      background: #28a745;
+      margin-left: 10px;
+    }
+    .copy:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔑 Get Current User ID</h1>
+  <p>This will fetch your current Supabase auth user ID and generate the SQL to fix category ownership.</p>
+  
+  <button onclick="getUserId()">Get My User ID</button>
+  
+  <div id="output"></div>
+  
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    
+    // Get Supabase config from your app
+    const SUPABASE_URL = 'https://emxejsyyelcdpejxuvfd.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteGVqc3l5ZWxjZHBlanh1dmZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDM3MTY0MzAsImV4cCI6MjAxOTI5MjQzMH0.r1duoTMxl-IXoVdvqKnfqe0gTDqfR7v9YfJvGLzPXO8'
+    
+    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    
+    window.getUserId = async function() {
+      const outputDiv = document.getElementById('output')
+      outputDiv.innerHTML = '<p>Loading...</p>'
+      
+      try {
+        const { data, error } = await window.supabase.auth.getUser()
+        
+        if (error) {
+          outputDiv.innerHTML = `
+            <div class="output" style="border-left: 4px solid red;">
+              <h3>❌ Error</h3>
+              <p>${error.message}</p>
+              <p>Make sure you're logged in to localhost:3000 first!</p>
+            </div>
+          `
+          return
+        }
+        
+        if (!data.user) {
+          outputDiv.innerHTML = `
+            <div class="output" style="border-left: 4px solid orange;">
+              <h3>⚠️ Not Authenticated</h3>
+              <p>Please log in to your app at localhost:3000 first, then refresh this page.</p>
+            </div>
+          `
+          return
+        }
+        
+        const userId = data.user.id
+        const email = data.user.email
+        
+        const sql = `-- Fix Category Ownership for ${email}
+-- Run this in Supabase SQL Editor (https://supabase.com/dashboard)
+
+UPDATE categories
+SET created_by = '${userId}',
+    updated_by = '${userId}',
+    updated_at = NOW()
+WHERE created_by != '${userId}';
+
+-- Verify the fix
+SELECT COUNT(*) as updated_categories
+FROM categories
+WHERE created_by = '${userId}';`
+        
+        outputDiv.innerHTML = `
+          <div class="output" style="border-left: 4px solid green;">
+            <h3>✅ Current User</h3>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>User ID:</strong> <code>${userId}</code></p>
+          </div>
+          
+          <div class="sql">
+            <h3>📋 SQL to Fix Category Ownership</h3>
+            <p>Copy this SQL and run it in your Supabase SQL Editor:</p>
+            <button class="copy" onclick="copySQL()">Copy SQL</button>
+            <pre id="sqlCode">${sql}</pre>
+          </div>
+        `
+        
+        window.sqlToFix = sql
+        
+      } catch (err) {
+        outputDiv.innerHTML = `
+          <div class="output" style="border-left: 4px solid red;">
+            <h3>❌ Error</h3>
+            <p>${err.message}</p>
+          </div>
+        `
+      }
+    }
+    
+    window.copySQL = function() {
+      navigator.clipboard.writeText(window.sqlToFix)
+      alert('SQL copied to clipboard!')
+    }
+  </script>
+</body>
+</html>

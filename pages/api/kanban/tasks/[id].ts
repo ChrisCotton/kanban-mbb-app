@@ -62,7 +62,7 @@ async function handleGetTask(req: NextApiRequest, res: NextApiResponse, id: stri
 }
 
 async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: string) {
-  const { title, description, status, priority, due_date, order_index } = req.body
+  const { title, description, status, priority, due_date, order_index, category_id } = req.body
 
   // Validate fields if provided
   if (title !== undefined && (typeof title !== 'string' || title.trim().length === 0)) {
@@ -100,6 +100,18 @@ async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: s
     })
   }
 
+  // Validate category_id if provided
+  if (category_id !== undefined && category_id !== null) {
+    try {
+      validateUUID(category_id, 'Category ID')
+    } catch (error) {
+      return res.status(400).json({ 
+        error: 'Invalid category_id format',
+        message: error instanceof Error ? error.message : 'Invalid UUID'
+      })
+    }
+  }
+
   // Build update object with only provided fields
   const updates: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> = {}
   
@@ -109,6 +121,7 @@ async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: s
   if (priority !== undefined) updates.priority = priority
   if (due_date !== undefined) updates.due_date = due_date
   if (order_index !== undefined) updates.order_index = order_index
+  if (category_id !== undefined) updates.category_id = category_id
 
   try {
     const updatedTask = await updateTask(id, updates)

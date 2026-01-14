@@ -193,7 +193,15 @@ async function deleteCategory(req: NextApiRequest, res: NextApiResponse, id: str
   // Accept user_id from either request body or query parameters
   const user_id = req.body.user_id || req.query.user_id
 
+  console.log('[API deleteCategory] Request received:', {
+    categoryId: id,
+    user_id: user_id,
+    bodyUserId: req.body.user_id,
+    queryUserId: req.query.user_id
+  })
+
   if (!user_id) {
+    console.error('[API deleteCategory] Missing user_id')
     return res.status(400).json({ 
       success: false,
       error: 'user_id is required for authorization (in body or query params)' 
@@ -208,7 +216,15 @@ async function deleteCategory(req: NextApiRequest, res: NextApiResponse, id: str
       .eq('id', id)
       .single()
 
+    console.log('[API deleteCategory] Category ownership check:', {
+      categoryId: id,
+      categoryCreatedBy: existingCategory?.created_by,
+      requestUserId: user_id,
+      match: existingCategory?.created_by === user_id
+    })
+
     if (checkError || !existingCategory) {
+      console.error('[API deleteCategory] Category not found:', checkError)
       return res.status(404).json({ 
         success: false,
         error: 'Category not found' 
@@ -216,11 +232,19 @@ async function deleteCategory(req: NextApiRequest, res: NextApiResponse, id: str
     }
 
     if (existingCategory.created_by !== user_id) {
+      console.error('[API deleteCategory] Authorization failed:', {
+        categoryOwner: existingCategory.created_by,
+        requestUser: user_id,
+        typeOfCategoryOwner: typeof existingCategory.created_by,
+        typeOfRequestUser: typeof user_id
+      })
       return res.status(403).json({ 
         success: false,
         error: 'Not authorized to delete this category' 
       })
     }
+
+    console.log('[API deleteCategory] Authorization passed, deleting category')
 
     // Delete the category
     const { error } = await supabase

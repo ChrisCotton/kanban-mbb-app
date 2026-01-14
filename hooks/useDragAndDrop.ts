@@ -120,7 +120,7 @@ export const useDragAndDrop = ({
    */
   const handleDragEnd = useCallback(async (result: DropResult) => {
     const { destination, source, draggableId } = result
-
+    
     // Reset drag state
     setDragDropState({
       isDragging: false,
