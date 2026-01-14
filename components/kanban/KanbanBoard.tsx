@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import SwimLane from './SwimLane'
@@ -50,10 +50,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     onError: (error) => console.error('Search error:', error)
   })
 
-  // Use search results when in search mode, otherwise use regular tasks
-  const displayTasks = isSearchMode ? searchResults : tasks
-  const displayStats = isSearchMode ? searchStats : stats
-
   // Task Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -71,23 +67,42 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
-  // Handle optimistic updates for drag and drop
-  const handleOptimisticUpdate = (updatedTasks: typeof tasks) => {
-    // For now, we'll rely on the server state and refetch
-    // Could implement optimistic updates later for better UX
-  }
+  // Optimistic tasks state for instant drag feedback
+  const [optimisticTasks, setOptimisticTasks] = useState<TasksByStatus | null>(null)
+
+  // Clear optimistic state when tasks update from server (after background refetch)
+  useEffect(() => {
+    if (optimisticTasks !== null) {
+      // Clear optimistic state when real data arrives from fetchTasks
+      setOptimisticTasks(null)
+    }
+  }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle optimistic updates for drag and drop (memoized to prevent recreation)
+  const handleOptimisticUpdate = useCallback((updatedTasks: typeof tasks) => {
+    // Apply optimistic UI update immediately for instant feedback
+    setOptimisticTasks(updatedTasks)
+  }, [])
+
+  // Use optimistic tasks if available (applies to BOTH regular and search modes)
+  const tasksToDisplay = optimisticTasks || tasks
+  const searchResultsToDisplay = optimisticTasks || searchResults
+  
+  // Apply search/filter on top of the optimistic or regular tasks
+  const displayTasks = isSearchMode ? searchResultsToDisplay : tasksToDisplay
+  const displayStats = isSearchMode ? searchStats : stats
 
   // Wrapper functions to match SwimLane interface expectations
-  const handleTaskMove = async (taskId: string, newStatus: Task['status'], newOrderIndex: number) => {
+  // MEMOIZED to prevent useDragAndDrop from recreating on every render
+  const handleTaskMove = useCallback(async (taskId: string, newStatus: Task['status'], newOrderIndex: number) => {
     await moveTask(taskId, newStatus, newOrderIndex)
     
-    // Refresh search results if in search mode
-    if (isSearchMode && hasActiveFilters) {
-      await performSearch(activeFilters)
-    }
-  }
+    // DON'T clear optimistic state immediately - let background refetch handle it
+    // This prevents the "snap back" effect when fetchTasks returns stale data
+    // setOptimisticTasks(null) is called when fetchTasks completes
+  }, [moveTask]) // Memoize with dependencies
 
-  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+  const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {
     await updateTask(taskId, updates)
     
     // Update the viewing task if it's the same task being updated
@@ -95,20 +110,20 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
       setViewingTask(prev => prev ? { ...prev, ...updates } : null)
     }
     
-    // Refresh search results if in search mode
-    if (isSearchMode && hasActiveFilters) {
-      await performSearch(activeFilters)
-    }
-  }
+    // DON'T refresh search on every update - let natural refetch handle it
+    // if (isSearchMode && hasActiveFilters) {
+    //   await performSearch(activeFilters)
+    // }
+  }, [updateTask, viewingTask]) // Memoized
 
-  const handleTaskDelete = async (taskId: string) => {
+  const handleTaskDelete = useCallback(async (taskId: string) => {
     await deleteTask(taskId)
     
-    // Refresh search results if in search mode
-    if (isSearchMode && hasActiveFilters) {
-      await performSearch(activeFilters)
-    }
-  }
+    // Search results will update naturally on next refetch
+    // if (isSearchMode && hasActiveFilters) {
+    //   await performSearch(activeFilters)
+    // }
+  }, [deleteTask]) // Memoized
 
   // Search handlers (memoized to prevent infinite re-renders)
   const handleSearch = useCallback(async (filters: SearchFilters) => {

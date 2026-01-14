@@ -251,14 +251,19 @@ export const useKanban = (): UseKanbanReturn => {
         throw new Error(result.error || 'Failed to move task')
       }
 
-      // Refresh tasks to get the latest state
-      await fetchTasks()
+      // Schedule background refetch after a delay to ensure DB has propagated
+      // This prevents race conditions where fetchTasks returns stale data
+      setTimeout(() => {
+        fetchTasks()
+      }, 500)
       
       return result.data
     } catch (err) {
       console.error('Error moving task:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to move task'
       setError(errorMessage)
+      // On error, immediately refetch to revert optimistic update
+      fetchTasks()
       throw err
     }
   }, [fetchTasks])

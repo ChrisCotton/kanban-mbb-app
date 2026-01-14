@@ -36,3 +36,5 @@ dev-server.log
 # Typescript
 *.tsbuildinfo
 next-env.d.ts
+.env.local.backup*
+.cursor/

@@ -44,14 +44,6 @@ const Layout: React.FC<LayoutProps> = ({
   // Get carousel preference from hook
   const { enabled: carouselEnabled } = useCarouselPreference()
   
-  // Debug logging
-  console.log('[Layout] Render:', {
-    showCarousel,
-    carouselEnabled,
-    willRenderCarousel: showCarousel && carouselEnabled,
-    imageCount: carouselImages.length
-  })
-  
   return (
     <>
       <Head>

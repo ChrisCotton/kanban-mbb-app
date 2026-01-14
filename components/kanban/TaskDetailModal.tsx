@@ -38,7 +38,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm" data-testid="confirmation-modal">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm" data-testid="confirmation-modal">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Discard Changes?
@@ -276,14 +276,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
       <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] transition-all duration-150 ${
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] my-auto flex flex-col transition-all duration-150 ${
           isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
         }`}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        {/* Modal Header - Sticky */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-lg flex-shrink-0">
           <div className="flex items-center space-x-3">
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               Task Details
@@ -358,8 +358,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex h-[calc(90vh-80px)]">
+        {/* Modal Body - Scrollable */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Task Details Panel */}
           <div className="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
             <div className="space-y-6">
