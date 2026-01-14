@@ -47,4 +47,33 @@ This project uses four MCP servers for different purposes:
 1. **Install dependencies:**
    ```bash
    npm install
+   ```
+
+## Testing
+
+This project uses both Playwright for end-to-end (E2E) testing and Jest for unit and regression testing.
+
+### End-to-End (E2E) Testing with Playwright
+
+Playwright is used to test the application from a user's perspective, simulating real user interactions in a browser.
+
+- **Run all E2E tests:**
+  ```bash
+  npm run test:e2e
+  ```
+- **Run regression E2E tests:**
+  ```bash
+  npm run test:regression
+  ```
+
+For more detailed information on E2E testing, see the [Playwright testing documentation](./tests/README.md).
+
+### Jest Regression Testing
+
+Jest is used for regression testing of critical components and logic. This suite ensures that core functionalities do not break after code changes.
+
+- **Run the Jest regression test suite:**
+  ```bash
+  npm run test:regression:jest
+  ```
 
