@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import { useCategories } from '../../hooks/useCategories'
 
 interface Category {
   id: string
@@ -30,41 +31,16 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   allowNone = true
 }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // ✅ FIX: Use the useCategories hook (includes auth token automatically)
+  const { 
+    categories, 
+    loading, 
+    error: loadError 
+  } = useCategories()
+
   const selectedCategory = categories.find(cat => cat.id === value) || null
-
-  // Load categories from API
-  const loadCategories = useCallback(async () => {
-    setLoading(true)
-    setLoadError(null)
-    
-    try {
-      const response = await fetch('/api/categories')
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to load categories')
-      }
-      
-      setCategories(result.data || [])
-    } catch (err) {
-      console.error('Error loading categories:', err)
-      setLoadError(err instanceof Error ? err.message : 'Failed to load categories')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadCategories()
-  }, [loadCategories])
 
   // Handle clicks outside to close
   useEffect(() => {

@@ -92,8 +92,8 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
             <div className="hidden sm:flex items-center space-x-3">
               <div className="text-sm font-medium text-white">Rate:</div>
               <div className="text-lg text-blue-400">
-                {activeTask?.category?.hourly_rate 
-                  ? `${formatCurrency(activeTask.category.hourly_rate)}/hr`
+                {(activeTask?.category?.hourly_rate_usd || activeTask?.category?.hourly_rate)
+                  ? `${formatCurrency(activeTask.category.hourly_rate_usd || activeTask.category.hourly_rate)}/hr`
                   : '--'
                 }
               </div>

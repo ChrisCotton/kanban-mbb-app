@@ -34,12 +34,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function getCategories(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Get all categories - authentication handled at database level via RLS
-    const { data: categories, error: categoriesError } = await supabase
+    // Get authenticated user from token
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      // Categories are user-specific, require authentication
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required to view categories'
+      })
+    }
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      console.error('Auth error:', authError)
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid authentication token'
+      })
+    }
+    
+    const userId = user.id
+    console.log('Fetching categories for user:', userId)
+    
+    // Fetch categories - filter by current user only
+    let query = supabase
       .from('categories')
       .select('*')
       .eq('is_active', true)
-      .order('name', { ascending: true })
+      .eq('created_by', userId)
+    
+    const { data: categories, error: categoriesError } = await query.order('name', { ascending: true })
 
     if (categoriesError) {
       console.error('Supabase error fetching categories:', categoriesError)
@@ -55,6 +79,8 @@ async function getCategories(req: NextApiRequest, res: NextApiResponse) {
       ...category,
       total_hours: 0 // Placeholder until total_hours column is added
     }))
+
+    console.log(`Returning ${categoriesWithCorrectField.length} categories for user ${userId}`)
 
     return res.status(200).json({
       success: true,
@@ -91,8 +117,25 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // Get the current user ID (using the same ID as existing categories for consistency)
-    const defaultUserId = '13178b88-fd93-4a65-8541-636c76dad940' // From existing data
+    // Get authenticated user from token
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required'
+      })
+    }
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      console.error('Auth error:', authError)
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid authentication token'
+      })
+    }
+    
+    console.log('Creating category for user:', user.id)
     
     const { data: newCategory, error } = await supabase
       .from('categories')
@@ -100,8 +143,8 @@ async function createCategory(req: NextApiRequest, res: NextApiResponse) {
         name: name.trim(),
         hourly_rate_usd: numericRate,
         color: color || null,
-        created_by: defaultUserId,
-        updated_by: defaultUserId
+        created_by: user.id,
+        updated_by: user.id
       })
       .select('*')
       .single()

@@ -111,7 +111,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
     setEditingCategory(category)
     setFormData({
       name: category.name,
-      hourly_rate_usd: category.hourly_rate.toString(),
+      hourly_rate_usd: (category.hourly_rate_usd || category.hourly_rate || 0).toString(),
       color: category.color || ''
     })
     setFormErrors({})

@@ -79,8 +79,21 @@ export function useCategories(): UseCategoriesReturn {
     setError(null)
     
     try {
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      
       const response = await fetch('/api/categories', {
-        signal: controller.signal
+        signal: controller.signal,
+        headers
       })
       
       if (!response.ok) {
@@ -115,18 +128,27 @@ export function useCategories(): UseCategoriesReturn {
     setError(null)
     
     try {
-      // Get user ID from localStorage or session
-      const userId = localStorage.getItem('user_id') || 'current_user'
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      
+      if (!token) {
+        throw new Error('Authentication required. Please sign in.')
+      }
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
       
       const response = await fetch('/api/categories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: data.name.trim(),
           hourly_rate_usd: parseFloat(data.hourly_rate_usd) || 0,
           color: data.color,
           is_active: data.is_active !== false,
-          user_id: userId
         })
       })
 
@@ -142,6 +164,11 @@ export function useCategories(): UseCategoriesReturn {
 
       const newCategory = result.data
       setCategories(prev => [...prev, newCategory])
+      
+      // Dispatch event to sync other components using this hook
+      window.dispatchEvent(new CustomEvent('category-created', { 
+        detail: newCategory 
+      }))
       
       return newCategory
     } catch (err) {
@@ -206,6 +233,11 @@ export function useCategories(): UseCategoriesReturn {
         prev.map(cat => cat.id === id ? updatedCategory : cat)
       )
       
+      // Dispatch event to sync other components
+      window.dispatchEvent(new CustomEvent('category-updated', { 
+        detail: updatedCategory 
+      }))
+      
       return updatedCategory
     } catch (err) {
       console.error('Error updating category:', err)
@@ -261,6 +293,11 @@ export function useCategories(): UseCategoriesReturn {
       }
 
       setCategories(prev => prev.filter(cat => cat.id !== id))
+      
+      // Dispatch event to sync other components
+      window.dispatchEvent(new CustomEvent('category-deleted', { 
+        detail: id 
+      }))
       
       return true
     } catch (err) {
@@ -420,6 +457,42 @@ export function useCategories(): UseCategoriesReturn {
       if (loadingRef.current) {
         loadingRef.current.abort()
       }
+    }
+  }, [])
+
+  // Sync categories across all instances when one creates/updates/deletes
+  useEffect(() => {
+    const handleCategoryCreated = (event: CustomEvent) => {
+      const newCategory = event.detail
+      setCategories(prev => {
+        // Check if category already exists (avoid duplicates)
+        if (prev.some(cat => cat.id === newCategory.id)) {
+          return prev
+        }
+        return [...prev, newCategory]
+      })
+    }
+
+    const handleCategoryUpdated = (event: CustomEvent) => {
+      const updatedCategory = event.detail
+      setCategories(prev => 
+        prev.map(cat => cat.id === updatedCategory.id ? updatedCategory : cat)
+      )
+    }
+
+    const handleCategoryDeleted = (event: CustomEvent) => {
+      const categoryId = event.detail
+      setCategories(prev => prev.filter(cat => cat.id !== categoryId))
+    }
+
+    window.addEventListener('category-created', handleCategoryCreated as EventListener)
+    window.addEventListener('category-updated', handleCategoryUpdated as EventListener)
+    window.addEventListener('category-deleted', handleCategoryDeleted as EventListener)
+
+    return () => {
+      window.removeEventListener('category-created', handleCategoryCreated as EventListener)
+      window.removeEventListener('category-updated', handleCategoryUpdated as EventListener)
+      window.removeEventListener('category-deleted', handleCategoryDeleted as EventListener)
     }
   }, [])
 

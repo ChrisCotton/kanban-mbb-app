@@ -388,7 +388,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
                       </h4>
                       <div className="flex items-center space-x-4 mt-1">
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {formatCurrency(category.hourly_rate)}/hr
+                          {formatCurrency(category.hourly_rate_usd || category.hourly_rate || 0)}/hr
                         </span>
                         <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                           {formatHours(category.total_hours)}

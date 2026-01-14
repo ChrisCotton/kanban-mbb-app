@@ -141,7 +141,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-blue-700 bg-blue-100 border border-blue-200">
                 <span>{getCategoryIcon(task.category.name)}</span>
                 <span className="font-medium">{task.category.name}</span>
-                <span className="text-blue-600">{formatCurrency(task.category.hourly_rate)}/hr</span>
+                <span className="text-blue-600">{formatCurrency(task.category.hourly_rate_usd || task.category.hourly_rate || 0)}/hr</span>
               </span>
             </div>
           )}
