@@ -9,7 +9,8 @@ interface ActiveTask {
   category?: {
     id: string
     name: string
-    hourly_rate: number
+    hourly_rate_usd: number
+    hourly_rate?: number  // Legacy fallback
     color?: string
   }
 }
@@ -51,6 +52,30 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
     stop: handleStop,
     reset: handleReset
   } = timer
+
+  // DEBUG: Log all props received
+  useEffect(() => {
+    console.log('[MBBTimerSection] Props received:', {
+      activeTask: activeTask?.title,
+      taskId: activeTask?.id,
+      hasCategory: !!activeTask?.category,
+      categoryName: activeTask?.category?.name,
+      hourly_rate_usd: activeTask?.category?.hourly_rate_usd,
+      hourly_rate: (activeTask?.category as any)?.hourly_rate,
+      isRunning,
+      currentTime,
+      sessionEarnings
+    })
+  }, [activeTask, isRunning, currentTime, sessionEarnings])
+
+  // ✅ FIX: Auto-start timer when activeTask changes (from "Start Timing" button)
+  useEffect(() => {
+    if (activeTask && !isRunning) {
+      console.log('[MBBTimerSection] Auto-starting timer for task:', activeTask.title)
+      console.log('[MBBTimerSection] Category rate:', activeTask.category?.hourly_rate_usd)
+      handleStart()
+    }
+  }, [activeTask, isRunning, handleStart])
 
   // Format time display
   const formatTime = (seconds: number): string => {

@@ -1,11 +1,4 @@
-/**
- * Integration Tests: Category Authentication & Display Fix
- * 
- * Tests for bug fix: Categories not displaying + hourly rate showing $0
- * - Category creation with proper user authentication
- * - Category filtering by owner
- * - Hourly rate field consistency (hourly_rate_usd)
- */
+import fetch from 'node-fetch';
 
 describe('Category Auth & Display Integration Tests', () => {
   const API_BASE = 'http://localhost:3000'
@@ -19,6 +12,12 @@ describe('Category Auth & Display Integration Tests', () => {
   }
 
   beforeAll(() => {
+    // Explicitly assign fetch to global scope for this test file
+    global.fetch = fetch as any;
+    global.Headers = fetch.Headers as any;
+    global.Request = fetch.Request as any;
+    global.Response = fetch.Response as any;
+
     console.log('🧪 Testing Category Auth & Display Fixes')
   })
 

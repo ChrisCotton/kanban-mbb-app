@@ -28,7 +28,7 @@ export interface Tag {
 export interface Category {
   id: string
   name: string
-  hourly_rate: number
+  hourly_rate_usd: number  // ✅ FIX: Use correct database column name
   color?: string
   is_active: boolean
   created_at: string
@@ -78,11 +78,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 /**
  * Get all tasks for the current user, optionally filtered by status
+ * 🔧 FIX: Include category data with hourly_rate_usd for timer calculations
  */
 export async function getTasks(status?: Task['status']) {
   let query = supabase
     .from('tasks')
-    .select('*')
+    .select(`
+      *,
+      category:categories(id, name, hourly_rate_usd, color, is_active)
+    `)
     .order('order_index', { ascending: true })
     .order('created_at', { ascending: false })
 
@@ -96,7 +100,13 @@ export async function getTasks(status?: Task['status']) {
     throw new Error(`Failed to fetch tasks: ${error.message}`)
   }
 
-  return data as Task[]
+  console.log('[getTasks] Fetched tasks with categories:', data?.map(t => ({
+    title: t.title,
+    category: t.category?.name,
+    rate: (t.category as any)?.hourly_rate_usd
+  })))
+
+  return data as TaskWithCategory[]
 }
 
 /**

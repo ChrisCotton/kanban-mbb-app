@@ -86,9 +86,10 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
           parsed.currentTime += elapsed
           
           // Recalculate earnings if we have active task data
-          if (parsed.activeSession && activeTask?.category?.hourly_rate) {
+          const hourlyRate = activeTask?.category?.hourly_rate_usd || activeTask?.category?.hourly_rate
+          if (parsed.activeSession && hourlyRate) {
             const hoursWorked = parsed.currentTime / 3600
-            parsed.sessionEarnings = hoursWorked * activeTask.category.hourly_rate
+            parsed.sessionEarnings = hoursWorked * hourlyRate
           }
         }
         return parsed
@@ -200,13 +201,29 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
 
     if (isRunning && !isPaused) {
       interval = setInterval(() => {
-        setCurrentTime(prev => {
+          setCurrentTime(prev => {
           const newTime = prev + 1
           
           // Calculate real-time earnings
-          if (activeTask?.category?.hourly_rate) {
+          const hourlyRate = activeTask?.category?.hourly_rate_usd || activeTask?.category?.hourly_rate
+          
+          // DEBUG: Log every 5 seconds to avoid spam
+          if (newTime % 5 === 0) {
+            console.log('[useTimer] Calculating earnings:', {
+              newTime,
+              activeTask: activeTask?.title,
+              hasCategory: !!activeTask?.category,
+              hourly_rate_usd: activeTask?.category?.hourly_rate_usd,
+              hourly_rate_legacy: activeTask?.category?.hourly_rate,
+              hourlyRate,
+              hoursWorked: newTime / 3600,
+              earnings: hourlyRate ? (newTime / 3600) * hourlyRate : 0
+            })
+          }
+          
+          if (hourlyRate) {
             const hoursWorked = newTime / 3600
-            const earnings = hoursWorked * activeTask.category.hourly_rate
+            const earnings = hoursWorked * hourlyRate
             setSessionEarnings(earnings)
             
             // Update active session
@@ -217,6 +234,11 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
                 earnings
               } : null)
             }
+          } else {
+            console.warn('[useTimer] No hourly rate found!', {
+              activeTask: activeTask?.title,
+              category: activeTask?.category
+            })
           }
           
           return newTime
@@ -227,7 +249,7 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [isRunning, isPaused, activeTask?.category?.hourly_rate, activeSession])
+  }, [isRunning, isPaused, activeTask?.category?.hourly_rate_usd, activeTask?.category?.hourly_rate, activeSession])
 
   // Timer control functions
   const start = useCallback(() => {
