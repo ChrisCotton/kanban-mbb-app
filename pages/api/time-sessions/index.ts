@@ -186,18 +186,19 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ error: 'Task not found or access denied' })
     }
 
-    // Check if user already has an active session
+    // Check if this task already has an active session
     const { data: activeSession } = await supabase
       .from('time_sessions')
       .select('id, task_id, started_at')
       .eq('user_id', user_id)
+      .eq('task_id', task_id)
       .eq('is_active', true)
       .is('ended_at', null)
-      .single()
+      .maybeSingle()
 
     if (activeSession) {
-      return res.status(409).json({ 
-        error: 'User already has an active time session',
+      return res.status(409).json({
+        error: 'Task already has an active time session',
         active_session: {
           id: activeSession.id,
           task_id: activeSession.task_id,

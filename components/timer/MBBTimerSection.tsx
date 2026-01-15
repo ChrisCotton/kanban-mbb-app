@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { useTimer } from '../../hooks/useTimer'
-import { saveTimerSession, startTimerSession, timerService } from '../../lib/timer-integration'
+import React, { useCallback, useEffect } from 'react'
+import { useTimerContext } from '../../contexts/TimerContext'
 import TimerControls from './TimerControls'
+import { useCategories } from '../../hooks/useCategories'
 
 interface ActiveTask {
   id: string
   title: string
+  category_id?: string | null
   category?: {
     id: string
     name: string
@@ -26,56 +27,67 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
   activeTask,
   onTaskSelect,
   className = '',
-  userId = 'demo-user' // Default user ID for demo purposes
+  userId
 }) => {
-  // Use the useTimer hook instead of local state
-  const timer = useTimer({
-    activeTask,
-    onTaskSelect,
-    onSessionSave: async (session) => {
-      if (userId) {
-        await saveTimerSession(session, userId)
-      }
-    },
-    autoSave: true
-  })
+  const lastAutoStartTaskIdRef = React.useRef<string | null>(null)
+  const { getCategoryById } = useCategories()
+  
+  // Use global timer context for persistent timers across pages
+  const {
+    timers,
+    totalEarnings,
+    totalActiveTimers,
+    startTimer,
+    pauseTimer,
+    pauseAllTimers,
+    resumeTimer,
+    stopTimer,
+    stopAllTimers,
+    resetTimer,
+    resetAllTimers,
+    deleteTimer,
+    deleteAllTimers,
+    setUserId,
+  } = useTimerContext()
 
-  // Timer state from hook
-  const { 
-    currentTime, 
-    isRunning, 
-    isPaused, 
-    sessionEarnings,
-    start: handleStart,
-    pause: handlePause,
-    resume: handleResume,
-    stop: handleStop,
-    reset: handleReset
-  } = timer
+  // Resolve category from ID
+  const resolveCategoryById = useCallback((categoryId: string) => {
+    if (!getCategoryById) return undefined
+    const category = getCategoryById(categoryId)
+    if (!category) return undefined
 
-  // DEBUG: Log all props received
-  useEffect(() => {
-    console.log('[MBBTimerSection] Props received:', {
-      activeTask: activeTask?.title,
-      taskId: activeTask?.id,
-      hasCategory: !!activeTask?.category,
-      categoryName: activeTask?.category?.name,
-      hourly_rate_usd: activeTask?.category?.hourly_rate_usd,
-      hourly_rate: (activeTask?.category as any)?.hourly_rate,
-      isRunning,
-      currentTime,
-      sessionEarnings
-    })
-  }, [activeTask, isRunning, currentTime, sessionEarnings])
-
-  // ✅ FIX: Auto-start timer when activeTask changes (from "Start Timing" button)
-  useEffect(() => {
-    if (activeTask && !isRunning) {
-      console.log('[MBBTimerSection] Auto-starting timer for task:', activeTask.title)
-      console.log('[MBBTimerSection] Category rate:', activeTask.category?.hourly_rate_usd)
-      handleStart()
+    return {
+      id: category.id,
+      name: category.name,
+      hourly_rate_usd: (category as any).hourly_rate_usd ?? category.hourly_rate ?? 0,
+      hourly_rate: category.hourly_rate,
+      color: category.color,
     }
-  }, [activeTask, isRunning, handleStart])
+  }, [getCategoryById])
+
+  // Set userId in context when it changes
+  useEffect(() => {
+    setUserId(userId)
+  }, [userId, setUserId])
+
+  // Auto-start timer when activeTask changes (multi-timer behavior)
+  useEffect(() => {
+    if (!activeTask) return
+
+    if (lastAutoStartTaskIdRef.current === activeTask.id) {
+      return
+    }
+
+    const existingTimer = timers.find(timer => timer.taskId === activeTask.id)
+    if (existingTimer) return
+
+    const resolvedCategory = activeTask.category || (activeTask.category_id ? resolveCategoryById(activeTask.category_id) : undefined)
+    startTimer({
+      ...activeTask,
+      category: resolvedCategory || activeTask.category,
+    })
+    lastAutoStartTaskIdRef.current = activeTask.id
+  }, [activeTask, resolveCategoryById, startTimer, timers])
 
   // Format time display
   const formatTime = (seconds: number): string => {
@@ -97,35 +109,36 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
     }).format(amount)
   }
 
-  // Timer controls are now provided by the useTimer hook
-  // All timer logic including database integration is handled in the hook
-
   return (
     <div className={`w-full bg-black/30 backdrop-blur-sm border-t border-white/10 ${className}`}>
       <div className="container mx-auto px-4 py-4">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
           
-          {/* Left Side - Session Earnings & Rate */}
+          {/* Left Side - Total Earnings & Active Timers */}
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-3">
               <div className="text-sm font-medium text-white">Session:</div>
-              <div className="text-xl font-bold text-green-400">
-                {formatCurrency(sessionEarnings)}
+              <div className="text-xl font-bold text-green-400" data-testid="session-total">
+                {formatCurrency(totalEarnings)}
               </div>
+              {/* Running indicator */}
+              {totalActiveTimers > 0 && (
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+              )}
             </div>
             
             <div className="hidden sm:flex items-center space-x-3">
-              <div className="text-sm font-medium text-white">Rate:</div>
+              <div className="text-sm font-medium text-white">Active:</div>
               <div className="text-lg text-blue-400">
-                {(activeTask?.category?.hourly_rate_usd || activeTask?.category?.hourly_rate)
-                  ? `${formatCurrency(activeTask.category.hourly_rate_usd || activeTask.category.hourly_rate)}/hr`
-                  : '--'
-                }
+                {totalActiveTimers}
               </div>
             </div>
           </div>
 
-          {/* Center - Active Task & Timer */}
+          {/* Center - Active Task Hint */}
           <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-6">
             <div className="text-center sm:text-left">
               <div className="text-white font-medium">
@@ -141,37 +154,110 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
                 </div>
               )}
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-2xl font-mono text-white bg-black/40 px-4 py-2 rounded-lg min-w-[120px] text-center">
-                {formatTime(currentTime)}
-              </div>
-              
-              {/* Timer Status Indicator */}
-              <div className={`w-3 h-3 rounded-full ${
-                isRunning && !isPaused 
-                  ? 'bg-green-500 animate-pulse' 
-                  : isPaused 
-                    ? 'bg-yellow-500' 
-                    : 'bg-gray-500'
-              }`} />
-            </div>
           </div>
 
-          {/* Right Side - Timer Controls (Using TimerControls Component) */}
-          <TimerControls
-            isRunning={isRunning}
-            isPaused={isPaused}
-            onStart={handleStart}
-            onPause={handlePause}
-            onResume={handleResume}
-            onStop={handleStop}
-            onReset={handleReset}
-            size="md"
-            variant="default"
-            showLabels={true}
-            disabled={!activeTask} // Disable when no task is selected
-          />
+          {/* Right Side - Placeholder Controls (per-timer controls below) */}
+          <div className="text-sm text-white/60">
+            {timers.length === 0 ? 'No active timers' : `${timers.length} timer(s)`}
+          </div>
+        </div>
+
+        {/* Global Controls */}
+        {timers.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2 items-center">
+            <button
+              onClick={pauseAllTimers}
+              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              data-testid="timer-global-pause"
+              aria-label="Pause all timers"
+              title="Pause all timers"
+            >
+              ⏸ Pause All
+            </button>
+            <button
+              onClick={stopAllTimers}
+              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-md bg-red-600 hover:bg-red-700 text-white transition-colors"
+              data-testid="timer-global-stop"
+              aria-label="Stop all timers"
+              title="Stop all timers"
+            >
+              ⏹ Stop All
+            </button>
+            <button
+              onClick={resetAllTimers}
+              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
+              data-testid="timer-global-reset"
+              aria-label="Reset all timers"
+              title="Reset all timers"
+            >
+              🔄 Reset All
+            </button>
+            <button
+              onClick={deleteAllTimers}
+              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-md bg-rose-700 hover:bg-rose-800 text-white transition-colors"
+              data-testid="timer-global-delete"
+              aria-label="Delete all timers"
+              title="Delete all timers"
+            >
+              🗑 Delete All
+            </button>
+          </div>
+        )}
+
+        {/* Multi-Timer List */}
+        <div className="mt-4 space-y-2">
+          {timers.map(timer => {
+            const resolvedCategory = timer.task.category || (timer.task.category_id ? resolveCategoryById(timer.task.category_id) : undefined)
+            const rate = resolvedCategory?.hourly_rate_usd || resolvedCategory?.hourly_rate
+
+            return (
+              <div
+                key={timer.taskId}
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-black/40 rounded-lg px-4 py-3 border border-white/10"
+                data-testid={`timer-row-${timer.taskId}`}
+              >
+                <div className="flex-1">
+                  <div className="text-white font-medium">
+                    {timer.task.title}
+                  </div>
+                  <div className="text-sm text-white/70">
+                    {resolvedCategory?.name || 'No category'}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-white/60">
+                    {rate ? `${formatCurrency(rate)}/hr` : '--'}
+                  </div>
+                  <div
+                    className="text-lg font-mono text-white bg-black/40 px-3 py-1 rounded-md min-w-[90px] text-center"
+                    data-testid={`timer-time-${timer.taskId}`}
+                  >
+                    {formatTime(timer.currentTime)}
+                  </div>
+                  <div className="text-green-400 font-semibold" data-testid={`timer-earnings-${timer.taskId}`}>
+                    {formatCurrency(timer.sessionEarnings)}
+                  </div>
+                </div>
+
+                <TimerControls
+                  isRunning={timer.isRunning}
+                  isPaused={timer.isPaused}
+                  onStart={() => startTimer(timer.task)}
+                  onPause={() => pauseTimer(timer.taskId)}
+                  onResume={() => resumeTimer(timer.taskId)}
+                  onStop={() => stopTimer(timer.taskId)}
+                  onReset={() => resetTimer(timer.taskId)}
+                  onDelete={() => deleteTimer(timer.taskId)}
+                  size="sm"
+                  variant="compact"
+                  showLabels={false}
+                  ariaLabelPrefix={timer.task.title}
+                  testIdPrefix={`timer-${timer.taskId}`}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

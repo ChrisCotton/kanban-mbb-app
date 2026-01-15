@@ -58,7 +58,7 @@ const CategoriesPage = () => {
   }
 
   return (
-    <Layout carouselImages={visionBoardImages}>
+    <Layout carouselImages={visionBoardImages} userId={user?.id}>
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">

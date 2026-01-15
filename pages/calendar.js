@@ -49,7 +49,7 @@ const CalendarPage = () => {
   }
 
   return (
-    <Layout carouselImages={visionBoardImages}>
+    <Layout carouselImages={visionBoardImages} userId={user?.id}>
       {/* Calendar Content */}
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">

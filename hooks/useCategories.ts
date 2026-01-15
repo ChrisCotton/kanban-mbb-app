@@ -10,6 +10,7 @@ export interface Category {
   id: string
   name: string
   hourly_rate: number // Database uses hourly_rate (not hourly_rate_usd)
+  hourly_rate_usd?: number
   color?: string
   is_active: boolean
   total_hours: number // NEW: Total hours tracked for this category
