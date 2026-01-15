@@ -11,6 +11,7 @@ interface TimerControlsProps {
   onResume: () => void;
   onStop: () => void;
   onReset: () => void;
+  onDelete: () => void;
   
   // Customization options
   className?: string;
@@ -18,6 +19,8 @@ interface TimerControlsProps {
   variant?: 'default' | 'minimal' | 'compact';
   showLabels?: boolean;
   disabled?: boolean;
+  ariaLabelPrefix?: string;
+  testIdPrefix?: string;
 }
 
 const sizeClasses = {
@@ -40,12 +43,17 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
   onResume,
   onStop,
   onReset,
+  onDelete,
   className = '',
   size = 'md',
   variant = 'default',
   showLabels = true,
-  disabled = false
+  disabled = false,
+  ariaLabelPrefix,
+  testIdPrefix
 }) => {
+  const buildAriaLabel = (label: string) =>
+    ariaLabelPrefix ? `${ariaLabelPrefix} ${label}` : label;
   const getSizeClasses = () => sizeClasses[size];
   const getIconSize = () => iconSizes[size];
   
@@ -73,15 +81,13 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
     <button
       onClick={onStart}
       disabled={disabled}
-      className={`${baseButtonClasses} bg-green-600 hover:bg-green-700 ${disabled ? '' : 'hover:bg-green-700'}`}
-      aria-label="Start Timer"
+      className={`${baseButtonClasses} bg-emerald-600 hover:bg-emerald-700 ${disabled ? '' : 'hover:bg-emerald-700'}`}
+      aria-label={buildAriaLabel('Start Timer')}
+      title={buildAriaLabel('Start Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-start` : undefined}
     >
-      <svg className={getIconSize()} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path 
-          fillRule="evenodd" 
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" 
-          clipRule="evenodd" 
-        />
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 5.5v13l11-6.5-11-6.5z" fill="currentColor" />
       </svg>
       {showLabels && <span className="hidden sm:inline">Start</span>}
     </button>
@@ -92,15 +98,13 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
     <button
       onClick={onPause}
       disabled={disabled}
-      className={`${baseButtonClasses} bg-yellow-600 hover:bg-yellow-700 ${disabled ? '' : 'hover:bg-yellow-700'}`}
-      aria-label="Pause Timer"
+      className={`${baseButtonClasses} bg-amber-600 hover:bg-amber-700 ${disabled ? '' : 'hover:bg-amber-700'}`}
+      aria-label={buildAriaLabel('Pause Timer')}
+      title={buildAriaLabel('Pause Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-pause` : undefined}
     >
-      <svg className={getIconSize()} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path 
-          fillRule="evenodd" 
-          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" 
-          clipRule="evenodd" 
-        />
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" />
       </svg>
       {showLabels && <span className="hidden sm:inline">Pause</span>}
     </button>
@@ -111,15 +115,13 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
     <button
       onClick={onResume}
       disabled={disabled}
-      className={`${baseButtonClasses} bg-blue-600 hover:bg-blue-700 ${disabled ? '' : 'hover:bg-blue-700'}`}
-      aria-label="Resume Timer"
+      className={`${baseButtonClasses} bg-sky-600 hover:bg-sky-700 ${disabled ? '' : 'hover:bg-sky-700'}`}
+      aria-label={buildAriaLabel('Resume Timer')}
+      title={buildAriaLabel('Resume Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-resume` : undefined}
     >
-      <svg className={getIconSize()} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path 
-          fillRule="evenodd" 
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" 
-          clipRule="evenodd" 
-        />
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 5.5v13l11-6.5-11-6.5z" fill="currentColor" />
       </svg>
       {showLabels && <span className="hidden sm:inline">Resume</span>}
     </button>
@@ -130,15 +132,13 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
     <button
       onClick={onStop}
       disabled={disabled}
-      className={`${baseButtonClasses} bg-red-600 hover:bg-red-700 ${disabled ? '' : 'hover:bg-red-700'}`}
-      aria-label="Stop Timer"
+      className={`${baseButtonClasses} bg-rose-600 hover:bg-rose-700 ${disabled ? '' : 'hover:bg-rose-700'}`}
+      aria-label={buildAriaLabel('Stop Timer')}
+      title={buildAriaLabel('Stop Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-stop` : undefined}
     >
-      <svg className={getIconSize()} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path 
-          fillRule="evenodd" 
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" 
-          clipRule="evenodd" 
-        />
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 6h12v12H6z" fill="currentColor" />
       </svg>
       {showLabels && <span className="hidden sm:inline">Stop</span>}
     </button>
@@ -149,19 +149,49 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
     <button
       onClick={onReset}
       disabled={disabled}
-      className={`${baseButtonClasses} bg-gray-600 hover:bg-gray-700 ${disabled ? '' : 'hover:bg-gray-700'} ${variant === 'compact' ? getSizeClasses() : 'px-3 py-2'}`}
-      title="Reset Timer"
-      aria-label="Reset Timer"
+      className={`${baseButtonClasses} bg-slate-600 hover:bg-slate-700 ${disabled ? '' : 'hover:bg-slate-700'} ${variant === 'compact' ? getSizeClasses() : 'px-3 py-2'}`}
+      aria-label={buildAriaLabel('Reset Timer')}
+      title={buildAriaLabel('Reset Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-reset` : undefined}
     >
-      <svg className={getIconSize()} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path 
-          fillRule="evenodd" 
-          d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" 
-          clipRule="evenodd" 
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M6 8a7 7 0 0112 4h2a9 9 0 10-9 9v-2a7 7 0 01-5-11zm-2 0V3h5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
       {showLabels && variant !== 'compact' && (
         <span className="hidden sm:inline">Reset</span>
+      )}
+    </button>
+  );
+
+  // Delete Button (always shown)
+  const DeleteButton = () => (
+    <button
+      onClick={onDelete}
+      disabled={disabled}
+      className={`${baseButtonClasses} bg-red-800 hover:bg-red-900 ${disabled ? '' : 'hover:bg-red-900'} ${variant === 'compact' ? getSizeClasses() : 'px-3 py-2'}`}
+      aria-label={buildAriaLabel('Delete Timer')}
+      title={buildAriaLabel('Delete Timer')}
+      data-testid={testIdPrefix ? `${testIdPrefix}-delete` : undefined}
+    >
+      <svg className={`${getIconSize()} text-white`} viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6v9m4-9v9M7 7l1 14h8l1-14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {showLabels && variant !== 'compact' && (
+        <span className="hidden sm:inline">Delete</span>
       )}
     </button>
   );
@@ -177,6 +207,7 @@ export const TimerControls: React.FC<TimerControlsProps> = ({
         </>
       )}
       <ResetButton />
+      <DeleteButton />
     </div>
   );
 };

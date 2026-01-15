@@ -156,7 +156,7 @@ const VisionBoardPage = () => {
   const activeImages = visionBoardImages.filter(img => img.is_active)
 
   return (
-    <Layout carouselImages={activeImages}>
+    <Layout carouselImages={activeImages} userId={user?.id}>
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">

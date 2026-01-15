@@ -10,6 +10,7 @@ describe('TimerControls', () => {
     onResume: jest.fn(),
     onStop: jest.fn(),
     onReset: jest.fn(),
+    onDelete: jest.fn(),
   };
 
   beforeEach(() => {

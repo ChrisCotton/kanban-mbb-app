@@ -2,14 +2,39 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
+import { useRealtimeAnalytics } from '../hooks/useRealtimeAnalytics'
+import { useTimerContext } from '../contexts/TimerContext'
 
 const MBBPage = () => {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [visionBoardImages, setVisionBoardImages] = useState([])
+  
+  // Get live timer data from context to combine with DB analytics
+  const { timers, totalEarnings: liveTimerEarnings, totalActiveTimers } = useTimerContext()
+
+  // Restore target from localStorage on mount (fallback for when DB table doesn't exist)
+  useEffect(() => {
+    const savedTarget = localStorage.getItem('mbb_target_balance')
+    if (savedTarget) {
+      const targetValue = parseFloat(savedTarget)
+      if (!isNaN(targetValue) && targetValue > 0) {
+        setMbbData(prev => ({ ...prev, targetBalance: targetValue }))
+      }
+    }
+  }, [])
+  // Load target from localStorage as fallback (since DB table may not exist)
+  const getInitialTarget = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mbb_target_balance')
+      if (saved) return parseFloat(saved)
+    }
+    return 1000
+  }
+  
   const [mbbData, setMbbData] = useState({
     currentBalance: 0,
-    targetBalance: 1000,
+    targetBalance: typeof window !== 'undefined' ? getInitialTarget() : 1000,
     todayEarnings: 0,
     weekEarnings: 0,
     monthEarnings: 0,
@@ -22,18 +47,37 @@ const MBBPage = () => {
   })
   const [timeSessions, setTimeSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [analyticsRefreshing, setAnalyticsRefreshing] = useState(false)
   const [showTargetModal, setShowTargetModal] = useState(false)
   const [newTarget, setNewTarget] = useState('')
 
-  // Load MBB data from API
-  const loadMBBData = useCallback(async () => {
+  // Load MBB data from analytics API
+  const loadMBBData = useCallback(async (userId, showRefreshIndicator = false) => {
+    if (!userId) return
+    
+    if (showRefreshIndicator) {
+      setAnalyticsRefreshing(true)
+    }
+    
     try {
-      const response = await fetch('/api/mbb')
+      const response = await fetch(`/api/mbb/analytics?user_id=${userId}`)
       if (!response.ok) throw new Error('Failed to load MBB data')
       
       const result = await response.json()
-      if (result.success) {
-        setMbbData(result.data)
+      if (result.success && result.data) {
+        setMbbData({
+          currentBalance: result.data.total_earnings || 0,
+          targetBalance: result.data.target_balance || (typeof window !== 'undefined' && localStorage.getItem('mbb_target_balance') ? parseFloat(localStorage.getItem('mbb_target_balance')) : 1000),
+          todayEarnings: result.data.today_earnings || 0,
+          weekEarnings: result.data.week_earnings || 0,
+          monthEarnings: result.data.month_earnings || 0,
+          totalEarnings: result.data.total_earnings || 0,
+          todayHours: result.data.today_hours || 0,
+          weekHours: result.data.week_hours || 0,
+          monthHours: result.data.month_hours || 0,
+          totalHours: result.data.total_hours || 0,
+          averageHourlyRate: result.data.average_hourly_rate || 0
+        })
       } else {
         throw new Error(result.error || 'Failed to load MBB data')
       }
@@ -53,13 +97,17 @@ const MBBPage = () => {
         totalHours: 0,
         averageHourlyRate: 0
       })
+    } finally {
+      setAnalyticsRefreshing(false)
     }
   }, [])
 
   // Load recent time sessions
-  const loadTimeSessions = useCallback(async () => {
+  const loadTimeSessions = useCallback(async (userId) => {
+    if (!userId) return
+    
     try {
-      const response = await fetch('/api/time-sessions?limit=10')
+      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=10`)
       if (!response.ok) throw new Error('Failed to load time sessions')
       
       const result = await response.json()
@@ -71,6 +119,22 @@ const MBBPage = () => {
       setTimeSessions([])
     }
   }, [])
+
+  // Callback to refresh analytics data (for realtime hook)
+  const refreshAnalytics = useCallback(() => {
+    if (user?.id) {
+      loadMBBData(user.id, true)
+      loadTimeSessions(user.id)
+    }
+  }, [user, loadMBBData, loadTimeSessions])
+
+  // Subscribe to realtime updates for time_sessions
+  useRealtimeAnalytics({
+    userId: user?.id,
+    onUpdate: refreshAnalytics,
+    debounceMs: 1000,
+    enabled: !!user?.id
+  })
 
   useEffect(() => {
     const getUser = async () => {
@@ -92,8 +156,8 @@ const MBBPage = () => {
         
       setVisionBoardImages(images || [])
       
-      // Load MBB data and time sessions
-      await Promise.all([loadMBBData(), loadTimeSessions()])
+      // Load MBB data and time sessions with user ID
+      await Promise.all([loadMBBData(user.id), loadTimeSessions(user.id)])
       setLoading(false)
     }
 
@@ -128,6 +192,8 @@ const MBBPage = () => {
       if (!result.success) throw new Error(result.error)
 
       setMbbData(prev => ({ ...prev, targetBalance: targetValue }))
+      // Also save to localStorage as fallback (in case DB table doesn't exist)
+      localStorage.setItem('mbb_target_balance', targetValue.toString())
       setNewTarget('')
       setShowTargetModal(false)
     } catch (error) {
@@ -136,8 +202,52 @@ const MBBPage = () => {
     }
   }
 
-  // Calculate progress percentage
-  const progressPercentage = Math.min((mbbData.currentBalance / mbbData.targetBalance) * 100, 100)
+  // Calculate combined values: DB completed sessions + live active timer earnings
+  // Live timer earnings should be added to "today" since active timers are for today
+  const combinedTodayEarnings = mbbData.todayEarnings + (liveTimerEarnings || 0)
+  const combinedWeekEarnings = mbbData.weekEarnings + (liveTimerEarnings || 0)
+  const combinedMonthEarnings = mbbData.monthEarnings + (liveTimerEarnings || 0)
+  const combinedTotalEarnings = mbbData.totalEarnings + (liveTimerEarnings || 0)
+  const combinedCurrentBalance = mbbData.currentBalance + (liveTimerEarnings || 0)
+  
+  // Calculate live timer hours (from active timers)
+  const liveTimerHours = timers?.reduce((sum, t) => sum + (t.currentTime || 0) / 3600, 0) || 0
+  const combinedTodayHours = mbbData.todayHours + liveTimerHours
+  const combinedWeekHours = mbbData.weekHours + liveTimerHours
+  const combinedMonthHours = mbbData.monthHours + liveTimerHours
+  const combinedTotalHours = mbbData.totalHours + liveTimerHours
+  
+  // Calculate combined average hourly rate (total earnings / total hours)
+  const combinedAverageRate = combinedTotalHours > 0 
+    ? combinedTotalEarnings / combinedTotalHours 
+    : mbbData.averageHourlyRate
+  
+  // Calculate days to reach target at current average daily rate
+  const remainingToTarget = Math.max(0, mbbData.targetBalance - combinedCurrentBalance)
+  const averageDailyEarnings = combinedTodayHours > 0 
+    ? (combinedTodayEarnings / combinedTodayHours) * 8 // Assume 8hr workday
+    : (combinedAverageRate * 8)
+  const daysToTarget = averageDailyEarnings > 0 
+    ? Math.ceil(remainingToTarget / averageDailyEarnings)
+    : null
+  
+  // Calculate projected target date
+  const projectedTargetDate = daysToTarget !== null ? (() => {
+    const targetDate = new Date()
+    targetDate.setDate(targetDate.getDate() + daysToTarget)
+    return targetDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+  })() : null
+
+  // Calculate progress percentage using combined balance
+  // Show actual percentage for display, but cap bar width at 100%
+  const progressPercentage = (combinedCurrentBalance / mbbData.targetBalance) * 100
+  const progressBarWidth = Math.min(progressPercentage, 100)
+
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -170,7 +280,7 @@ const MBBPage = () => {
   }
 
   return (
-    <Layout carouselImages={visionBoardImages}>
+    <Layout carouselImages={visionBoardImages} userId={user?.id}>
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -180,15 +290,32 @@ const MBBPage = () => {
                 Track your progress towards your financial goals and analyze your earning patterns.
               </p>
             </div>
-            <button
-              onClick={() => {
-                setNewTarget(mbbData.targetBalance.toString())
-                setShowTargetModal(true)
-              }}
-              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-            >
-              Set Target
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (user?.id && !analyticsRefreshing) {
+                    loadMBBData(user.id, true)
+                    loadTimeSessions(user.id)
+                  }
+                }}
+                disabled={analyticsRefreshing}
+                className={`px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${analyticsRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Refresh analytics data"
+              >
+                <svg className={`w-5 h-5 ${analyticsRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setNewTarget(mbbData.targetBalance.toString())
+                  setShowTargetModal(true)
+                }}
+                className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Set Target
+              </button>
+            </div>
           </div>
 
           {/* Main MBB Card */}
@@ -196,7 +323,7 @@ const MBBPage = () => {
             <div className="text-center mb-6">
               <h2 className="text-2xl font-semibold text-white mb-2">Current Balance</h2>
               <div className="text-5xl font-bold text-white mb-4">
-                {formatCurrency(mbbData.currentBalance)}
+                {formatCurrency(combinedCurrentBalance)}
               </div>
               <div className="text-lg text-white/70">
                 Target: {formatCurrency(mbbData.targetBalance)}
@@ -207,11 +334,20 @@ const MBBPage = () => {
             <div className="w-full bg-white/10 rounded-full h-4 mb-4">
               <div
                 className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercentage}%` }}
+                style={{ width: `${progressBarWidth}%` }}
               ></div>
             </div>
             <div className="text-center text-white/70">
               {progressPercentage.toFixed(1)}% of target achieved
+              {remainingToTarget > 0 && daysToTarget !== null && (
+                <span className="ml-2 text-blue-300">
+                  • ~{daysToTarget} day{daysToTarget !== 1 ? 's' : ''} to target at current rate
+                  {projectedTargetDate && <span className="text-purple-300"> ({projectedTargetDate})</span>}
+                </span>
+              )}
+              {remainingToTarget <= 0 && (
+                <span className="ml-2 text-green-400">🎉 Target achieved!</span>
+              )}
             </div>
           </div>
 
@@ -227,8 +363,8 @@ const MBBPage = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-2xl font-bold text-white">{formatCurrency(mbbData.todayEarnings)}</div>
-                <div className="text-sm text-white/70">{formatHours(mbbData.todayHours)} worked</div>
+                <div className="text-2xl font-bold text-white">{formatCurrency(combinedTodayEarnings)}</div>
+                <div className="text-sm text-white/70">{formatHours(combinedTodayHours)} worked</div>
               </div>
             </div>
 
@@ -242,8 +378,8 @@ const MBBPage = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-2xl font-bold text-white">{formatCurrency(mbbData.weekEarnings)}</div>
-                <div className="text-sm text-white/70">{formatHours(mbbData.weekHours)} worked</div>
+                <div className="text-2xl font-bold text-white">{formatCurrency(combinedWeekEarnings)}</div>
+                <div className="text-sm text-white/70">{formatHours(combinedWeekHours)} worked</div>
               </div>
             </div>
 
@@ -257,8 +393,8 @@ const MBBPage = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-2xl font-bold text-white">{formatCurrency(mbbData.monthEarnings)}</div>
-                <div className="text-sm text-white/70">{formatHours(mbbData.monthHours)} worked</div>
+                <div className="text-2xl font-bold text-white">{formatCurrency(combinedMonthEarnings)}</div>
+                <div className="text-sm text-white/70">{formatHours(combinedMonthHours)} worked</div>
               </div>
             </div>
 
@@ -272,8 +408,8 @@ const MBBPage = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-2xl font-bold text-white">{formatCurrency(mbbData.averageHourlyRate)}/hr</div>
-                <div className="text-sm text-white/70">{formatHours(mbbData.totalHours)} total</div>
+                <div className="text-2xl font-bold text-white">{formatCurrency(combinedAverageRate)}/hr</div>
+                <div className="text-sm text-white/70">{formatHours(combinedTotalHours)} total</div>
               </div>
             </div>
           </div>
@@ -312,19 +448,19 @@ const MBBPage = () => {
                           </div>
                           <div>
                             <h4 className="text-white font-medium">
-                              {session.task?.title || session.description || 'Work Session'}
+                              {session.tasks?.title || session.description || 'Work Session'}
                             </h4>
                             <p className="text-white/70 text-sm">
-                              {session.category?.name || 'Uncategorized'} • {formatHours(session.duration_hours || 0)}
+                              {session.categories?.name || 'Uncategorized'} • {formatHours((session.duration_seconds || 0) / 3600)}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="text-white font-semibold">
-                            {formatCurrency(session.earnings || 0)}
+                            {formatCurrency(parseFloat(session.earnings_usd) || 0)}
                           </div>
                           <div className="text-white/70 text-sm">
-                            {session.created_at ? new Date(session.created_at).toLocaleDateString() : 'Today'}
+                            {session.started_at ? new Date(session.started_at).toLocaleDateString() : 'Today'}
                           </div>
                         </div>
                       </div>

@@ -70,13 +70,28 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   // Optimistic tasks state for instant drag feedback
   const [optimisticTasks, setOptimisticTasks] = useState<TasksByStatus | null>(null)
 
+  const tasksMatchByIdOrder = useCallback((left: TasksByStatus, right: TasksByStatus) => {
+    const statuses: Task['status'][] = ['backlog', 'todo', 'doing', 'done']
+
+    return statuses.every(status => {
+      const leftIds = left[status].map(task => task.id)
+      const rightIds = right[status].map(task => task.id)
+
+      if (leftIds.length !== rightIds.length) return false
+
+      return leftIds.every((id, index) => id === rightIds[index])
+    })
+  }, [])
+
   // Clear optimistic state when tasks update from server (after background refetch)
   useEffect(() => {
     if (optimisticTasks !== null) {
-      // Clear optimistic state when real data arrives from fetchTasks
-      setOptimisticTasks(null)
+      // Only clear optimistic state when server data matches it
+      if (tasksMatchByIdOrder(tasks, optimisticTasks)) {
+        setOptimisticTasks(null)
+      }
     }
-  }, [tasks]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tasks, optimisticTasks, tasksMatchByIdOrder])
 
   // Handle optimistic updates for drag and drop (memoized to prevent recreation)
   const handleOptimisticUpdate = useCallback((updatedTasks: typeof tasks) => {
