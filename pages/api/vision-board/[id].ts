@@ -45,20 +45,7 @@ async function getVisionBoardImage(req: NextApiRequest, res: NextApiResponse, im
   try {
     const { data: image, error } = await supabase
       .from('vision_board_images')
-      .select(`
-        id,
-        title,
-        description,
-        image_url,
-        thumbnail_url,
-        is_active,
-        display_order,
-        view_count,
-        last_viewed_at,
-        tags,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .eq('id', imageId)
       .eq('user_id', user_id)
       .single()
@@ -102,7 +89,9 @@ async function updateVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
     is_active,
     display_order,
     tags,
-    action
+    action,
+    goal,
+    due_date
   } = req.body
 
   if (!user_id) {
@@ -113,7 +102,7 @@ async function updateVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
     // Verify image exists and user owns it
     const { data: existingImage } = await supabase
       .from('vision_board_images')
-      .select('id, is_active, display_order')
+      .select('id, is_active, display_order, goal, due_date')
       .eq('id', imageId)
       .eq('user_id', user_id)
       .single()
@@ -163,6 +152,37 @@ async function updateVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
       }
     }
 
+    // Handle goal update
+    if (goal !== undefined) {
+      if (goal === null) {
+        return res.status(400).json({ error: 'goal cannot be set to null' })
+      }
+      const trimmedGoal = goal.trim()
+      if (trimmedGoal.length === 0) {
+        return res.status(400).json({ error: 'goal cannot be empty or whitespace only' })
+      }
+      if (trimmedGoal.length > 500) {
+        return res.status(400).json({ error: 'goal must be 500 characters or less' })
+      }
+      updateData.goal = trimmedGoal
+    }
+
+    // Handle due_date update
+    if (due_date !== undefined) {
+      if (due_date === null) {
+        return res.status(400).json({ error: 'due_date cannot be set to null' })
+      }
+      const dueDateObj = new Date(due_date)
+      if (isNaN(dueDateObj.getTime())) {
+        return res.status(400).json({ error: 'due_date must be a valid date' })
+      }
+      // Format as ISO date string (YYYY-MM-DD)
+      const dueDateISO = due_date.includes('T') 
+        ? due_date.split('T')[0] 
+        : due_date
+      updateData.due_date = dueDateISO
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No valid updates provided' })
     }
@@ -172,25 +192,15 @@ async function updateVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
       .update(updateData)
       .eq('id', imageId)
       .eq('user_id', user_id)
-      .select(`
-        id,
-        title,
-        description,
-        image_url,
-        thumbnail_url,
-        is_active,
-        display_order,
-        view_count,
-        last_viewed_at,
-        tags,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .single()
 
     if (error) {
       console.error('Error updating vision board image:', error)
-      return res.status(500).json({ error: 'Failed to update vision board image' })
+      return res.status(500).json({ 
+        error: 'Failed to update vision board image',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     return res.status(200).json({
@@ -199,9 +209,12 @@ async function updateVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
       message: 'Vision board image updated successfully'
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in updateVisionBoardImage:', error)
-    return res.status(500).json({ error: 'Failed to update vision board image' })
+    return res.status(500).json({ 
+      error: 'Failed to update vision board image',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 }
 

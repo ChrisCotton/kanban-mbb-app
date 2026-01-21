@@ -17,6 +17,25 @@ jest.mock('next/image', () => {
   }
 })
 
+// Mock react-datepicker
+jest.mock('react-datepicker', () => {
+  return function MockDatePicker({ selected, onChange, ...props }: any) {
+    return (
+      <input
+        type="text"
+        data-testid="date-picker"
+        value={selected ? selected.toISOString().split('T')[0] : ''}
+        onChange={(e) => {
+          if (onChange) {
+            onChange(new Date(e.target.value))
+          }
+        }}
+        {...props}
+      />
+    )
+  }
+})
+
 const mockImages = [
   {
     id: '1',
@@ -29,7 +48,10 @@ const mockImages = [
     height_px: 600,
     is_active: true,
     view_count: 5,
-    created_at: '2024-01-01T00:00:00Z'
+    created_at: '2024-01-01T00:00:00Z',
+    goal: 'Test goal 1',
+    due_date: '2024-12-31',
+    media_type: 'image' as const
   },
   {
     id: '2',
@@ -42,12 +64,15 @@ const mockImages = [
     height_px: 600,
     is_active: false,
     view_count: 3,
-    created_at: '2024-01-02T00:00:00Z'
+    created_at: '2024-01-02T00:00:00Z',
+    goal: 'Test goal 2',
+    due_date: '2024-06-15',
+    media_type: 'image' as const
   },
   {
     id: '3',
-    file_path: '/test-image-3.jpg',
-    title: 'Test Image 3',
+    file_path: '/test-video-3.mp4',
+    title: 'Test Video 3',
     alt_text: 'Alt text 3',
     description: 'Description 3',
     display_order: 2,
@@ -55,16 +80,160 @@ const mockImages = [
     height_px: 600,
     is_active: true,
     view_count: 8,
-    created_at: '2024-01-03T00:00:00Z'
+    created_at: '2024-01-03T00:00:00Z',
+    goal: 'Test goal 3',
+    due_date: '2024-02-14',
+    media_type: 'video' as const
   }
 ]
 
 describe('ThumbnailGallery', () => {
+  const defaultProps = {
+    images: mockImages,
+    userId: 'user-123',
+    onImageUpdate: jest.fn().mockResolvedValue({})
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2024-01-15T00:00:00Z'))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
   it('renders empty state when no images provided', () => {
     render(<ThumbnailGallery images={[]} />)
     
     expect(screen.getByText('No Images Yet')).toBeInTheDocument()
     expect(screen.getByText('Upload your first vision board image to get started')).toBeInTheDocument()
+  })
+
+  it('displays goal text on each thumbnail', () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    expect(screen.getByText('Test goal 1')).toBeInTheDocument()
+    expect(screen.getByText('Test goal 2')).toBeInTheDocument()
+    expect(screen.getByText('Test goal 3')).toBeInTheDocument()
+  })
+
+  it('displays due_date badge with correct formatting', () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    expect(screen.getByText(/due: dec 31, 2024/i)).toBeInTheDocument()
+    expect(screen.getByText(/due: jun 15, 2024/i)).toBeInTheDocument()
+    expect(screen.getByText(/due: feb 14, 2024/i)).toBeInTheDocument()
+  })
+
+  it('applies correct color coding based on due_date interval', () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    // Check that due date badges have color classes
+    const dueDateBadges = screen.getAllByText(/due:/i)
+    expect(dueDateBadges.length).toBeGreaterThan(0)
+    
+    // Each badge should have color styling
+    dueDateBadges.forEach(badge => {
+      expect(badge.closest('div')).toHaveClass('bg-')
+    })
+  })
+
+  it('shows media type indicator for videos', () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    // Video should show video indicator
+    const videoThumbnail = screen.getByAltText(/test video 3/i).closest('div')
+    expect(videoThumbnail).toBeInTheDocument()
+  })
+
+  it('shows edit button when onImageUpdate is provided', () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButtons = screen.getAllByTitle(/edit goal and due date/i)
+    expect(editButtons.length).toBeGreaterThan(0)
+  })
+
+  it('opens edit modal when edit button is clicked', async () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButton = screen.getAllByTitle(/edit goal and due date/i)[0]
+    fireEvent.click(editButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/edit goal & due date/i)).toBeInTheDocument()
+    })
+  })
+
+  it('pre-fills edit form with current goal and due_date', async () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButton = screen.getAllByTitle(/edit goal and due date/i)[0]
+    fireEvent.click(editButton)
+    
+    await waitFor(() => {
+      const goalInput = screen.getByLabelText(/goal/i) as HTMLInputElement
+      expect(goalInput.value).toBe('Test goal 1')
+    })
+  })
+
+  it('updates goal and due_date when save is clicked', async () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButton = screen.getAllByTitle(/edit goal and due date/i)[0]
+    fireEvent.click(editButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/edit goal & due date/i)).toBeInTheDocument()
+    })
+    
+    const goalInput = screen.getByLabelText(/goal/i)
+    fireEvent.change(goalInput, { target: { value: 'Updated goal' } })
+    
+    const saveButton = screen.getByRole('button', { name: /save/i })
+    fireEvent.click(saveButton)
+    
+    await waitFor(() => {
+      expect(defaultProps.onImageUpdate).toHaveBeenCalledWith('1', expect.objectContaining({
+        goal: 'Updated goal'
+      }))
+    })
+  })
+
+  it('closes edit modal when cancel is clicked', async () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButton = screen.getAllByTitle(/edit goal and due date/i)[0]
+    fireEvent.click(editButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/edit goal & due date/i)).toBeInTheDocument()
+    })
+    
+    const cancelButton = screen.getByRole('button', { name: /cancel/i })
+    fireEvent.click(cancelButton)
+    
+    await waitFor(() => {
+      expect(screen.queryByText(/edit goal & due date/i)).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows validation error if goal is empty in edit modal', async () => {
+    render(<ThumbnailGallery {...defaultProps} />)
+    
+    const editButton = screen.getAllByTitle(/edit goal and due date/i)[0]
+    fireEvent.click(editButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/edit goal & due date/i)).toBeInTheDocument()
+    })
+    
+    const goalInput = screen.getByLabelText(/goal/i)
+    fireEvent.change(goalInput, { target: { value: '   ' } })
+    
+    const saveButton = screen.getByRole('button', { name: /save/i })
+    expect(saveButton).toBeDisabled()
   })
 
   it('renders images in grid layout', () => {

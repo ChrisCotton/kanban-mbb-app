@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import ThumbnailGallery from '../components/vision-board/ThumbnailGallery'
 import { ImageUploader } from '../components/vision-board/ImageUploader'
+import AIGenerator from '../components/vision-board/AIGenerator'
 
 const VisionBoardPage = () => {
   const router = useRouter()
@@ -12,6 +13,7 @@ const VisionBoardPage = () => {
   const [loading, setLoading] = useState(true)
   const [selectedImageIds, setSelectedImageIds] = useState([])
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [aiProvider, setAiProvider] = useState('nano_banana')
 
   // Load vision board images
   const loadVisionBoardImages = useCallback(async (userId) => {
@@ -31,6 +33,23 @@ const VisionBoardPage = () => {
     }
   }, [])
 
+  // Load user profile to get AI provider
+  const loadUserProfile = useCallback(async (userId) => {
+    try {
+      const response = await fetch(`/api/profile?user_id=${userId}`)
+      if (!response.ok) throw new Error('Failed to load profile')
+      
+      const result = await response.json()
+      if (result.success && result.data?.ai_image_provider) {
+        setAiProvider(result.data.ai_image_provider)
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+      // Use default provider
+      setAiProvider('nano_banana')
+    }
+  }, [])
+
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -40,12 +59,15 @@ const VisionBoardPage = () => {
       }
       
       setUser(user)
-      await loadVisionBoardImages(user.id)
+      await Promise.all([
+        loadVisionBoardImages(user.id),
+        loadUserProfile(user.id)
+      ])
       setLoading(false)
     }
 
     getUser()
-  }, [router, loadVisionBoardImages])
+  }, [router, loadVisionBoardImages, loadUserProfile])
 
   // Handle image selection in gallery
   const handleImageSelect = useCallback((imageId) => {
@@ -132,6 +154,46 @@ const VisionBoardPage = () => {
     }
   }, [user, loadVisionBoardImages])
 
+  // Handle AI generation complete
+  const handleAIGenerationComplete = useCallback(async (imageId, imageUrl) => {
+    setUploadSuccess(true)
+    setTimeout(() => setUploadSuccess(false), 3000)
+    
+    // Reload images to include the new generated image
+    if (user) {
+      await loadVisionBoardImages(user.id)
+    }
+  }, [user, loadVisionBoardImages])
+
+  // Handle image update (goal/due_date)
+  const handleImageUpdate = useCallback(async (imageId, updates) => {
+    if (!user) return
+
+    try {
+      const response = await fetch(`/api/vision-board/${imageId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          ...updates
+        })
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update image')
+      }
+
+      // Reload images to reflect changes
+      await loadVisionBoardImages(user.id)
+    } catch (error) {
+      console.error('Error updating image:', error)
+      throw error
+    }
+  }, [user, loadVisionBoardImages])
+
   // Handle upload error
   const handleUploadError = useCallback((error) => {
     console.error('Upload error:', error)
@@ -173,16 +235,29 @@ const VisionBoardPage = () => {
             </div>
           )}
 
+          {/* AI Generator */}
+          {user && (
+            <AIGenerator
+              userId={user.id}
+              aiProvider={aiProvider}
+              onGenerationComplete={handleAIGenerationComplete}
+              onGenerationError={handleUploadError}
+            />
+          )}
+
           {/* Image Uploader */}
           <div className="mb-8 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl p-6">
             <h2 className="text-xl font-semibold text-white mb-4">Upload New Images</h2>
-            <ImageUploader
-              onUploadComplete={handleUploadComplete}
-              onUploadError={handleUploadError}
-              maxFiles={10}
-              maxFileSize={5}
-              className="w-full"
-            />
+            {user && (
+              <ImageUploader
+                userId={user.id}
+                onUploadComplete={handleUploadComplete}
+                onUploadError={handleUploadError}
+                maxFiles={10}
+                maxFileSize={5}
+                className="w-full"
+              />
+            )}
           </div>
 
           {/* Image Gallery */}
@@ -200,11 +275,13 @@ const VisionBoardPage = () => {
               onImageSelect={handleImageSelect}
               onImageToggleActive={handleImageToggleActive}
               onImageDelete={handleImageDelete}
+              onImageUpdate={handleImageUpdate}
               allowMultiSelect={true}
               allowReorder={false}
               showActiveStatus={true}
               maxColumns={4}
               className="w-full"
+              userId={user?.id}
             />
           </div>
 

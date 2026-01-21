@@ -29,8 +29,6 @@ async function getMBBData(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: 'user_id is required' })
   }
 
-  console.log(`📊 Getting MBB data for user ${user_id}`)
-
   // Return mock data for now since table doesn't exist
   const mockSettings = {
     id: 'mock-id',
@@ -77,8 +75,6 @@ async function updateMBBSettings(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'target_balance_usd must be a positive number' })
     }
   }
-
-  console.log(`✅ MBB target updated to $${target_balance_usd} for user ${user_id}`)
 
   const updatedSettings = {
     id: 'mock-id',

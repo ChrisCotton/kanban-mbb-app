@@ -110,7 +110,6 @@ async function updateMBBSettings(req: NextApiRequest, res: NextApiResponse) {
       // If table doesn't exist, just return success with the value
       // The frontend will use this value in state
       if (error.message?.includes('does not exist')) {
-        console.log(`✅ MBB target updated to $${target_balance_usd} for user ${user_id} (table not created yet)`)
         return res.status(200).json({
           success: true,
           data: {
@@ -122,8 +121,6 @@ async function updateMBBSettings(req: NextApiRequest, res: NextApiResponse) {
       }
       throw error
     }
-
-    console.log(`✅ MBB target updated to $${target_balance_usd} for user ${user_id}`)
 
     return res.status(200).json({
       success: true,

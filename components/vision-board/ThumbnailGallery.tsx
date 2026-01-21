@@ -2,6 +2,17 @@
 
 import React, { useState, useCallback } from 'react'
 import Image from 'next/image'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import { 
+  DueDateInterval, 
+  INTERVAL_OPTIONS, 
+  getDateFromInterval, 
+  getClosestInterval,
+  getDateColorStyles,
+  formatDueDateISO,
+  formatDueDate
+} from '@/lib/utils/due-date-intervals'
 
 interface VisionBoardImage {
   id: string
@@ -15,6 +26,11 @@ interface VisionBoardImage {
   is_active: boolean
   view_count?: number
   created_at: string
+  goal: string
+  due_date: string
+  media_type: 'image' | 'video'
+  generation_prompt?: string | null
+  ai_provider?: string | null
 }
 
 interface ThumbnailGalleryProps {
@@ -24,11 +40,13 @@ interface ThumbnailGalleryProps {
   onImageToggleActive?: (imageId: string) => void
   onImageReorder?: (imageIds: string[]) => void
   onImageDelete?: (imageId: string) => void
+  onImageUpdate?: (imageId: string, updates: { goal?: string; due_date?: string }) => Promise<void>
   allowMultiSelect?: boolean
   allowReorder?: boolean
   showActiveStatus?: boolean
   className?: string
   maxColumns?: number
+  userId?: string
 }
 
 const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
@@ -38,14 +56,21 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
   onImageToggleActive,
   onImageReorder,
   onImageDelete,
+  onImageUpdate,
   allowMultiSelect = false,
   allowReorder = false,
   showActiveStatus = true,
   className = '',
-  maxColumns = 4
+  maxColumns = 4,
+  userId
 }) => {
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
+  const [editingImageId, setEditingImageId] = useState<string | null>(null)
+  const [editGoal, setEditGoal] = useState('')
+  const [editInterval, setEditInterval] = useState<DueDateInterval>('one_month')
+  const [editCustomDate, setEditCustomDate] = useState<Date | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   // Handle image selection
   const handleImageClick = useCallback((imageId: string) => {
@@ -118,6 +143,68 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
     setDraggedItem(null)
     setDragOverItem(null)
   }, [])
+
+  // Handle edit modal open
+  const handleEditClick = useCallback((e: React.MouseEvent, image: VisionBoardImage) => {
+    e.stopPropagation()
+    setEditingImageId(image.id)
+    setEditGoal(image.goal)
+    
+    // Find closest interval for current due_date
+    const currentDate = new Date(image.due_date)
+    const closestInterval = getClosestInterval(currentDate)
+    setEditInterval(closestInterval)
+    
+    // If closest interval is custom, set custom date
+    if (closestInterval === 'custom') {
+      setEditCustomDate(currentDate)
+    } else {
+      setEditCustomDate(null)
+    }
+  }, [])
+
+  // Handle edit modal close
+  const handleEditClose = useCallback(() => {
+    setEditingImageId(null)
+    setEditGoal('')
+    setEditInterval('one_month')
+    setEditCustomDate(null)
+  }, [])
+
+  // Handle edit save
+  const handleEditSave = useCallback(async () => {
+    if (!editingImageId || !onImageUpdate) return
+
+    // Validate
+    if (!editGoal.trim()) {
+      alert('Goal is required')
+      return
+    }
+
+    const calculatedDueDate = editInterval === 'custom' && editCustomDate
+      ? editCustomDate
+      : getDateFromInterval(editInterval)
+
+    if (editInterval === 'custom' && !editCustomDate) {
+      alert('Please select a custom date')
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      const dueDateISO = formatDueDateISO(calculatedDueDate)
+      await onImageUpdate(editingImageId, {
+        goal: editGoal.trim(),
+        due_date: dueDateISO
+      })
+      handleEditClose()
+    } catch (error: any) {
+      console.error('Error updating image:', error)
+      alert(error.message || 'Failed to update image')
+    } finally {
+      setIsUpdating(false)
+    }
+  }, [editingImageId, editGoal, editInterval, editCustomDate, onImageUpdate, handleEditClose])
 
   // Generate grid columns class based on maxColumns
   const getGridCols = () => {
@@ -205,8 +292,40 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
                   </div>
                 )}
 
+                {/* Media Type Indicator */}
+                <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {image.media_type === 'video' ? (
+                    <div className="px-2 py-1 bg-purple-500/80 rounded text-white text-xs font-medium flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Video
+                    </div>
+                  ) : (
+                    <div className="px-2 py-1 bg-blue-500/80 rounded text-white text-xs font-medium flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Image
+                    </div>
+                  )}
+                </div>
+
                 {/* Action Buttons */}
                 <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                  {/* Edit Button */}
+                  {onImageUpdate && (
+                    <button
+                      onClick={(e) => handleEditClick(e, image)}
+                      className="p-1.5 bg-blue-500 hover:bg-blue-600 rounded-full text-white transition-colors"
+                      title="Edit goal and due date"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
                   {/* Toggle Active Status */}
                   {onImageToggleActive && (
                     <button
@@ -260,18 +379,39 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
               {/* Image Info */}
               <div className="mt-2 space-y-1">
                 {image.title && (
-                  <h4 className="text-sm font-medium text-gray-900 truncate">
+                  <h4 className="text-sm font-medium text-white truncate">
                     {image.title}
                   </h4>
                 )}
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                
+                {/* Goal Display */}
+                {image.goal && (
+                  <p className="text-xs text-white/80 truncate" title={image.goal}>
+                    {image.goal}
+                  </p>
+                )}
+
+                {/* Due Date Badge with Color Coding */}
+                {image.due_date && (() => {
+                  const dateStyles = getDateColorStyles(image.due_date)
+                  return (
+                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${dateStyles.bgColor} ${dateStyles.borderColor} ${dateStyles.textColor}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Due: {formatDueDate(image.due_date)}
+                    </div>
+                  )
+                })()}
+
+                <div className="flex items-center justify-between text-xs text-white/60">
                   <span>Order: {image.display_order}</span>
                   {image.view_count !== undefined && (
                     <span>{image.view_count} views</span>
                   )}
                 </div>
                 {!image.is_active && (
-                  <div className="text-xs text-red-500 font-medium">Inactive</div>
+                  <div className="text-xs text-red-400 font-medium">Inactive</div>
                 )}
               </div>
             </div>
@@ -281,10 +421,124 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
 
       {/* Drag and Drop Instructions */}
       {allowReorder && images.length > 1 && (
-        <div className="mt-4 text-center text-sm text-gray-500">
+        <div className="mt-4 text-center text-sm text-white/60">
           Drag and drop images to reorder them in the carousel
         </div>
       )}
+
+      {/* Edit Modal */}
+      {editingImageId && (() => {
+        const editingImage = images.find(img => img.id === editingImageId)
+        if (!editingImage) return null
+
+        const calculatedEditDueDate = editInterval === 'custom' && editCustomDate
+          ? editCustomDate
+          : getDateFromInterval(editInterval)
+        const editDateStyles = getDateColorStyles(calculatedEditDueDate)
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 border border-white/20 rounded-lg p-6 max-w-md w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">Edit Goal & Due Date</h3>
+                <button
+                  onClick={handleEditClose}
+                  className="text-white/70 hover:text-white"
+                  disabled={isUpdating}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Goal Input */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Goal <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editGoal}
+                    onChange={(e) => setEditGoal(e.target.value)}
+                    maxLength={500}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your goal..."
+                    required
+                  />
+                  <p className="mt-1 text-xs text-white/60">{editGoal.length}/500 characters</p>
+                </div>
+
+                {/* Due Date Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Due Date <span className="text-red-400">*</span>
+                  </label>
+                  
+                  <select
+                    value={editInterval}
+                    onChange={(e) => {
+                      setEditInterval(e.target.value as DueDateInterval)
+                      if (e.target.value !== 'custom') {
+                        setEditCustomDate(null)
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  >
+                    {INTERVAL_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {editInterval === 'custom' && (
+                    <div className="mb-3">
+                      <DatePicker
+                        selected={editCustomDate}
+                        onChange={(date: Date | null) => setEditCustomDate(date)}
+                        dateFormat="MMMM d, yyyy"
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholderText="Select a custom date"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Date Preview */}
+                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border ${editDateStyles.bgColor} ${editDateStyles.borderColor}`}>
+                    <span className={`text-sm font-medium ${editDateStyles.textColor}`}>
+                      Due: {calculatedEditDueDate.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={handleEditClose}
+                  disabled={isUpdating}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={isUpdating || !editGoal.trim()}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isUpdating ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

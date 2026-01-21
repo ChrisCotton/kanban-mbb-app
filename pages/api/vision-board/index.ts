@@ -6,10 +6,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Configure for file uploads
+// Configure for JSON body parsing
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
   },
 }
 
@@ -40,7 +42,10 @@ async function getVisionBoardImages(req: NextApiRequest, res: NextApiResponse) {
     user_id, 
     active_only = 'false',
     limit = '50',
-    offset = '0'
+    offset = '0',
+    due_date_from,
+    due_date_to,
+    sort_by_due_date = 'false'
   } = req.query
 
   if (!user_id) {
@@ -52,10 +57,24 @@ async function getVisionBoardImages(req: NextApiRequest, res: NextApiResponse) {
       .from('vision_board_images')
       .select('*')
       .eq('user_id', user_id)
-      .order('display_order', { ascending: true })
 
     if (active_only === 'true') {
       query = query.eq('is_active', true)
+    }
+
+    // Apply due date filtering
+    if (due_date_from) {
+      query = query.gte('due_date', due_date_from as string)
+    }
+    if (due_date_to) {
+      query = query.lte('due_date', due_date_to as string)
+    }
+
+    // Apply ordering
+    if (sort_by_due_date === 'true') {
+      query = query.order('due_date', { ascending: true })
+    } else {
+      query = query.order('display_order', { ascending: true })
     }
 
     const limitNum = Math.min(parseInt(limit as string) || 50, 100)
@@ -87,13 +106,65 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
     title,
     description,
     file_path,
-    is_active = true
+    file_name,
+    is_active = true,
+    goal,
+    due_date,
+    media_type = 'image'
   } = req.body
 
-  if (!user_id || !file_path) {
+  // Validate required fields
+  if (!user_id) {
     return res.status(400).json({ 
-      error: 'Missing required fields',
-      required: ['user_id', 'file_path']
+      error: 'Missing required field: user_id'
+    })
+  }
+  if (!file_path) {
+    return res.status(400).json({ 
+      error: 'Missing required field: file_path'
+    })
+  }
+  if (!goal || !goal.trim()) {
+    return res.status(400).json({ 
+      error: 'Missing required field: goal (cannot be empty or whitespace only)'
+    })
+  }
+  if (!due_date) {
+    return res.status(400).json({ 
+      error: 'Missing required field: due_date'
+    })
+  }
+
+  // Validate goal is not just whitespace
+  const trimmedGoal = goal.trim()
+  if (trimmedGoal.length === 0) {
+    return res.status(400).json({ 
+      error: 'goal cannot be empty or whitespace only'
+    })
+  }
+  if (trimmedGoal.length > 500) {
+    return res.status(400).json({ 
+      error: 'goal must be 500 characters or less'
+    })
+  }
+
+  // Validate due_date format
+  const dueDateObj = new Date(due_date)
+  if (isNaN(dueDateObj.getTime())) {
+    return res.status(400).json({ 
+      error: 'due_date must be a valid date'
+    })
+  }
+
+  // Format due_date as ISO date string (YYYY-MM-DD)
+  const dueDateISO = due_date.includes('T') 
+    ? due_date.split('T')[0] 
+    : due_date
+
+  // Validate media_type
+  if (media_type !== 'image' && media_type !== 'video') {
+    return res.status(400).json({ 
+      error: 'media_type must be "image" or "video"'
     })
   }
 
@@ -112,20 +183,28 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
       .from('vision_board_images')
       .insert({
         user_id,
-        file_name: file_path.split('/').pop() || 'untitled',
+        file_name: file_name || file_path.split('/').pop() || 'untitled',
         file_path,
-        title: title || 'Untitled Vision',
+        title: title || trimmedGoal.substring(0, 200) || 'Untitled Vision',
         description: description || null,
         is_active: Boolean(is_active),
         display_order: nextDisplayOrder,
-        view_count: 0
+        view_count: 0,
+        goal: trimmedGoal,
+        due_date: dueDateISO,
+        media_type: media_type,
+        ai_provider: null, // Manual uploads don't have AI provider
+        generation_prompt: null // Manual uploads don't have generation prompt
       })
       .select('*')
       .single()
 
     if (error) {
       console.error('Error creating vision board image:', error)
-      return res.status(500).json({ error: 'Failed to create vision board image' })
+      return res.status(500).json({ 
+        error: 'Failed to create vision board image',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     return res.status(201).json({
@@ -134,8 +213,11 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
       message: 'Vision board image created successfully'
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in createVisionBoardImage:', error)
-    return res.status(500).json({ error: 'Failed to create vision board image' })
+    return res.status(500).json({ 
+      error: 'Failed to create vision board image',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 } 

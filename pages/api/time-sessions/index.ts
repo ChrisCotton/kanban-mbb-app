@@ -69,8 +69,7 @@ async function getTimeSessions(req: NextApiRequest, res: NextApiResponse) {
         categories:category_id (
           id,
           name,
-          color,
-          icon
+          color
         )
       `)
       .eq('user_id', user_id)
@@ -101,13 +100,154 @@ async function getTimeSessions(req: NextApiRequest, res: NextApiResponse) {
     const limitNum = Math.min(parseInt(limit as string) || 50, 100)
     const offsetNum = parseInt(offset as string) || 0
     
+    // Get total count first (before applying range) with same filters
+    let countQuery = supabase
+      .from('time_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+    
+    if (task_id) {
+      countQuery = countQuery.eq('task_id', task_id)
+    }
+    if (category_id) {
+      countQuery = countQuery.eq('category_id', category_id)
+    }
+    if (active_only === 'true') {
+      countQuery = countQuery.eq('is_active', true)
+    }
+    if (start_date) {
+      countQuery = countQuery.gte('started_at', start_date)
+    }
+    if (end_date) {
+      countQuery = countQuery.lte('started_at', end_date)
+    }
+    
+    const { count: totalCount, error: countError } = await countQuery
+    
+    if (countError) {
+      console.error('Error fetching time sessions count:', countError)
+    }
+    
     query = query.range(offsetNum, offsetNum + limitNum - 1)
 
-    const { data: sessions, error, count } = await query
+    const { data: sessions, error } = await query
 
     if (error) {
-      console.error('Error fetching time sessions:', error)
-      return res.status(500).json({ error: 'Failed to fetch time sessions' })
+      console.error('Error fetching time sessions:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      
+      // If the error is related to category join, try fetching without category data
+      if (error.code === '42703' || error.message?.includes('icon') || error.message?.includes('column')) {
+        console.warn('Retrying query without category join due to schema mismatch')
+        let fallbackQuery = supabase
+          .from('time_sessions')
+          .select(`
+            id,
+            task_id,
+            category_id,
+            started_at,
+            ended_at,
+            duration_seconds,
+            hourly_rate_usd,
+            earnings_usd,
+            is_active,
+            session_notes,
+            created_at,
+            updated_at,
+            tasks:task_id (
+              id,
+              title,
+              status,
+              priority
+            )
+          `)
+          .eq('user_id', user_id)
+          .order('started_at', { ascending: false })
+        
+        // Apply same filters
+        if (task_id) {
+          fallbackQuery = fallbackQuery.eq('task_id', task_id)
+        }
+        if (category_id) {
+          fallbackQuery = fallbackQuery.eq('category_id', category_id)
+        }
+        if (active_only === 'true') {
+          fallbackQuery = fallbackQuery.eq('is_active', true)
+        }
+        if (start_date) {
+          fallbackQuery = fallbackQuery.gte('started_at', start_date)
+        }
+        if (end_date) {
+          fallbackQuery = fallbackQuery.lte('started_at', end_date)
+        }
+        
+        fallbackQuery = fallbackQuery.range(offsetNum, offsetNum + limitNum - 1)
+        
+        const { data: fallbackSessions, error: fallbackError } = await fallbackQuery
+        
+        if (fallbackError) {
+          return res.status(500).json({ 
+            error: 'Failed to fetch time sessions',
+            details: process.env.NODE_ENV === 'development' ? fallbackError.message : undefined
+          })
+        }
+        
+        // Get total count for fallback query too with same filters
+        let fallbackCountQuery = supabase
+          .from('time_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user_id)
+        
+        if (task_id) {
+          fallbackCountQuery = fallbackCountQuery.eq('task_id', task_id)
+        }
+        if (category_id) {
+          fallbackCountQuery = fallbackCountQuery.eq('category_id', category_id)
+        }
+        if (active_only === 'true') {
+          fallbackCountQuery = fallbackCountQuery.eq('is_active', true)
+        }
+        if (start_date) {
+          fallbackCountQuery = fallbackCountQuery.gte('started_at', start_date)
+        }
+        if (end_date) {
+          fallbackCountQuery = fallbackCountQuery.lte('started_at', end_date)
+        }
+        
+        const { count: fallbackTotalCount } = await fallbackCountQuery
+        
+        // Return sessions without category data
+        return res.status(200).json({
+          success: true,
+          data: fallbackSessions || [],
+          count: fallbackSessions?.length || 0,
+          total_count: fallbackTotalCount || 0,
+          summary: {
+            total_sessions: 0,
+            total_time_seconds: 0,
+            total_earnings_usd: 0,
+            avg_session_duration: 0,
+            avg_hourly_rate: 0
+          },
+          pagination: {
+            limit: limitNum,
+            offset: offsetNum,
+            total_count: fallbackTotalCount || 0,
+            has_more: (offsetNum + limitNum) < (fallbackTotalCount || 0)
+          },
+          warning: 'Category data unavailable due to schema mismatch'
+        })
+      }
+      
+      return res.status(500).json({ 
+        error: 'Failed to fetch time sessions',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     // Get summary statistics
@@ -133,21 +273,36 @@ async function getTimeSessions(req: NextApiRequest, res: NextApiResponse) {
         : 0
     }
 
+    // Use totalCount if available, otherwise fall back to sessions length (for current page)
+    // If we got data but count failed, estimate total from current page
+    const finalTotalCount = totalCount !== null && totalCount !== undefined 
+      ? totalCount 
+      : (sessions?.length || 0)
+    
     return res.status(200).json({
       success: true,
       data: sessions,
       count: sessions?.length || 0,
+      total_count: finalTotalCount,
       summary,
       pagination: {
         limit: limitNum,
         offset: offsetNum,
-        has_more: (sessions?.length || 0) === limitNum
+        total_count: finalTotalCount,
+        has_more: (offsetNum + limitNum) < finalTotalCount
       }
     })
 
   } catch (error) {
-    console.error('Error in getTimeSessions:', error)
-    return res.status(500).json({ error: 'Failed to fetch time sessions' })
+    console.error('Error in getTimeSessions:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to fetch time sessions',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -215,8 +370,17 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
       })
 
     if (error) {
-      console.error('Error starting time session:', error)
-      return res.status(500).json({ error: 'Failed to start time session' })
+      console.error('Error starting time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to start time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     // Add session notes if provided
@@ -253,8 +417,7 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
         categories:category_id (
           id,
           name,
-          color,
-          icon
+          color
         )
       `)
       .eq('id', sessionId)
@@ -279,7 +442,14 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
     })
 
   } catch (error) {
-    console.error('Error in startTimeSession:', error)
-    return res.status(500).json({ error: 'Failed to start time session' })
+    console.error('Error in startTimeSession:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to start time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 } 

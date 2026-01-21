@@ -3,6 +3,25 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ImageUploader } from './ImageUploader';
 
+// Mock react-datepicker
+jest.mock('react-datepicker', () => {
+  return function MockDatePicker({ selected, onChange, ...props }: any) {
+    return (
+      <input
+        type="text"
+        data-testid="date-picker"
+        value={selected ? selected.toISOString().split('T')[0] : ''}
+        onChange={(e) => {
+          if (onChange) {
+            onChange(new Date(e.target.value))
+          }
+        }}
+        {...props}
+      />
+    )
+  }
+})
+
 // Mock Supabase
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -32,12 +51,56 @@ global.URL.createObjectURL = jest.fn(() => 'blob:test-url');
 global.URL.revokeObjectURL = jest.fn();
 
 describe('ImageUploader', () => {
+  const defaultProps = {
+    userId: 'user-123',
+    onUploadComplete: jest.fn(),
+    onUploadError: jest.fn()
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          id: '123',
+          file_path: 'https://example.com/test-image.jpg'
+        }
+      })
+    })
+  });
+
+  it('renders goal and due date fields', () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    expect(screen.getByLabelText(/goal/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/due date/i)).toBeInTheDocument();
+    expect(screen.getByText(/required information/i)).toBeInTheDocument();
+  });
+
+  it('renders interval dropdown with all options', () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    const dropdown = screen.getByRole('combobox');
+    expect(dropdown).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('Tomorrow')).toBeInTheDocument();
+    expect(screen.getByText('One Month')).toBeInTheDocument();
+    expect(screen.getByText('Custom Date')).toBeInTheDocument();
+  });
+
+  it('shows calendar when Custom Date is selected', () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    const dropdown = screen.getByRole('combobox');
+    fireEvent.change(dropdown, { target: { value: 'custom' } });
+    
+    expect(screen.getByTestId('date-picker')).toBeInTheDocument();
   });
 
   it('renders upload zone with correct text', () => {
-    render(<ImageUploader />);
+    render(<ImageUploader {...defaultProps} />);
     
     expect(screen.getByText('Click to upload')).toBeInTheDocument();
     expect(screen.getByText('or drag and drop')).toBeInTheDocument();
@@ -45,13 +108,100 @@ describe('ImageUploader', () => {
   });
 
   it('accepts custom props for maxFiles and maxFileSize', () => {
-    render(<ImageUploader maxFiles={5} maxFileSize={10} />);
+    render(<ImageUploader {...defaultProps} maxFiles={5} maxFileSize={10} />);
     
     expect(screen.getByText('PNG, JPG, GIF up to 10MB (max 5 files)')).toBeInTheDocument();
   });
 
+  it('shows validation error if goal is empty when file is added', async () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+    
+    Object.defineProperty(fileInput, 'files', {
+      value: [imageFile],
+      writable: false,
+    });
+    
+    fireEvent.change(fileInput);
+    
+    await waitFor(() => {
+      const preview = screen.getByAltText('Preview');
+      expect(preview).toBeInTheDocument();
+    });
+    
+    // Check that error message appears (upload should fail without goal/due_date)
+    await waitFor(() => {
+      expect(screen.getByText(/please fill in goal and due date/i)).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+
+  it('includes goal and due_date in API call when uploading', async () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    // Fill in goal and due_date
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
+    
+    // Select an interval (default is one_month)
+    const dropdown = screen.getByRole('combobox');
+    expect(dropdown).toBeInTheDocument();
+    
+    // Add file
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+    
+    Object.defineProperty(fileInput, 'files', {
+      value: [imageFile],
+      writable: false,
+    });
+    
+    fireEvent.change(fileInput);
+    
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/vision-board',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"goal":"Test goal"')
+        })
+      )
+    }, { timeout: 3000 });
+  });
+
+  it('shows character count for goal field', () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
+    
+    expect(screen.getByText(/10\/500 characters/i)).toBeInTheDocument();
+  });
+
+  it('prevents upload if goal exceeds 500 characters', async () => {
+    render(<ImageUploader {...defaultProps} />);
+    
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'a'.repeat(501) } });
+    
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+    
+    Object.defineProperty(fileInput, 'files', {
+      value: [imageFile],
+      writable: false,
+    });
+    
+    fireEvent.change(fileInput);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/goal must be 500 characters or less/i)).toBeInTheDocument();
+    });
+  });
+
   it('opens file dialog when drop zone is clicked', () => {
-    render(<ImageUploader />);
+    render(<ImageUploader {...defaultProps} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = jest.spyOn(fileInput, 'click').mockImplementation(() => {});
@@ -65,7 +215,7 @@ describe('ImageUploader', () => {
   });
 
   it('handles drag events correctly', () => {
-    render(<ImageUploader />);
+    render(<ImageUploader {...defaultProps} />);
     
     const dropZone = screen.getByText('Click to upload').closest('div')!;
     
@@ -80,7 +230,7 @@ describe('ImageUploader', () => {
 
   it('validates file types correctly', async () => {
     const onUploadError = jest.fn();
-    render(<ImageUploader onUploadError={onUploadError} />);
+    render(<ImageUploader {...defaultProps} onUploadError={onUploadError} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
@@ -101,7 +251,7 @@ describe('ImageUploader', () => {
 
   it('validates file size correctly', async () => {
     const onUploadError = jest.fn();
-    render(<ImageUploader onUploadError={onUploadError} maxFileSize={1} />);
+    render(<ImageUploader {...defaultProps} onUploadError={onUploadError} maxFileSize={1} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
@@ -124,7 +274,7 @@ describe('ImageUploader', () => {
 
   it('enforces maximum file count', async () => {
     const onUploadError = jest.fn();
-    render(<ImageUploader onUploadError={onUploadError} maxFiles={1} />);
+    render(<ImageUploader {...defaultProps} onUploadError={onUploadError} maxFiles={1} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
@@ -143,9 +293,13 @@ describe('ImageUploader', () => {
     });
   });
 
-  it('handles successful file upload', async () => {
+  it('handles successful file upload with goal and due_date', async () => {
     const onUploadComplete = jest.fn();
-    render(<ImageUploader onUploadComplete={onUploadComplete} />);
+    render(<ImageUploader {...defaultProps} onUploadComplete={onUploadComplete} />);
+    
+    // Fill in required fields
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
@@ -175,7 +329,11 @@ describe('ImageUploader', () => {
     supabase.storage.from().upload.mockRejectedValueOnce(mockError);
     
     const onUploadError = jest.fn();
-    render(<ImageUploader onUploadError={onUploadError} />);
+    render(<ImageUploader {...defaultProps} onUploadError={onUploadError} />);
+    
+    // Fill in required fields
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
@@ -198,7 +356,7 @@ describe('ImageUploader', () => {
   });
 
   it('allows removing images before upload completes', async () => {
-    render(<ImageUploader />);
+    render(<ImageUploader {...defaultProps} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
@@ -227,7 +385,11 @@ describe('ImageUploader', () => {
 
   it('handles drop events for file upload', async () => {
     const onUploadComplete = jest.fn();
-    render(<ImageUploader onUploadComplete={onUploadComplete} />);
+    render(<ImageUploader {...defaultProps} onUploadComplete={onUploadComplete} />);
+    
+    // Fill in required fields
+    const goalInput = screen.getByLabelText(/goal/i);
+    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
     
     const dropZone = screen.getByText('Click to upload').closest('div')!;
     const imageFile = new File(['image content'], 'dropped-image.jpg', { type: 'image/jpeg' });
@@ -253,7 +415,7 @@ describe('ImageUploader', () => {
   });
 
   it('displays file names in preview', async () => {
-    render(<ImageUploader />);
+    render(<ImageUploader {...defaultProps} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'my-vacation-photo.jpg', { type: 'image/jpeg' });
@@ -271,7 +433,7 @@ describe('ImageUploader', () => {
   });
 
   it('cleans up object URLs on unmount', () => {
-    const { unmount } = render(<ImageUploader />);
+    const { unmount } = render(<ImageUploader {...defaultProps} />);
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });

@@ -79,7 +79,6 @@ async function getTimeSession(req: NextApiRequest, res: NextApiResponse, session
           id,
           name,
           color,
-          icon,
           hourly_rate_usd
         )
       `)
@@ -87,7 +86,21 @@ async function getTimeSession(req: NextApiRequest, res: NextApiResponse, session
       .eq('user_id', user_id)
       .single()
 
-    if (error || !session) {
+    if (error) {
+      console.error('Error fetching time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to fetch time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
+    }
+
+    if (!session) {
       return res.status(404).json({ error: 'Time session not found' })
     }
 
@@ -110,8 +123,15 @@ async function getTimeSession(req: NextApiRequest, res: NextApiResponse, session
     })
 
   } catch (error) {
-    console.error('Error fetching time session:', error)
-    return res.status(500).json({ error: 'Failed to fetch time session' })
+    console.error('Error fetching time session:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to fetch time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -158,8 +178,15 @@ async function updateTimeSession(req: NextApiRequest, res: NextApiResponse, sess
     }
 
   } catch (error) {
-    console.error('Error in updateTimeSession:', error)
-    return res.status(500).json({ error: 'Failed to update time session' })
+    console.error('Error in updateTimeSession:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to update time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -182,8 +209,17 @@ async function endTimeSession(
       })
 
     if (error) {
-      console.error('Error ending time session:', error)
-      return res.status(500).json({ error: 'Failed to end time session' })
+      console.error('Error ending time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to end time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     // Update session notes if provided
@@ -218,8 +254,7 @@ async function endTimeSession(
         categories:category_id (
           id,
           name,
-          color,
-          icon
+          color
         )
       `)
       .eq('id', sessionId)
@@ -232,8 +267,15 @@ async function endTimeSession(
     })
 
   } catch (error) {
-    console.error('Error ending session:', error)
-    return res.status(500).json({ error: 'Failed to end time session' })
+    console.error('Error ending session:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to end time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -264,7 +306,17 @@ async function pauseTimeSession(
       .single()
 
     if (error) {
-      return res.status(500).json({ error: 'Failed to pause time session' })
+      console.error('Error pausing time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to pause time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     return res.status(200).json({
@@ -274,8 +326,15 @@ async function pauseTimeSession(
     })
 
   } catch (error) {
-    console.error('Error pausing session:', error)
-    return res.status(500).json({ error: 'Failed to pause time session' })
+    console.error('Error pausing session:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to pause time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -313,7 +372,17 @@ async function resumeTimeSession(
       })
 
     if (error) {
-      return res.status(500).json({ error: 'Failed to resume time session' })
+      console.error('Error resuming time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to resume time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     // Get the new session details
@@ -338,8 +407,7 @@ async function resumeTimeSession(
         categories:category_id (
           id,
           name,
-          color,
-          icon
+          color
         )
       `)
       .eq('id', newSessionId)
@@ -353,8 +421,15 @@ async function resumeTimeSession(
     })
 
   } catch (error) {
-    console.error('Error resuming session:', error)
-    return res.status(500).json({ error: 'Failed to resume time session' })
+    console.error('Error resuming session:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to resume time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -409,7 +484,17 @@ async function updateSessionDetails(
       .single()
 
     if (error) {
-      return res.status(500).json({ error: 'Failed to update time session' })
+      console.error('Error updating time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to update time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     return res.status(200).json({
@@ -419,8 +504,15 @@ async function updateSessionDetails(
     })
 
   } catch (error) {
-    console.error('Error updating session details:', error)
-    return res.status(500).json({ error: 'Failed to update time session' })
+    console.error('Error updating session details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to update time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 }
 
@@ -459,8 +551,17 @@ async function deleteTimeSession(req: NextApiRequest, res: NextApiResponse, sess
       .eq('user_id', user_id)
 
     if (error) {
-      console.error('Error deleting time session:', error)
-      return res.status(500).json({ error: 'Failed to delete time session' })
+      console.error('Error deleting time session:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error
+      })
+      return res.status(500).json({ 
+        error: 'Failed to delete time session',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
     }
 
     return res.status(200).json({
@@ -469,7 +570,14 @@ async function deleteTimeSession(req: NextApiRequest, res: NextApiResponse, sess
     })
 
   } catch (error) {
-    console.error('Error in deleteTimeSession:', error)
-    return res.status(500).json({ error: 'Failed to delete time session' })
+    console.error('Error in deleteTimeSession:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      fullError: error
+    })
+    return res.status(500).json({ 
+      error: 'Failed to delete time session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    })
   }
 } 

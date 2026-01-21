@@ -52,8 +52,7 @@ export function useRealtimeAnalytics({
           table: 'time_sessions',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
-          console.log('📊 New time session detected, refreshing analytics', payload)
+        () => {
           debouncedUpdate()
         }
       )
@@ -71,7 +70,6 @@ export function useRealtimeAnalytics({
           const oldRecord = payload.old as any
           
           if (newRecord.ended_at && !oldRecord?.ended_at) {
-            console.log('📊 Time session completed, refreshing analytics', payload)
             debouncedUpdate()
           }
         }
@@ -84,18 +82,11 @@ export function useRealtimeAnalytics({
           table: 'time_sessions',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
-          console.log('📊 Time session deleted, refreshing analytics', payload)
+        () => {
           debouncedUpdate()
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('📊 Subscribed to time_sessions changes for analytics')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('📊 Failed to subscribe to time_sessions changes')
-        }
-      })
+      .subscribe()
 
     // Cleanup subscription on unmount
     return () => {

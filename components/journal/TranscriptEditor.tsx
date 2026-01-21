@@ -4,8 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 interface JournalEntry {
   id: string
+  user_id?: string
   title: string
-  content: string
+  transcription?: string
   audio_file_path?: string
   audio_duration?: number
   transcription_status: 'pending' | 'processing' | 'completed' | 'failed'
@@ -19,6 +20,7 @@ interface TranscriptEditorProps {
   onCancel: () => void
   onDelete: () => void
   className?: string
+  embedded?: boolean // When true, hides header and some controls for side-by-side view
 }
 
 type ViewMode = 'edit' | 'preview'
@@ -28,73 +30,40 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   onSave,
   onCancel,
   onDelete,
-  className = ''
+  className = '',
+  embedded = false
 }) => {
   const [title, setTitle] = useState(entry.title)
-  const [content, setContent] = useState(entry.content)
+  const [content, setContent] = useState(entry.transcription || '')
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(entry.audio_duration || 0)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Sync with entry prop changes
+  useEffect(() => {
+    setTitle(entry.title)
+    setContent(entry.transcription || '')
+  }, [entry.title, entry.transcription])
 
   // Check for unsaved changes
   useEffect(() => {
     const titleChanged = title !== entry.title
-    const contentChanged = content !== entry.content
+    const contentChanged = content !== (entry.transcription || '')
     setHasUnsavedChanges(titleChanged || contentChanged)
-  }, [title, content, entry.title, entry.content])
+  }, [title, content, entry.title, entry.transcription])
 
   // Auto-resize textarea
   const autoResizeTextarea = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      textareaRef.current.style.height = `${Math.max(textareaRef.current.scrollHeight, 200)}px`
     }
   }, [])
 
   useEffect(() => {
     autoResizeTextarea()
   }, [content, autoResizeTextarea])
-
-  // Handle audio playback
-  const togglePlayback = useCallback(() => {
-    if (!audioRef.current) return
-
-    if (isPlaying) {
-      audioRef.current.pause()
-    } else {
-      audioRef.current.play()
-    }
-  }, [isPlaying])
-
-  const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime)
-    }
-  }, [])
-
-  const handleLoadedMetadata = useCallback(() => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration)
-    }
-  }, [])
-
-  const handleAudioEnded = useCallback(() => {
-    setIsPlaying(false)
-    setCurrentTime(0)
-  }, [])
-
-  const seekTo = useCallback((time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time
-      setCurrentTime(time)
-    }
-  }, [])
 
   // Format time for display
   const formatTime = (seconds: number) => {
@@ -151,7 +120,6 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     const newContent = content.substring(0, start) + newText + content.substring(end)
     setContent(newContent)
 
-    // Set cursor position
     setTimeout(() => {
       const newCursorPos = start + newText.length - cursorOffset
       textarea.focus()
@@ -187,19 +155,135 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
   // Render markdown preview
   const renderMarkdownPreview = (text: string) => {
-    // Simple markdown rendering - in production, use a proper markdown parser
     return text
-      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold mb-2">$1</h2>')
-      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mb-3">$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold mb-2 text-white">$1</h2>')
+      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mb-3 text-white">$1</h1>')
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
-      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-white/20 pl-4 italic">$1</blockquote>')
-      .replace(/^- (.*$)/gm, '<li class="ml-4">• $1</li>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:underline" target="_blank">$1</a>')
+      .replace(/`(.*?)`/g, '<code class="bg-white/20 px-1 rounded text-sm">$1</code>')
+      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-white/30 pl-4 italic text-white/80">$1</blockquote>')
+      .replace(/^- (.*$)/gm, '<li class="ml-4 text-white/90">• $1</li>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-400 hover:underline" target="_blank">$1</a>')
       .replace(/\n/g, '<br>')
   }
 
+  // Embedded mode for side-by-side view
+  if (embedded) {
+    return (
+      <div className={`${className} space-y-4`}>
+        {/* Edit/Preview Toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setViewMode('edit')}
+              className={`px-3 py-1 text-sm rounded transition-colors ${
+                viewMode === 'edit' 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setViewMode('preview')}
+              className={`px-3 py-1 text-sm rounded transition-colors ${
+                viewMode === 'preview' 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+          {hasUnsavedChanges && (
+            <span className="text-xs text-orange-400 bg-orange-500/20 px-2 py-1 rounded">
+              Unsaved
+            </span>
+          )}
+        </div>
+
+        {viewMode === 'edit' && (
+          <>
+            {/* Markdown Toolbar */}
+            <div className="flex items-center space-x-1 bg-white/5 rounded-t-lg px-2 py-1.5">
+              <button
+                onClick={() => insertMarkdown('bold', 'bold')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                title="Bold (Ctrl+B)"
+              >
+                <strong className="text-sm">B</strong>
+              </button>
+              <button
+                onClick={() => insertMarkdown('italic', 'italic')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                title="Italic (Ctrl+I)"
+              >
+                <em className="text-sm">I</em>
+              </button>
+              <button
+                onClick={() => insertMarkdown('heading', 'Heading')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                title="Heading"
+              >
+                <span className="text-sm font-bold">H</span>
+              </button>
+              <button
+                onClick={() => insertMarkdown('list', 'Item')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                title="List"
+              >
+                <span className="text-sm">•</span>
+              </button>
+              <button
+                onClick={() => insertMarkdown('quote', 'Quote')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                title="Quote"
+              >
+                <span className="text-sm">"</span>
+              </button>
+              <button
+                onClick={() => insertMarkdown('code', 'code')}
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white font-mono"
+                title="Code"
+              >
+                <span className="text-xs">&lt;/&gt;</span>
+              </button>
+            </div>
+
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full px-3 py-3 bg-white/5 border border-white/20 border-t-0 rounded-b-lg text-white placeholder-white/40 focus:ring-2 focus:ring-green-400 focus:border-transparent resize-none min-h-[200px]"
+              placeholder="Transcription text with markdown support..."
+            />
+          </>
+        )}
+
+        {viewMode === 'preview' && (
+          <div className="bg-white/5 border border-white/20 rounded-lg p-4 min-h-[200px]">
+            <div 
+              className="prose prose-invert prose-sm max-w-none text-white/90"
+              dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content || 'No content yet...') }}
+            />
+          </div>
+        )}
+
+        {/* Save Button */}
+        {hasUnsavedChanges && (
+          <button
+            onClick={handleSave}
+            className="w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+          >
+            Save Transcription
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // Full mode (standalone editor)
   return (
     <div className={`${className} space-y-6`}>
       {/* Header */}
@@ -237,61 +321,6 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         </div>
       </div>
 
-      {/* Audio Player */}
-      {entry.audio_file_path && (
-        <div className="bg-white/10 rounded-lg p-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={togglePlayback}
-              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full transition-colors"
-            >
-              {isPlaying ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-            </button>
-            
-            <div className="flex-1">
-              <div className="flex items-center justify-between text-sm text-white/70 mb-1">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-              <div className="w-full bg-white/20 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-200"
-                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                ></div>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max={duration}
-                value={currentTime}
-                onChange={(e) => seekTo(Number(e.target.value))}
-                className="w-full mt-1 opacity-0 cursor-pointer"
-                style={{ height: '8px', marginTop: '-10px' }}
-              />
-            </div>
-          </div>
-          
-          <audio
-            ref={audioRef}
-            src={entry.audio_file_path}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onEnded={handleAudioEnded}
-            className="hidden"
-          />
-        </div>
-      )}
-
       {/* Title Input */}
       <div>
         <label className="block text-sm font-medium text-white/90 mb-2">
@@ -310,10 +339,10 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-white/90">
-            Content
+            Transcription
           </label>
           <div className="text-xs text-white/70">
-            Supports Markdown formatting
+            Supports Markdown (Ctrl+B bold, Ctrl+I italic, Ctrl+S save)
           </div>
         </div>
 
@@ -323,67 +352,53 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             <div className="border border-white/20 rounded-t-lg bg-white/10 px-3 py-2 flex items-center space-x-2">
               <button
                 onClick={() => insertMarkdown('bold', 'bold text')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Bold (Ctrl+B)"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                </svg>
+                <strong className="text-sm">B</strong>
               </button>
               <button
                 onClick={() => insertMarkdown('italic', 'italic text')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Italic (Ctrl+I)"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 4l4 16m-4-8h4" />
-                </svg>
+                <em className="text-sm">I</em>
               </button>
+              <span className="w-px h-4 bg-white/20"></span>
               <button
                 onClick={() => insertMarkdown('heading', 'Heading')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Heading"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                <span className="text-sm font-bold">H2</span>
               </button>
               <button
                 onClick={() => insertMarkdown('list', 'List item')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="List"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
+                <span className="text-sm">• List</span>
               </button>
               <button
                 onClick={() => insertMarkdown('quote', 'Quote')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Quote"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+                <span className="text-sm">&quot; Quote</span>
               </button>
               <button
                 onClick={() => insertMarkdown('code', 'code')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white font-mono"
                 title="Code"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
+                <span className="text-sm">&lt;code&gt;</span>
               </button>
               <button
                 onClick={() => insertMarkdown('link', 'link text')}
-                className="p-1 hover:bg-white/20 rounded text-white/70 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded text-white/70 hover:text-white"
                 title="Link"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
+                <span className="text-sm">🔗 Link</span>
               </button>
             </div>
 
@@ -392,53 +407,37 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-3 border border-white/20 border-t-0 rounded-b-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-64"
-              placeholder="Start typing your journal entry... You can use Markdown formatting."
+              className="w-full px-3 py-3 bg-white/5 border border-white/20 border-t-0 rounded-b-lg text-white placeholder-white/40 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[300px]"
+              placeholder="Start typing your journal entry... Use Markdown formatting for rich text."
             />
           </>
         )}
 
         {viewMode === 'preview' && (
-          <div className="border border-white/20 rounded-lg p-4 min-h-64 bg-white">
+          <div className="border border-white/20 rounded-lg p-4 min-h-[300px] bg-white/5">
             <div 
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content) }}
+              className="prose prose-invert prose-sm max-w-none text-white/90"
+              dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content || 'Nothing to preview...') }}
             />
           </div>
         )}
       </div>
 
-      {/* Transcription Status */}
-      {entry.transcription_status !== 'completed' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-yellow-800">
-              Transcription status: {entry.transcription_status}
-              {entry.transcription_status === 'processing' && ' - This may take a few minutes.'}
-              {entry.transcription_status === 'failed' && ' - You can edit the content manually.'}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Action Buttons */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-4 border-t border-white/10">
         <div className="flex items-center space-x-3">
           <button
             onClick={onCancel}
-            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
-            Cancel
+            Back to List
           </button>
           
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            onClick={onDelete}
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-300 px-4 py-2 rounded-lg font-medium transition-colors"
           >
-            Delete
+            Delete Entry
           </button>
         </div>
         
@@ -448,43 +447,14 @@ const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
             hasUnsavedChanges
               ? 'bg-blue-500 hover:bg-blue-600 text-white'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-white/10 text-white/50 cursor-not-allowed'
           }`}
         >
           Save Changes
         </button>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4">Delete Journal Entry</h3>
-            <p className="text-white/70 mb-6">
-              Are you sure you want to delete this journal entry? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  onDelete()
-                  setShowDeleteConfirm(false)
-                }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-export default TranscriptEditor 
+export default TranscriptEditor

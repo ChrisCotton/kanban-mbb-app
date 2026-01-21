@@ -112,7 +112,6 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
           })
           
           setTimers(restoredTimers)
-          console.log('📦 Restored timers from localStorage:', restoredTimers.length)
         }
       }
     } catch (error) {

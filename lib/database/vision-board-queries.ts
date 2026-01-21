@@ -36,6 +36,12 @@ export interface VisionBoardImage {
   view_count: number
   created_at: string
   updated_at: string
+  goal: string
+  due_date: string // ISO date string (YYYY-MM-DD format)
+  goal_id?: string | null
+  media_type: 'image' | 'video'
+  generation_prompt?: string | null
+  ai_provider?: string | null
 }
 
 export interface CreateVisionBoardImageData {
@@ -50,6 +56,12 @@ export interface CreateVisionBoardImageData {
   is_active?: boolean
   width_px?: number
   height_px?: number
+  goal: string
+  due_date: string // ISO date string (YYYY-MM-DD format)
+  goal_id?: string | null
+  media_type?: 'image' | 'video'
+  generation_prompt?: string | null
+  ai_provider?: string | null
 }
 
 export interface UpdateVisionBoardImageData {
@@ -60,14 +72,21 @@ export interface UpdateVisionBoardImageData {
   is_active?: boolean
   width_px?: number
   height_px?: number
+  goal?: string
+  due_date?: string // ISO date string (YYYY-MM-DD format)
+  goal_id?: string | null
+  media_type?: 'image' | 'video'
 }
 
 export interface VisionBoardQueryOptions {
   activeOnly?: boolean
   limit?: number
   offset?: number
-  orderBy?: 'display_order' | 'created_at' | 'view_count'
+  orderBy?: 'display_order' | 'created_at' | 'view_count' | 'due_date'
   orderDirection?: 'asc' | 'desc'
+  dueDateFrom?: string // ISO date string
+  dueDateTo?: string // ISO date string
+  sortByDueDate?: boolean
 }
 
 /**
@@ -87,6 +106,12 @@ export async function getVisionBoardImages(
   } = options
 
   try {
+    const {
+      dueDateFrom,
+      dueDateTo,
+      sortByDueDate = false
+    } = options
+
     let query = supabase
       .from('vision_board_images')
       .select('*')
@@ -96,11 +121,23 @@ export async function getVisionBoardImages(
       query = query.eq('is_active', true)
     }
 
+    // Apply due date filtering
+    if (dueDateFrom) {
+      query = query.gte('due_date', dueDateFrom)
+    }
+    if (dueDateTo) {
+      query = query.lte('due_date', dueDateTo)
+    }
+
     // Apply ordering
-    query = query.order(orderBy, { ascending: orderDirection === 'asc' })
+    if (sortByDueDate) {
+      query = query.order('due_date', { ascending: orderDirection === 'asc' })
+    } else {
+      query = query.order(orderBy, { ascending: orderDirection === 'asc' })
+    }
     
     // If ordering by display_order, add secondary sort by created_at
-    if (orderBy === 'display_order') {
+    if (orderBy === 'display_order' && !sortByDueDate) {
       query = query.order('created_at', { ascending: true })
     }
 

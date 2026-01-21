@@ -18,7 +18,8 @@ const DarkNavigation: React.FC<DarkNavigationProps> = ({ className = '' }) => {
     { name: 'Journal', href: '/journal', icon: '📝' },
     { name: 'Categories', href: '/categories', icon: '🏷️' },
     { name: 'MBB', href: '/mbb', icon: '💰' },
-    { name: 'Vision Board', href: '/vision-board', icon: '🖼️' }
+    { name: 'Vision Board', href: '/vision-board', icon: '🖼️' },
+    { name: 'Profile', href: '/profile', icon: '👤' }
   ]
 
   const isActiveRoute = (href: string) => {

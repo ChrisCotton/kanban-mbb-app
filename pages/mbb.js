@@ -23,6 +23,8 @@ const MBBPage = () => {
       }
     }
   }, [])
+  const [defaultTargetRevenue, setDefaultTargetRevenue] = useState(1000)
+  
   // Load target from localStorage as fallback (since DB table may not exist)
   const getInitialTarget = () => {
     if (typeof window !== 'undefined') {
@@ -30,6 +32,24 @@ const MBBPage = () => {
       if (saved) return parseFloat(saved)
     }
     return 1000
+  }
+  
+  // Fetch default target revenue from user profile
+  const loadDefaultTargetFromProfile = async (userId) => {
+    try {
+      const response = await fetch(`/api/profile?user_id=${userId}`)
+      const result = await response.json()
+      if (result.success && result.data?.default_target_revenue) {
+        setDefaultTargetRevenue(result.data.default_target_revenue)
+        // If no target is set in localStorage or DB, use profile default
+        const savedTarget = localStorage.getItem('mbb_target_balance')
+        if (!savedTarget) {
+          setMbbData(prev => ({ ...prev, targetBalance: result.data.default_target_revenue }))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading default target from profile:', error)
+    }
   }
   
   const [mbbData, setMbbData] = useState({
@@ -46,6 +66,9 @@ const MBBPage = () => {
     averageHourlyRate: 0
   })
   const [timeSessions, setTimeSessions] = useState([])
+  const [timeSessionsTotalCount, setTimeSessionsTotalCount] = useState(0)
+  const [timeSessionsPage, setTimeSessionsPage] = useState(1)
+  const [timeSessionsPerPage, setTimeSessionsPerPage] = useState(5)
   const [loading, setLoading] = useState(true)
   const [analyticsRefreshing, setAnalyticsRefreshing] = useState(false)
   const [showTargetModal, setShowTargetModal] = useState(false)
@@ -103,20 +126,27 @@ const MBBPage = () => {
   }, [])
 
   // Load recent time sessions
-  const loadTimeSessions = useCallback(async (userId) => {
+  const loadTimeSessions = useCallback(async (userId, page, perPage) => {
     if (!userId) return
     
     try {
-      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=10`)
+      const offset = (page - 1) * perPage
+      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=${perPage}&offset=${offset}`)
       if (!response.ok) throw new Error('Failed to load time sessions')
       
       const result = await response.json()
       if (result.success) {
         setTimeSessions(result.data || [])
+        // Use total_count from pagination or response, with fallback to data length if count is 0 but we have data
+        const totalCount = result.pagination?.total_count ?? result.total_count ?? 0
+        const sessionsCount = result.data?.length || 0
+        // If API returns 0 count but we have sessions, use sessions count as minimum (happens on first page)
+        setTimeSessionsTotalCount(totalCount > 0 ? totalCount : (sessionsCount > 0 && page === 1 ? sessionsCount : totalCount))
       }
     } catch (error) {
       console.error('Error loading time sessions:', error)
       setTimeSessions([])
+      setTimeSessionsTotalCount(0)
     }
   }, [])
 
@@ -124,9 +154,9 @@ const MBBPage = () => {
   const refreshAnalytics = useCallback(() => {
     if (user?.id) {
       loadMBBData(user.id, true)
-      loadTimeSessions(user.id)
+      loadTimeSessions(user.id, timeSessionsPage, timeSessionsPerPage)
     }
-  }, [user, loadMBBData, loadTimeSessions])
+  }, [user, loadMBBData, loadTimeSessions, timeSessionsPage, timeSessionsPerPage])
 
   // Subscribe to realtime updates for time_sessions
   useRealtimeAnalytics({
@@ -156,13 +186,25 @@ const MBBPage = () => {
         
       setVisionBoardImages(images || [])
       
-      // Load MBB data and time sessions with user ID
-      await Promise.all([loadMBBData(user.id), loadTimeSessions(user.id)])
+      // Load MBB data, time sessions, and default target from profile
+      await Promise.all([
+        loadMBBData(user.id), 
+        loadTimeSessions(user.id, 1, 5), // Start with page 1, 5 per page
+        loadDefaultTargetFromProfile(user.id)
+      ])
       setLoading(false)
     }
 
     getUser()
   }, [router, loadMBBData, loadTimeSessions])
+
+  // Reload time sessions when page or perPage changes
+  useEffect(() => {
+    if (user?.id) {
+      loadTimeSessions(user.id, timeSessionsPage, timeSessionsPerPage)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, timeSessionsPage, timeSessionsPerPage])
 
   // Handle updating target balance
   const handleUpdateTarget = async (e) => {
@@ -295,7 +337,7 @@ const MBBPage = () => {
                 onClick={() => {
                   if (user?.id && !analyticsRefreshing) {
                     loadMBBData(user.id, true)
-                    loadTimeSessions(user.id)
+                    loadTimeSessions(user.id, timeSessionsPage, timeSessionsPerPage)
                   }
                 }}
                 disabled={analyticsRefreshing}
@@ -417,8 +459,28 @@ const MBBPage = () => {
           {/* Recent Sessions */}
           <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl">
             <div className="p-6 border-b border-white/20">
-              <h2 className="text-xl font-semibold text-white">Recent Time Sessions</h2>
-              <p className="text-white/70 mt-1">Your latest work sessions and earnings</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Recent Time Sessions</h2>
+                  <p className="text-white/70 mt-1">Your latest work sessions and earnings</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-white/70 text-sm">Show:</label>
+                  <select
+                    value={timeSessionsPerPage}
+                    onChange={(e) => {
+                      const newPerPage = parseInt(e.target.value)
+                      setTimeSessionsPerPage(newPerPage)
+                      setTimeSessionsPage(1) // Reset to first page when changing per page
+                    }}
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="p-6">
@@ -457,15 +519,92 @@ const MBBPage = () => {
                         </div>
                         <div className="text-right">
                           <div className="text-white font-semibold">
-                            {formatCurrency(parseFloat(session.earnings_usd) || 0)}
+                            {session.earnings_usd !== null && session.earnings_usd !== undefined
+                              ? formatCurrency(parseFloat(session.earnings_usd) || 0)
+                              : (
+                                  <span className="text-white/50" title="No hourly rate set for this session">
+                                    $0.00
+                                    {!session.hourly_rate_usd && (
+                                      <span className="text-xs text-yellow-400 ml-1" title="No hourly rate was set when this session was created">
+                                        ⚠️
+                                      </span>
+                                    )}
+                                  </span>
+                                )
+                            }
                           </div>
                           <div className="text-white/70 text-sm">
                             {session.started_at ? new Date(session.started_at).toLocaleDateString() : 'Today'}
+                            {session.hourly_rate_usd && (
+                              <div className="text-xs text-white/50">
+                                {formatCurrency(parseFloat(session.hourly_rate_usd))}/hr
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {/* Pagination Controls */}
+              {timeSessions.length > 0 && (
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="text-white/70 text-sm">
+                    Showing {((timeSessionsPage - 1) * timeSessionsPerPage) + 1} to {Math.min(timeSessionsPage * timeSessionsPerPage, timeSessionsTotalCount)} of {timeSessionsTotalCount} sessions
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTimeSessionsPage(prev => Math.max(1, prev - 1))}
+                      disabled={timeSessionsPage === 1}
+                      className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                        timeSessionsPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.ceil(timeSessionsTotalCount / timeSessionsPerPage) }, (_, i) => i + 1)
+                        .filter(page => {
+                          // Show first page, last page, current page, and pages around current
+                          const totalPages = Math.ceil(timeSessionsTotalCount / timeSessionsPerPage)
+                          return page === 1 || 
+                                 page === totalPages || 
+                                 (page >= timeSessionsPage - 1 && page <= timeSessionsPage + 1)
+                        })
+                        .map((page, index, array) => {
+                          // Add ellipsis between non-consecutive pages
+                          const showEllipsisBefore = index > 0 && array[index - 1] !== page - 1
+                          return (
+                            <React.Fragment key={page}>
+                              {showEllipsisBefore && (
+                                <span className="text-white/50 px-2">...</span>
+                              )}
+                              <button
+                                onClick={() => setTimeSessionsPage(page)}
+                                className={`px-3 py-2 min-w-[40px] rounded-lg transition-colors border ${
+                                  timeSessionsPage === page
+                                    ? 'bg-blue-500 text-white border-blue-500'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          )
+                        })}
+                    </div>
+                    <button
+                      onClick={() => setTimeSessionsPage(prev => prev + 1)}
+                      disabled={timeSessionsPage >= Math.ceil(timeSessionsTotalCount / timeSessionsPerPage)}
+                      className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                        timeSessionsPage >= Math.ceil(timeSessionsTotalCount / timeSessionsPerPage) ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

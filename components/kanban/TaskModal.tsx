@@ -38,6 +38,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [userId, setUserId] = useState<string>('')
+  const [defaultCategoryId, setDefaultCategoryId] = useState<string | null>(null)
   
   // Use task tags hook for existing tasks
   const { tags: taskTags, addTagToTask, removeTagFromTask } = useTaskTags(
@@ -45,12 +46,23 @@ const TaskModal: React.FC<TaskModalProps> = ({
     userId
   )
 
-  // Get current user ID
+  // Get current user ID and default category from profile
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserId(user.id)
+        
+        // Fetch default category from user profile
+        try {
+          const response = await fetch(`/api/profile?user_id=${user.id}`)
+          const result = await response.json()
+          if (result.success && result.data?.default_category_id) {
+            setDefaultCategoryId(result.data.default_category_id)
+          }
+        } catch (error) {
+          console.error('Error fetching default category:', error)
+        }
       }
     }
     getUser()
@@ -70,19 +82,19 @@ const TaskModal: React.FC<TaskModalProps> = ({
           category_id: task.category_id || ''
         })
       } else {
-        // Creating new task
+        // Creating new task - use default category from profile if available
         setFormData({
           title: '',
           description: '',
           status: initialStatus,
           priority: 'medium',
           due_date: '',
-          category_id: ''
+          category_id: defaultCategoryId || ''
         })
       }
       setErrors({})
     }
-  }, [isOpen, task, initialStatus])
+  }, [isOpen, task, initialStatus, defaultCategoryId])
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}

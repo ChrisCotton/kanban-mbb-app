@@ -15,7 +15,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onRecordingComplete,
   onCancel,
   className = '',
-  maxDuration = 600 // 10 minutes default
+  maxDuration = 1800 // 30 minutes default
 }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [duration, setDuration] = useState(0)
@@ -338,85 +338,107 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         </div>
 
         {/* Recording Controls */}
-        <div className="flex items-center justify-center space-x-4 mb-6">
+        <div className="flex items-center justify-center gap-6 mb-6">
           {recordingState === 'idle' && (
-            <button
-              onClick={startRecording}
-              className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full transition-colors"
-              title="Start Recording"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
+            <div className="flex flex-col items-center">
+              <button
+                onClick={startRecording}
+                className="bg-red-500 hover:bg-red-600 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                title="Start Recording"
+              >
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="6" />
+                </svg>
+              </button>
+              <span className="text-white/70 text-sm mt-2">Record</span>
+            </div>
           )}
 
           {recordingState === 'recording' && (
             <>
-              <button
-                onClick={pauseRecording}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-full transition-colors"
-                title="Pause Recording"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-                </svg>
-              </button>
-              <button
-                onClick={stopRecording}
-                className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full transition-colors"
-                title="Stop Recording"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={pauseRecording}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  title="Pause Recording"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="4" width="4" height="16" rx="1" />
+                    <rect x="14" y="4" width="4" height="16" rx="1" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Pause</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={stopRecording}
+                  className="bg-gray-600 hover:bg-gray-700 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  title="Stop Recording"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Stop</span>
+              </div>
             </>
           )}
 
           {recordingState === 'paused' && (
             <>
-              <button
-                onClick={resumeRecording}
-                className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-full transition-colors"
-                title="Resume Recording"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={stopRecording}
-                className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full transition-colors"
-                title="Stop Recording"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={resumeRecording}
+                  className="bg-green-500 hover:bg-green-600 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg animate-pulse"
+                  title="Resume Recording"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Resume</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={stopRecording}
+                  className="bg-gray-600 hover:bg-gray-700 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  title="Stop Recording"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Stop</span>
+              </div>
             </>
           )}
 
           {recordingState === 'stopped' && (
             <>
-              <button
-                onClick={playRecording}
-                className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full transition-colors"
-                title="Play Recording"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={resetRecording}
-                className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full transition-colors"
-                title="Record Again"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={playRecording}
+                  className="bg-blue-500 hover:bg-blue-600 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  title="Play Recording"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Play</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={resetRecording}
+                  className="bg-orange-500 hover:bg-orange-600 text-white p-5 rounded-full transition-all transform hover:scale-105 shadow-lg"
+                  title="Record Again"
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <span className="text-white/70 text-sm mt-2">Re-record</span>
+              </div>
             </>
           )}
         </div>

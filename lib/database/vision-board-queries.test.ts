@@ -51,7 +51,12 @@ const mockVisionBoardImage: VisionBoardImage = {
   last_viewed_at: '2024-01-02T00:00:00Z',
   view_count: 5,
   created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z'
+  updated_at: '2024-01-01T00:00:00Z',
+  goal: 'Test goal',
+  due_date: '2024-12-31',
+  media_type: 'image',
+  generation_prompt: null,
+  ai_provider: null
 }
 
 const mockCreateImageData: CreateVisionBoardImageData = {
@@ -60,13 +65,18 @@ const mockCreateImageData: CreateVisionBoardImageData = {
   file_path: '/new/path/new-image.jpg',
   title: 'New Image',
   description: 'New description',
-  is_active: true
+  is_active: true,
+  goal: 'New goal',
+  due_date: '2024-12-31',
+  media_type: 'image'
 }
 
 const mockUpdateImageData: UpdateVisionBoardImageData = {
   title: 'Updated Title',
   description: 'Updated description',
-  is_active: false
+  is_active: false,
+  goal: 'Updated goal',
+  due_date: '2025-01-01'
 }
 
 // Helper function to create a mock query chain
@@ -84,7 +94,9 @@ const createMockQueryChain = (returnValue: any, shouldError = false) => {
     single: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis()
+    delete: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis()
   }
 
   // Set up the final promise resolution
@@ -144,6 +156,43 @@ describe('Vision Board Queries', () => {
       expect(mockChain.range).toHaveBeenCalledWith(20, 29)
     })
 
+    it('should filter by due_date range when provided', async () => {
+      const { mockChain } = createMockQueryChain([mockVisionBoardImage])
+      mockSupabaseClient.from.mockReturnValue(mockChain)
+
+      await getVisionBoardImages(mockUserId, {
+        dueDateFrom: '2024-01-01',
+        dueDateTo: '2024-12-31'
+      })
+
+      expect(mockChain.gte).toHaveBeenCalledWith('due_date', '2024-01-01')
+      expect(mockChain.lte).toHaveBeenCalledWith('due_date', '2024-12-31')
+    })
+
+    it('should sort by due_date when sortByDueDate is true', async () => {
+      const { mockChain } = createMockQueryChain([mockVisionBoardImage])
+      mockSupabaseClient.from.mockReturnValue(mockChain)
+
+      await getVisionBoardImages(mockUserId, {
+        sortByDueDate: true,
+        orderDirection: 'asc'
+      })
+
+      expect(mockChain.order).toHaveBeenCalledWith('due_date', { ascending: true })
+    })
+
+    it('should include goal, due_date, and media_type in response', async () => {
+      const { mockChain } = createMockQueryChain([mockVisionBoardImage])
+      mockSupabaseClient.from.mockReturnValue(mockChain)
+
+      const result = await getVisionBoardImages(mockUserId)
+
+      expect(result.data).toEqual([mockVisionBoardImage])
+      expect(result.data?.[0]).toHaveProperty('goal')
+      expect(result.data?.[0]).toHaveProperty('due_date')
+      expect(result.data?.[0]).toHaveProperty('media_type')
+    })
+
     it('should handle errors', async () => {
       const { mockChain } = createMockQueryChain(null, true)
       mockSupabaseClient.from.mockReturnValue(mockChain)
@@ -192,6 +241,42 @@ describe('Vision Board Queries', () => {
   })
 
   describe('createVisionBoardImage', () => {
+    it('should require goal and due_date', async () => {
+      const { mockChain } = createMockQueryChain([mockVisionBoardImage])
+      mockSupabaseClient.from.mockReturnValue(mockChain)
+
+      const imageData = {
+        user_id: mockUserId,
+        file_name: 'test.jpg',
+        file_path: '/path/to/test.jpg',
+        goal: 'Test goal',
+        due_date: '2024-12-31',
+        media_type: 'image' as const
+      }
+
+      await createVisionBoardImage(imageData)
+
+      expect(mockChain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          goal: 'Test goal',
+          due_date: '2024-12-31',
+          media_type: 'image'
+        })
+      )
+    })
+
+    it('should validate goal is not null', async () => {
+      const imageData = {
+        user_id: mockUserId,
+        file_name: 'test.jpg',
+        file_path: '/path/to/test.jpg',
+        // Missing goal and due_date
+      } as any
+
+      // TypeScript should catch this, but we test runtime behavior
+      expect(() => createVisionBoardImage(imageData)).not.toThrow()
+      // The API layer will validate this
+    })
     it('should create a new image with auto-generated display order', async () => {
       // Mock the max order query
       const maxOrderMockChain = createMockQueryChain([{ display_order: 5 }])

@@ -1,0 +1,219 @@
+.container {
+  padding: 1.5rem;
+  background: rgba(24, 24, 27, 0.6);
+  border-radius: 16px;
+  border: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #e4e4e7;
+  margin: 0 0 1.25rem 0;
+  font-family: 'Outfit', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sectionTitle::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%);
+  border-radius: 2px;
+}
+
+.settingGroup {
+  margin-bottom: 1.5rem;
+}
+
+.settingHeader {
+  margin-bottom: 0.625rem;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-bottom: 0.25rem;
+}
+
+.aiIcon {
+  font-size: 1rem;
+}
+
+.hint {
+  display: block;
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  background: rgba(39, 39, 42, 0.8);
+  border: 2px solid rgba(63, 63, 70, 0.7);
+  border-radius: 10px;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+}
+
+.select:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+.select option {
+  background: #27272a;
+  color: #e4e4e7;
+  padding: 0.5rem;
+}
+
+.inputWithPrefix {
+  display: flex;
+  align-items: center;
+  background: rgba(39, 39, 42, 0.8);
+  border: 2px solid rgba(63, 63, 70, 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.inputWithPrefix:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+.prefix {
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  color: #a1a1aa;
+  font-weight: 600;
+  font-size: 1rem;
+  background: rgba(63, 63, 70, 0.3);
+  border-right: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+.numberInput {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  font-weight: 500;
+}
+
+.numberInput:focus {
+  outline: none;
+}
+
+.numberInput::-webkit-outer-spin-button,
+.numberInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(99, 102, 241, 0.3) 50%,
+    transparent 100%
+  );
+  margin: 2rem 0;
+}
+
+.comingSoon {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: #fbbf24;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.apiKeyContainer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+.apiKeyLabel {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-bottom: 0.5rem;
+}
+
+.apiKeyInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  background: rgba(39, 39, 42, 0.8);
+  border: 2px solid rgba(63, 63, 70, 0.7);
+  border-radius: 10px;
+  color: #e4e4e7;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+.apiKeyInput::placeholder {
+  color: #71717a;
+}
+
+.apiKeyInput:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.apiKeyInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+.apiKeyLink {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #818cf8;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.apiKeyLink:hover {
+  color: #a5b4fc;
+  text-decoration: underline;
+}
