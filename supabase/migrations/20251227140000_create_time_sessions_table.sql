@@ -53,16 +53,20 @@ CREATE INDEX IF NOT EXISTS idx_time_sessions_user_started ON time_sessions(user_
 -- Enable Row Level Security
 ALTER TABLE time_sessions ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- Create RLS policies (drop first if they exist)
+DROP POLICY IF EXISTS "Users can view their own time sessions" ON time_sessions;
 CREATE POLICY "Users can view their own time sessions" ON time_sessions
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own time sessions" ON time_sessions;
 CREATE POLICY "Users can insert their own time sessions" ON time_sessions
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own time sessions" ON time_sessions;
 CREATE POLICY "Users can update their own time sessions" ON time_sessions
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own time sessions" ON time_sessions;
 CREATE POLICY "Users can delete their own time sessions" ON time_sessions
     FOR DELETE USING (auth.uid() = user_id);
 
@@ -81,6 +85,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_time_sessions_updated_at ON time_sessions;
 CREATE TRIGGER trigger_time_sessions_updated_at
     BEFORE UPDATE ON time_sessions
     FOR EACH ROW

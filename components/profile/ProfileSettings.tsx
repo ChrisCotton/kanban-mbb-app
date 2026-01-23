@@ -4,6 +4,8 @@ import {
   AI_AUDIO_PROVIDERS, 
   AI_JOURNAL_PROVIDERS 
 } from '../../pages/api/profile'
+import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
+import { useFileNamePreference } from '../../hooks/useFileNamePreference'
 import styles from './ProfileSettings.module.css'
 
 interface Category {
@@ -41,6 +43,9 @@ export default function ProfileSettings({
   categories,
   onSettingsChange
 }: ProfileSettingsProps) {
+  const { enabled: goalTextEnabled, toggle: toggleGoalText } = useGoalTextPreference()
+  const { enabled: fileNameEnabled, toggle: toggleFileName } = useFileNamePreference()
+  
   const [localSettings, setLocalSettings] = useState<ProfileSettingsData>({
     default_category_id: defaultCategoryId,
     default_target_revenue: defaultTargetRevenue,
@@ -109,6 +114,58 @@ export default function ProfileSettings({
             step="100"
             className={styles.numberInput}
           />
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <h2 className={styles.sectionTitle}>Vision Board Preferences</h2>
+
+      {/* Goal Text Visibility */}
+      <div className={styles.settingGroup}>
+        <div className={styles.settingHeader}>
+          <label className={styles.label}>
+            <span className={styles.aiIcon}>🎯</span>
+            Show Goal Text
+          </label>
+          <span className={styles.hint}>Display goal text overlay on vision board images</span>
+        </div>
+        <div className={styles.toggleContainer}>
+          <button
+            type="button"
+            onClick={toggleGoalText}
+            className={`${styles.toggle} ${goalTextEnabled ? styles.toggleOn : styles.toggleOff}`}
+            aria-label={`${goalTextEnabled ? 'Hide' : 'Show'} goal text`}
+          >
+            <span className={styles.toggleSlider} />
+          </button>
+          <span className={styles.toggleLabel}>
+            {goalTextEnabled ? 'Enabled' : 'Disabled'}
+          </span>
+        </div>
+      </div>
+
+      {/* File Name Visibility */}
+      <div className={styles.settingGroup}>
+        <div className={styles.settingHeader}>
+          <label className={styles.label}>
+            <span className={styles.aiIcon}>📄</span>
+            Show File Name
+          </label>
+          <span className={styles.hint}>Display file name below goal text on vision board images</span>
+        </div>
+        <div className={styles.toggleContainer}>
+          <button
+            type="button"
+            onClick={toggleFileName}
+            className={`${styles.toggle} ${fileNameEnabled ? styles.toggleOn : styles.toggleOff}`}
+            aria-label={`${fileNameEnabled ? 'Hide' : 'Show'} file name`}
+          >
+            <span className={styles.toggleSlider} />
+          </button>
+          <span className={styles.toggleLabel}>
+            {fileNameEnabled ? 'Enabled' : 'Disabled'}
+          </span>
         </div>
       </div>
 

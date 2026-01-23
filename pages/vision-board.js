@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import ThumbnailGallery from '../components/vision-board/ThumbnailGallery'
+import VisionBoardGalleryModal from '../components/vision-board/VisionBoardGalleryModal'
 import { ImageUploader } from '../components/vision-board/ImageUploader'
 import AIGenerator from '../components/vision-board/AIGenerator'
 
@@ -14,6 +15,8 @@ const VisionBoardPage = () => {
   const [selectedImageIds, setSelectedImageIds] = useState([])
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [aiProvider, setAiProvider] = useState('nano_banana')
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false)
+  const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0)
 
   // Load vision board images
   const loadVisionBoardImages = useCallback(async (userId) => {
@@ -79,6 +82,33 @@ const VisionBoardPage = () => {
       }
     })
   }, [])
+
+  // Handle image click to open gallery modal
+  const handleImageClick = useCallback((imageId, index) => {
+    setCurrentGalleryIndex(index)
+    setGalleryModalOpen(true)
+  }, [])
+
+  // Handle viewing slideshow with selected images
+  const handleViewSlideshow = useCallback(() => {
+    if (selectedImageIds.length > 0) {
+      // Filter to selected images and find first selected index
+      const selectedImages = visionBoardImages.filter(img => 
+        selectedImageIds.includes(img.id)
+      )
+      if (selectedImages.length > 0) {
+        const firstSelectedIndex = visionBoardImages.findIndex(img => 
+          img.id === selectedImages[0].id
+        )
+        setCurrentGalleryIndex(firstSelectedIndex >= 0 ? firstSelectedIndex : 0)
+        setGalleryModalOpen(true)
+      }
+    } else {
+      // No selection, show all images
+      setCurrentGalleryIndex(0)
+      setGalleryModalOpen(true)
+    }
+  }, [selectedImageIds, visionBoardImages])
 
   // Handle toggling active status of images
   const handleImageToggleActive = useCallback(async (imageId) => {
@@ -285,6 +315,14 @@ const VisionBoardPage = () => {
             />
           </div>
 
+          {/* Gallery Modal */}
+          <VisionBoardGalleryModal
+            images={visionBoardImages}
+            initialIndex={currentGalleryIndex}
+            isOpen={galleryModalOpen}
+            onClose={() => setGalleryModalOpen(false)}
+          />
+
           {/* Selected Images Actions */}
           {selectedImageIds.length > 0 && (
             <div className="mt-6 bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-400/30 shadow-2xl p-6">
@@ -292,6 +330,15 @@ const VisionBoardPage = () => {
                 {selectedImageIds.length} image{selectedImageIds.length > 1 ? 's' : ''} selected
               </h3>
               <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleViewSlideshow}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  View Slideshow
+                </button>
                 <button
                   onClick={() => {
                     selectedImageIds.forEach(id => handleImageToggleActive(id))

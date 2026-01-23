@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
+import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
 
 interface NavigationProps {
   className?: string
@@ -20,6 +21,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const router = useRouter()
   const { enabled: carouselEnabled, toggle: toggleCarousel } = useCarouselPreference()
+  const { enabled: goalTextEnabled, toggle: toggleGoalText } = useGoalTextPreference()
   
   // Debug: Log carousel state
   console.log('[Navigation] Carousel state:', { carouselEnabled })
@@ -115,7 +117,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   }
 
   return (
-    <nav className={`${className}`}>
+    <nav className={`bg-black/40 backdrop-blur-md border-b border-white/10 ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and Brand */}
@@ -183,6 +185,27 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                   // Eye-off icon (hidden/off)
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Goal Text Toggle Button */}
+              <button
+                onClick={toggleGoalText}
+                className="p-2 rounded-md bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors duration-200 border border-white/20"
+                aria-label="Toggle goal text"
+                title={`Goal Text: ${goalTextEnabled ? 'On' : 'Off'}`}
+              >
+                {goalTextEnabled ? (
+                  // Document icon (visible/on)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                ) : (
+                  // Document with slash icon (hidden/off)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 )}
               </button>
@@ -273,6 +296,32 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                 <div>
                   <div className="font-medium">Vision Board Carousel</div>
                   <div className="text-xs text-white/50">Currently: {carouselEnabled ? 'On' : 'Off'}</div>
+                </div>
+              </button>
+
+              {/* Goal Text Toggle in Mobile Menu */}
+              <button
+                onClick={toggleGoalText}
+                className="w-full block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 flex items-center space-x-3 text-white/70 hover:text-white hover:bg-white/10"
+                aria-label="Toggle goal text"
+              >
+                <span className="text-white/60">
+                  {goalTextEnabled ? (
+                    // Document icon (visible/on)
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  ) : (
+                    // Document with slash icon (hidden/off)
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                </span>
+                <div>
+                  <div className="font-medium">Goal Text</div>
+                  <div className="text-xs text-white/50">Currently: {goalTextEnabled ? 'On' : 'Off'}</div>
                 </div>
               </button>
             </div>

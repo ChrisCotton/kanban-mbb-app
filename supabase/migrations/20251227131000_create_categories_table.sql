@@ -76,7 +76,14 @@ CREATE OR REPLACE FUNCTION update_categories_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
-    NEW.updated_by = auth.uid();
+    -- Always ensure updated_by is set (never NULL)
+    -- Priority: NEW.updated_by (if explicitly set) > auth.uid() > OLD.updated_by > OLD.created_by
+    NEW.updated_by = COALESCE(
+        NEW.updated_by,  -- Use explicitly set value first
+        auth.uid(),      -- Then try current user
+        OLD.updated_by,  -- Then preserve existing updated_by
+        OLD.created_by   -- Finally fall back to created_by (should always exist)
+    );
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

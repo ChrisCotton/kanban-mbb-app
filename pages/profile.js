@@ -160,7 +160,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <Layout showTimerFooter={true} userId={user?.id}>
+    <Layout showCarousel={false} showTimerFooter={true} userId={user?.id}>
       <div className={styles.container}>
         <header className={styles.header}>
           <h1 className={styles.title}>Profile & Settings</h1>

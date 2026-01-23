@@ -37,6 +37,7 @@ interface ThumbnailGalleryProps {
   images: VisionBoardImage[]
   selectedImageIds?: string[]
   onImageSelect?: (imageId: string) => void
+  onImageClick?: (imageId: string, index: number) => void
   onImageToggleActive?: (imageId: string) => void
   onImageReorder?: (imageIds: string[]) => void
   onImageDelete?: (imageId: string) => void
@@ -53,6 +54,7 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
   images = [],
   selectedImageIds = [],
   onImageSelect,
+  onImageClick,
   onImageToggleActive,
   onImageReorder,
   onImageDelete,
@@ -72,12 +74,16 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
   const [editCustomDate, setEditCustomDate] = useState<Date | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  // Handle image selection
-  const handleImageClick = useCallback((imageId: string) => {
-    if (onImageSelect) {
+  // Handle image click - opens gallery modal if onImageClick provided, otherwise selects
+  const handleImageClick = useCallback((imageId: string, index: number) => {
+    if (onImageClick) {
+      // Open gallery modal
+      onImageClick(imageId, index)
+    } else if (onImageSelect) {
+      // Fallback to selection behavior
       onImageSelect(imageId)
     }
-  }, [onImageSelect])
+  }, [onImageClick, onImageSelect])
 
   // Handle active status toggle
   const handleToggleActive = useCallback((e: React.MouseEvent, imageId: string) => {
@@ -252,7 +258,10 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
               } ${
                 isSelected ? 'ring-2 ring-blue-500' : ''
               }`}
-              onClick={() => handleImageClick(image.id)}
+              onClick={() => {
+                const imageIndex = images.findIndex(img => img.id === image.id)
+                handleImageClick(image.id, imageIndex)
+              }}
               draggable={allowReorder}
               onDragStart={(e) => handleDragStart(e, image.id)}
               onDragOver={(e) => handleDragOver(e, image.id)}
@@ -268,8 +277,27 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
                   fill
                   className="object-cover transition-transform duration-200 group-hover:scale-105"
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  unoptimized={image.file_path?.startsWith('/api/placeholder')}
                   onError={(e) => {
-                    e.currentTarget.src = `/api/placeholder/300/300?text=Error`
+                    // Prevent infinite retry loops - only set placeholder once
+                    if (!e.currentTarget.src.includes('data:image')) {
+                      // Use data URL placeholder instead of API call
+                      const placeholderSvg = `data:image/svg+xml,${encodeURIComponent(`
+                        <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                              <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                            </linearGradient>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(%23grad)"/>
+                          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="16" 
+                                font-weight="bold" text-anchor="middle" dominant-baseline="middle" 
+                                fill="white">Error</text>
+                        </svg>
+                      `)}`
+                      e.currentTarget.src = placeholderSvg
+                    }
                   }}
                 />
 

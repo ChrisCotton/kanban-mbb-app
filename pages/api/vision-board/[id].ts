@@ -345,7 +345,7 @@ async function deleteVisionBoardImage(req: NextApiRequest, res: NextApiResponse,
         
         if (filename) {
           await supabase.storage
-            .from('vision-board-images')
+            .from('vision-board')
             .remove([filename])
         }
       } catch (storageError) {

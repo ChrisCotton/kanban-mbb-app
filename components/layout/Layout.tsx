@@ -64,23 +64,25 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Persistent Layout Structure */}
         <div className="relative z-10 flex flex-col min-h-screen">
           
+          {/* Navigation Header - Fixed Overlay */}
+          {showNavigation && (
+            <div className="fixed top-0 inset-x-0 z-50">
+              <Navigation />
+            </div>
+          )}
+
           {/* Vision Board Carousel Header */}
           {/* Hook preference (carouselEnabled) AND showCarousel prop must both be true */}
           {showCarousel && carouselEnabled && (
             <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10">
               <VisionBoardCarousel 
                 images={carouselImages}
-                height="h-48 md:h-64"
+                height="h-[50vh] md:h-[60vh]"
                 autoAdvanceInterval={8000}
                 showControls={true}
                 showCounter={true}
               />
             </div>
-          )}
-
-          {/* Navigation Header */}
-          {showNavigation && (
-            <Navigation />
           )}
 
           {/* Main Content Area - Flexible Height */}
