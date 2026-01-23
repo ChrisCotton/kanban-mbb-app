@@ -47,6 +47,8 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const [showGoalText, setShowGoalText] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [backgroundOpacity, setBackgroundOpacity] = useState(0.9)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [slideInterval, setSlideInterval] = useState(10) // in seconds, minimum 10
   const { enabled: goalTextPreferenceEnabled } = useGoalTextPreference()
   const { enabled: fileNameEnabled } = useFileNamePreference()
   
@@ -139,6 +141,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const goToNext = useCallback(() => {
     if (isTransitioning || images.length === 0) return
     setIsTransitioning(true)
+    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex((prev) => (prev + 1) % images.length)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [images.length, isTransitioning])
@@ -146,6 +149,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const goToPrevious = useCallback(() => {
     if (isTransitioning || images.length === 0) return
     setIsTransitioning(true)
+    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [images.length, isTransitioning])
@@ -153,9 +157,21 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const goToImage = useCallback((index: number) => {
     if (isTransitioning || index === currentIndex || index < 0 || index >= images.length) return
     setIsTransitioning(true)
+    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex(index)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [currentIndex, images.length, isTransitioning])
+
+  // Auto-advance slideshow when playing
+  useEffect(() => {
+    if (!isOpen || !isPlaying || images.length <= 1) return
+
+    const intervalId = setInterval(() => {
+      goToNext()
+    }, slideInterval * 1000)
+
+    return () => clearInterval(intervalId)
+  }, [isOpen, isPlaying, slideInterval, images.length, goToNext])
 
   // Keyboard navigation
   useEffect(() => {
@@ -178,6 +194,9 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
         setShowGoalText(prev => !prev)
       } else if (e.key === 'f' || e.key === 'F') {
         toggleFullscreen()
+      } else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault()
+        setIsPlaying(prev => !prev)
       }
     }
 
@@ -280,6 +299,27 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
             </svg>
           </button>
 
+          {/* Play/Pause Button */}
+          {images.length > 1 && (
+            <button
+              onClick={() => setIsPlaying(prev => !prev)}
+              className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
+              aria-label={isPlaying ? 'Pause slideshow' : 'Play slideshow'}
+              title={`${isPlaying ? 'Pause' : 'Play'} Slideshow (Press Space)`}
+            >
+              {isPlaying ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </button>
+          )}
+
           {/* Background Opacity Slider */}
           <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2">
             <span className="text-white text-xs whitespace-nowrap">Opacity:</span>
@@ -295,6 +335,28 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
             />
             <span className="text-white text-xs w-10 text-right">{backgroundOpacityPercent}%</span>
           </div>
+
+          {/* Slide Interval Control */}
+          {images.length > 1 && (
+            <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2">
+              <span className="text-white text-xs whitespace-nowrap">Interval:</span>
+              <input
+                type="number"
+                min="10"
+                step="1"
+                value={slideInterval}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10)
+                  if (!isNaN(value) && value >= 10) {
+                    setSlideInterval(value)
+                  }
+                }}
+                className="w-16 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label="Slide interval in seconds"
+              />
+              <span className="text-white text-xs whitespace-nowrap">sec</span>
+            </div>
+          )}
         </div>
 
         {/* Right Controls */}

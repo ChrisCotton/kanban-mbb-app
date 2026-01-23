@@ -126,7 +126,7 @@ function SubtaskItem({ subtask, index, onToggle, onUpdate, onDelete }: SubtaskIt
             ) : (
               <span
                 className={`
-                  block truncate cursor-pointer
+                  block break-words whitespace-normal cursor-pointer
                   ${subtask.completed 
                     ? 'text-white/60 line-through' 
                     : 'text-white'
