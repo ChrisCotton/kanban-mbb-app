@@ -126,22 +126,23 @@ const MBBPage = () => {
   }, [])
 
   // Load recent time sessions
+  // Fetch all sessions to group by task_id, then paginate grouped tasks client-side
   const loadTimeSessions = useCallback(async (userId, page, perPage) => {
     if (!userId) return
     
     try {
-      const offset = (page - 1) * perPage
-      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=${perPage}&offset=${offset}`)
+      // Fetch a larger batch to ensure we have enough data for grouping
+      // We'll paginate the grouped tasks client-side
+      const fetchLimit = Math.max(perPage * 10, 100) // Fetch at least 10 pages worth or 100 sessions
+      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=${fetchLimit}&offset=0`)
       if (!response.ok) throw new Error('Failed to load time sessions')
       
       const result = await response.json()
       if (result.success) {
         setTimeSessions(result.data || [])
-        // Use total_count from pagination or response, with fallback to data length if count is 0 but we have data
+        // Store total sessions count for reference
         const totalCount = result.pagination?.total_count ?? result.total_count ?? 0
-        const sessionsCount = result.data?.length || 0
-        // If API returns 0 count but we have sessions, use sessions count as minimum (happens on first page)
-        setTimeSessionsTotalCount(totalCount > 0 ? totalCount : (sessionsCount > 0 && page === 1 ? sessionsCount : totalCount))
+        setTimeSessionsTotalCount(totalCount)
       }
     } catch (error) {
       console.error('Error loading time sessions:', error)
@@ -462,7 +463,7 @@ const MBBPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-white">Recent Time Sessions</h2>
-                  <p className="text-white/70 mt-1">Your latest work sessions and earnings</p>
+                  <p className="text-white/70 mt-1">Total earnings per task (includes completed sessions + live timers)</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <label className="text-white/70 text-sm">Show:</label>
@@ -484,7 +485,7 @@ const MBBPage = () => {
             </div>
 
             <div className="p-6">
-              {timeSessions.length === 0 ? (
+              {timeSessions.length === 0 && timers.length === 0 ? (
                 <div className="text-center p-12">
                   <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -496,117 +497,222 @@ const MBBPage = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {timeSessions.map((session, index) => (
-                    <div
-                      key={session.id || index}
-                      className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h4 className="text-white font-medium">
-                              {session.tasks?.title || session.description || 'Work Session'}
-                            </h4>
-                            <p className="text-white/70 text-sm">
-                              {session.categories?.name || 'Uncategorized'} • {formatHours((session.duration_seconds || 0) / 3600)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-white font-semibold">
-                            {session.earnings_usd !== null && session.earnings_usd !== undefined
-                              ? formatCurrency(parseFloat(session.earnings_usd) || 0)
-                              : (
-                                  <span className="text-white/50" title="No hourly rate set for this session">
-                                    $0.00
-                                    {!session.hourly_rate_usd && (
-                                      <span className="text-xs text-yellow-400 ml-1" title="No hourly rate was set when this session was created">
-                                        ⚠️
-                                      </span>
-                                    )}
-                                  </span>
-                                )
-                            }
-                          </div>
-                          <div className="text-white/70 text-sm">
-                            {session.started_at ? new Date(session.started_at).toLocaleDateString() : 'Today'}
-                            {session.hourly_rate_usd && (
-                              <div className="text-xs text-white/50">
-                                {formatCurrency(parseFloat(session.hourly_rate_usd))}/hr
+                  {(() => {
+                    // Group sessions by task_id and merge with live timer data
+                    const taskTotals = {}
+                    
+                    // Process completed sessions from database
+                    timeSessions.forEach(session => {
+                      const taskId = session.task_id
+                      if (!taskTotals[taskId]) {
+                        taskTotals[taskId] = {
+                          task_id: taskId,
+                          task_title: session.tasks?.title || 'Work Session',
+                          category_name: session.categories?.name || 'Uncategorized',
+                          category_id: session.category_id,
+                          total_earnings: 0,
+                          total_duration_seconds: 0,
+                          total_minutes: 0,
+                          hourly_rate_usd: session.hourly_rate_usd,
+                          sessions: [],
+                          latest_started_at: session.started_at,
+                          is_active: false,
+                        }
+                      }
+                      
+                      const earnings = parseFloat(session.earnings_usd) || 0
+                      const duration = session.duration_seconds || 0
+                      
+                      taskTotals[taskId].total_earnings += earnings
+                      taskTotals[taskId].total_duration_seconds += duration
+                      taskTotals[taskId].sessions.push(session)
+                      
+                      // Keep track of latest session start time
+                      if (new Date(session.started_at) > new Date(taskTotals[taskId].latest_started_at)) {
+                        taskTotals[taskId].latest_started_at = session.started_at
+                        taskTotals[taskId].hourly_rate_usd = session.hourly_rate_usd || taskTotals[taskId].hourly_rate_usd
+                      }
+                    })
+                    
+                    // Merge live timer data (active timers)
+                    timers.forEach(timer => {
+                      const taskId = timer.taskId
+                      const timerStartTime = timer.startTime || new Date().toISOString()
+                      
+                      if (!taskTotals[taskId]) {
+                        taskTotals[taskId] = {
+                          task_id: taskId,
+                          task_title: timer.task.title,
+                          category_name: timer.task.category?.name || 'Uncategorized',
+                          category_id: timer.task.category_id,
+                          total_earnings: 0,
+                          total_duration_seconds: 0,
+                          total_minutes: 0,
+                          hourly_rate_usd: timer.task.category?.hourly_rate_usd || timer.task.category?.hourly_rate || 0,
+                          sessions: [],
+                          latest_started_at: timerStartTime,
+                          is_active: true,
+                        }
+                      }
+                      
+                      // Add live timer earnings and duration
+                      taskTotals[taskId].total_earnings += timer.sessionEarnings || 0
+                      taskTotals[taskId].total_duration_seconds += timer.currentTime || 0
+                      taskTotals[taskId].is_active = true
+                      
+                      // Update hourly rate from live timer if available
+                      const liveRate = timer.task.category?.hourly_rate_usd || timer.task.category?.hourly_rate
+                      if (liveRate) {
+                        taskTotals[taskId].hourly_rate_usd = liveRate
+                      }
+                      
+                      // Update latest_started_at if timer is more recent
+                      if (new Date(timerStartTime) > new Date(taskTotals[taskId].latest_started_at)) {
+                        taskTotals[taskId].latest_started_at = timerStartTime
+                      }
+                    })
+                    
+                    // Convert to array and sort by latest_started_at (most recent first)
+                    const sortedTasks = Object.values(taskTotals).sort((a, b) => 
+                      new Date(b.latest_started_at) - new Date(a.latest_started_at)
+                    )
+                    
+                    // Apply pagination to grouped tasks
+                    const totalUniqueTasks = sortedTasks.length
+                    const startIndex = (timeSessionsPage - 1) * timeSessionsPerPage
+                    const endIndex = startIndex + timeSessionsPerPage
+                    const paginatedTasks = sortedTasks.slice(startIndex, endIndex)
+                    
+                    return paginatedTasks.map((taskTotal, index) => {
+                      const totalHours = taskTotal.total_duration_seconds / 3600
+                      const totalMinutes = Math.floor(taskTotal.total_duration_seconds / 60)
+                      
+                      return (
+                        <div
+                          key={taskTotal.task_id || index}
+                          className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                               </div>
-                            )}
+                              <div>
+                                <h4 className="text-white font-medium">
+                                  {taskTotal.task_title}
+                                  {taskTotal.is_active && (
+                                    <span className="ml-2 text-xs text-green-400" title="Timer currently running">
+                                      ● LIVE
+                                    </span>
+                                  )}
+                                </h4>
+                                <p className="text-white/70 text-sm">
+                                  {taskTotal.category_name} • {formatHours(totalHours)}
+                                  {taskTotal.sessions.length > 1 && (
+                                    <span className="text-white/50 ml-1">
+                                      ({taskTotal.sessions.length} sessions)
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-white font-semibold">
+                                {formatCurrency(taskTotal.total_earnings)}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                {taskTotal.latest_started_at ? new Date(taskTotal.latest_started_at).toLocaleDateString() : 'Today'}
+                                {taskTotal.hourly_rate_usd && (
+                                  <div className="text-xs text-white/50">
+                                    {formatCurrency(parseFloat(taskTotal.hourly_rate_usd))}/hr
+                                  </div>
+                                )}
+                                {taskTotal.is_active && (
+                                  <div className="text-xs text-green-400 mt-1">
+                                    {totalMinutes} min today
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })
+                  })()}
                 </div>
               )}
               
               {/* Pagination Controls */}
-              {timeSessions.length > 0 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-white/70 text-sm">
-                    Showing {((timeSessionsPage - 1) * timeSessionsPerPage) + 1} to {Math.min(timeSessionsPage * timeSessionsPerPage, timeSessionsTotalCount)} of {timeSessionsTotalCount} sessions
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setTimeSessionsPage(prev => Math.max(1, prev - 1))}
-                      disabled={timeSessionsPage === 1}
-                      className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
-                        timeSessionsPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.ceil(timeSessionsTotalCount / timeSessionsPerPage) }, (_, i) => i + 1)
-                        .filter(page => {
-                          // Show first page, last page, current page, and pages around current
-                          const totalPages = Math.ceil(timeSessionsTotalCount / timeSessionsPerPage)
-                          return page === 1 || 
-                                 page === totalPages || 
-                                 (page >= timeSessionsPage - 1 && page <= timeSessionsPage + 1)
-                        })
-                        .map((page, index, array) => {
-                          // Add ellipsis between non-consecutive pages
-                          const showEllipsisBefore = index > 0 && array[index - 1] !== page - 1
-                          return (
-                            <React.Fragment key={page}>
-                              {showEllipsisBefore && (
-                                <span className="text-white/50 px-2">...</span>
-                              )}
-                              <button
-                                onClick={() => setTimeSessionsPage(page)}
-                                className={`px-3 py-2 min-w-[40px] rounded-lg transition-colors border ${
-                                  timeSessionsPage === page
-                                    ? 'bg-blue-500 text-white border-blue-500'
-                                    : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            </React.Fragment>
-                          )
-                        })}
+              {(() => {
+                // Calculate unique tasks count (sessions + active timers)
+                const uniqueTaskIds = new Set()
+                timeSessions.forEach(s => uniqueTaskIds.add(s.task_id))
+                timers.forEach(t => uniqueTaskIds.add(t.taskId))
+                const totalUniqueTasks = uniqueTaskIds.size
+                const totalPages = Math.ceil(totalUniqueTasks / timeSessionsPerPage)
+                
+                if (totalUniqueTasks === 0) return null
+                
+                return (
+                  <div className="mt-6 flex items-center justify-between">
+                    <div className="text-white/70 text-sm">
+                      Showing {((timeSessionsPage - 1) * timeSessionsPerPage) + 1} to {Math.min(timeSessionsPage * timeSessionsPerPage, totalUniqueTasks)} of {totalUniqueTasks} task{totalUniqueTasks !== 1 ? 's' : ''}
                     </div>
-                    <button
-                      onClick={() => setTimeSessionsPage(prev => prev + 1)}
-                      disabled={timeSessionsPage >= Math.ceil(timeSessionsTotalCount / timeSessionsPerPage)}
-                      className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
-                        timeSessionsPage >= Math.ceil(timeSessionsTotalCount / timeSessionsPerPage) ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      Next
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setTimeSessionsPage(prev => Math.max(1, prev - 1))}
+                        disabled={timeSessionsPage === 1}
+                        className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                          timeSessionsPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(page => {
+                            // Show first page, last page, current page, and pages around current
+                            return page === 1 || 
+                                   page === totalPages || 
+                                   (page >= timeSessionsPage - 1 && page <= timeSessionsPage + 1)
+                          })
+                          .map((page, index, array) => {
+                            // Add ellipsis between non-consecutive pages
+                            const showEllipsisBefore = index > 0 && array[index - 1] !== page - 1
+                            return (
+                              <React.Fragment key={page}>
+                                {showEllipsisBefore && (
+                                  <span className="text-white/50 px-2">...</span>
+                                )}
+                                <button
+                                  onClick={() => setTimeSessionsPage(page)}
+                                  className={`px-3 py-2 min-w-[40px] rounded-lg transition-colors border ${
+                                    timeSessionsPage === page
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              </React.Fragment>
+                            )
+                          })}
+                      </div>
+                      <button
+                        onClick={() => setTimeSessionsPage(prev => prev + 1)}
+                        disabled={timeSessionsPage >= totalPages}
+                        className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                          timeSessionsPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           </div>
         </div>

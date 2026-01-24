@@ -300,6 +300,7 @@ describe('Time Sessions API - PUT /api/time-sessions/[id]', () => {
 
       expect(mockSupabaseRpc).toHaveBeenCalledWith('end_time_session', {
         p_session_id: 'session-123',
+        p_user_id: 'user-123',
       })
       expect(statusMock).toHaveBeenCalledWith(200)
       expect(jsonMock).toHaveBeenCalledWith(

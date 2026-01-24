@@ -203,9 +203,11 @@ async function endTimeSession(
 
   try {
     // Use the database function to end the session
+    // Pass user_id to work with service role key (similar to start_time_session)
     const { error } = await supabase
       .rpc('end_time_session', {
-        p_session_id: sessionId
+        p_session_id: sessionId,
+        p_user_id: userId
       })
 
     if (error) {
