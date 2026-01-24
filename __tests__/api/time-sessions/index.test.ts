@@ -5,6 +5,9 @@ export const mockSupabaseUpdate = jest.fn();
 export const mockSupabaseRpc = jest.fn();
 export const mockSupabaseFrom = jest.fn();
 
+// Declare mock variables for chainable methods after .update()
+export const mockUpdateEq = jest.fn();
+
 // Declare mock variables for chainable methods after .select()
 export const mockSelectEq = jest.fn();
 export const mockSelectOrder = jest.fn();
@@ -12,6 +15,7 @@ export const mockSelectRange = jest.fn();
 export const mockSelectGte = jest.fn();
 export const mockSelectLte = jest.fn();
 export const mockSelectNot = jest.fn();
+export const mockSelectIs = jest.fn();
 export const mockSelectSingle = jest.fn();
 export const mockSelectMaybeSingle = jest.fn();
 
@@ -25,11 +29,14 @@ jest.mock('@supabase/supabase-js', () => ({
         gte: mockSelectGte,
         lte: mockSelectLte,
         not: mockSelectNot,
+        is: mockSelectIs,
         single: mockSelectSingle,
         maybeSingle: mockSelectMaybeSingle,
       })),
       insert: mockSupabaseInsert,
-      update: mockSupabaseUpdate,
+      update: jest.fn(() => ({
+        eq: mockUpdateEq.mockReturnThis(),
+      })),
     })),
     rpc: mockSupabaseRpc,
   })),
@@ -72,8 +79,11 @@ describe('Time Sessions API - GET /api/time-sessions', () => {
     mockSelectGte.mockReturnThis();
     mockSelectLte.mockReturnThis();
     mockSelectNot.mockReturnThis();
+    mockSelectIs.mockReturnThis();
     mockSelectSingle.mockResolvedValue({ data: null, error: null });
     mockSelectMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockUpdateEq.mockReturnThis();
+    mockUpdateEq.mockResolvedValue({ data: null, error: null });
   });
 
   describe('Validation', () => {
@@ -325,6 +335,7 @@ describe('Time Sessions API - GET /api/time-sessions', () => {
 
       expect(mockSupabaseRpc).toHaveBeenCalledWith('start_time_session', {
         p_task_id: 'task-1',
+        p_user_id: 'user-123',
         p_hourly_rate_usd: 100,
       })
       expect(statusMock).toHaveBeenCalledWith(201)
@@ -382,6 +393,62 @@ describe('Time Sessions API - GET /api/time-sessions', () => {
       expect(jsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
           error: 'hourly_rate_usd must be a positive number',
+        })
+      )
+    })
+
+    it('should pass user_id to RPC call when using service role key', async () => {
+      const mockTask = {
+        id: 'task-1',
+        title: 'Test Task',
+        category_id: 'cat-1',
+        status: 'todo',
+      }
+
+      const mockSessionId = 'session-123'
+      const mockNewSession = {
+        id: mockSessionId,
+        task_id: 'task-1',
+        category_id: 'cat-1',
+        started_at: '2024-01-01T10:00:00Z',
+        is_active: true,
+        tasks: { id: 'task-1', title: 'Test Task', status: 'in_progress' },
+        categories: { id: 'cat-1', name: 'Development', color: '#FF5733' },
+      }
+
+      // Mock task verification
+      mockSelectSingle.mockResolvedValueOnce({ data: mockTask, error: null });
+
+      // Mock active session check
+      mockSelectMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      // Mock RPC call succeeding with user_id parameter
+      mockSupabaseRpc.mockResolvedValueOnce({ data: mockSessionId, error: null });
+
+      // Mock session fetch
+      mockSelectSingle.mockResolvedValueOnce({ data: mockNewSession, error: null });
+
+      mockReq.body = {
+        task_id: 'task-1',
+        user_id: 'user-123',
+        hourly_rate_usd: 100,
+      }
+
+      await handler(mockReq as NextApiRequest, mockRes as NextApiResponse)
+
+      // Verify RPC was called WITH user_id (fixed behavior)
+      expect(mockSupabaseRpc).toHaveBeenCalledWith('start_time_session', {
+        p_task_id: 'task-1',
+        p_user_id: 'user-123',
+        p_hourly_rate_usd: 100,
+      })
+      
+      expect(statusMock).toHaveBeenCalledWith(201)
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: mockNewSession,
+          message: 'Time session started successfully',
         })
       )
     })

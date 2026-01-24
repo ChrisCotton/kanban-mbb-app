@@ -363,9 +363,11 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Use the database function to start the session
+    // Pass user_id explicitly since we're using service role key (auth.uid() returns NULL)
     const { data: sessionId, error } = await supabase
       .rpc('start_time_session', {
         p_task_id: task_id,
+        p_user_id: user_id,
         p_hourly_rate_usd: hourly_rate_usd || null
       })
 
