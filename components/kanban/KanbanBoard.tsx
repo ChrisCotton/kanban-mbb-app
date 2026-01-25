@@ -118,18 +118,30 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   }, [moveTask]) // Memoize with dependencies
 
   const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {
+    console.log('🔄 handleTaskUpdate called:', { taskId, updates })
+    
+    // Call updateTask which will refresh tasks via fetchTasks
     await updateTask(taskId, updates)
     
-    // Update the viewing task if it's the same task being updated
-    if (viewingTask && viewingTask.id === taskId) {
-      setViewingTask(prev => prev ? { ...prev, ...updates } : null)
-    }
+    // Wait a bit for fetchTasks to complete, then update viewingTask with fresh data
+    // This ensures we have the latest data from the server
+    setTimeout(async () => {
+      if (viewingTask && viewingTask.id === taskId) {
+        // Find the updated task from the tasks object
+        const allTasks = Object.values(tasks).flat()
+        const refreshedTask = allTasks.find(t => t.id === taskId)
+        if (refreshedTask) {
+          console.log('✅ Updating viewingTask with refreshed data:', refreshedTask)
+          setViewingTask(refreshedTask)
+        }
+      }
+    }, 100)
     
     // DON'T refresh search on every update - let natural refetch handle it
     // if (isSearchMode && hasActiveFilters) {
     //   await performSearch(activeFilters)
     // }
-  }, [updateTask, viewingTask]) // Memoized
+  }, [updateTask, viewingTask, tasks]) // Memoized
 
   const handleTaskDelete = useCallback(async (taskId: string) => {
     await deleteTask(taskId)
@@ -223,7 +235,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
 
   // Task detail modal management
   const openDetailModal = (task: Task) => {
-    setViewingTask(task)
+    // Always get the latest version of the task from the tasks object
+    // This ensures we have the most up-to-date data including description
+    const allTasks = Object.values(tasks).flat()
+    const latestTask = allTasks.find(t => t.id === task.id) || task
+    console.log('📂 Opening task detail modal:', {
+      taskId: latestTask.id,
+      title: latestTask.title,
+      hasDescription: !!latestTask.description,
+      descriptionLength: latestTask.description?.length || 0
+    })
+    setViewingTask(latestTask)
     setIsDetailModalOpen(true)
   }
 

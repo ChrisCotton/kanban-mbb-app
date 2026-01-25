@@ -170,16 +170,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       const updates: Partial<Task> = {}
       
       if (editTitle !== task.title) updates.title = editTitle
-      if (editDescription !== (task.description || '')) updates.description = editDescription
+      if (editDescription !== (task.description || '')) {
+        updates.description = editDescription
+        console.log('📝 Updating description:', {
+          old: task.description || '(empty)',
+          new: editDescription || '(empty)',
+          length: editDescription.length
+        })
+      }
       if (editDueDate !== (task.due_date || '')) updates.due_date = editDueDate || null
       if (editPriority !== task.priority) updates.priority = editPriority
       if (editCategoryId !== (task.category_id || null)) updates.category_id = editCategoryId
 
+      console.log('💾 Sending task update:', updates)
       await onUpdate(task.id, updates)
+      console.log('✅ Task update call completed')
+      
+      // Update local state to reflect the changes immediately
+      // The parent component will refresh the task prop via fetchTasks
+      setEditDescription(editDescription) // Keep the edited description
+      
       setIsEditing(false)
       setIsDescriptionPreview(false)
     } catch (error) {
-      console.error('Failed to update task:', error)
+      console.error('❌ Failed to update task:', error)
     } finally {
       setIsUpdating(false)
     }

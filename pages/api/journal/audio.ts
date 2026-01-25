@@ -42,18 +42,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const [fields, files] = await form.parse(req)
     
+    console.log('📥 Audio upload request received')
+    console.log('📥 Fields:', Object.keys(fields), 'Files:', Object.keys(files))
+    console.log('📥 userId:', fields.user_id?.[0])
+    console.log('📥 entryId:', fields.entry_id?.[0])
+    console.log('📥 audio files:', files.audio ? files.audio.map(f => ({ name: f.originalFilename, size: f.size, type: f.mimetype })) : 'none')
+    
     const userId = fields.user_id?.[0]
     const entryId = fields.entry_id?.[0]
     const duration = fields.duration?.[0]
     const audioFile = files.audio?.[0] as File | undefined
 
     if (!userId) {
+      console.error('❌ Missing user_id')
       return res.status(400).json({ error: 'user_id is required' })
     }
 
     if (!audioFile) {
-      return res.status(400).json({ error: 'No audio file provided' })
+      console.error('❌ No audio file provided. Files received:', Object.keys(files))
+      return res.status(400).json({ 
+        error: 'No audio data provided',
+        details: `Expected 'audio' field in form data. Received fields: ${Object.keys(files).join(', ') || 'none'}`
+      })
     }
+
+    console.log('✅ Audio file received:', {
+      name: audioFile.originalFilename,
+      size: audioFile.size,
+      type: audioFile.mimetype,
+      path: audioFile.filepath
+    })
 
     // Validate file type
     if (!audioFile.mimetype || !ALLOWED_TYPES.includes(audioFile.mimetype)) {

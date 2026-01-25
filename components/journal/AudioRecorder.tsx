@@ -34,6 +34,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const animationFrameRef = useRef<number | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
+  const blobCreatedRef = useRef<boolean>(false)
 
   // Check browser support
   useEffect(() => {
@@ -53,13 +54,40 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     checkSupport()
   }, [])
 
+  // Get supported mime type
+  const getSupportedMimeType = useCallback(() => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+      'audio/wav'
+    ]
+    
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type
+      }
+    }
+    
+    // Fallback to default
+    return ''
+  }, [])
+
   // Timer for recording duration
   const startTimer = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
     intervalRef.current = setInterval(() => {
       setDuration(prev => {
         const newDuration = prev + 1
         if (newDuration >= maxDuration) {
-          stopRecording()
+          // Use the ref to call stopRecording to avoid closure issues
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop()
+          }
         }
         return newDuration
       })
@@ -94,6 +122,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const startRecording = useCallback(async () => {
     try {
       setError(null)
+      setRecordingState('recording') // Set state immediately for visual feedback
+      console.log('🎤 Starting recording...')
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -103,33 +133,72 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         } 
       })
       
+      console.log('✅ Got media stream')
       streamRef.current = stream
       
       // Set up audio context for visualization
-      audioContextRef.current = new AudioContext()
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      const source = audioContextRef.current.createMediaStreamSource(stream)
-      source.connect(analyserRef.current)
-      analyserRef.current.fftSize = 256
+      try {
+        audioContextRef.current = new AudioContext()
+        analyserRef.current = audioContextRef.current.createAnalyser()
+        const source = audioContextRef.current.createMediaStreamSource(stream)
+        source.connect(analyserRef.current)
+        analyserRef.current.fftSize = 256
+        console.log('✅ Audio context created')
+      } catch (audioErr) {
+        console.warn('⚠️ Audio context creation failed (visualization disabled):', audioErr)
+        // Continue without visualization
+      }
+
+      // Get supported mime type
+      const mimeType = getSupportedMimeType()
+      console.log('📝 Using mime type:', mimeType || 'default')
 
       // Set up MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
+      const options = mimeType ? { mimeType } : undefined
+      const mediaRecorder = new MediaRecorder(stream, options)
+      
+      console.log('✅ MediaRecorder created, state:', mediaRecorder.state)
       
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
+      blobCreatedRef.current = false
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
+        // Only process chunks if MediaRecorder is still active (prevent chunks after cancel)
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          if (event.data && event.data.size > 0) {
+            chunksRef.current.push(event.data)
+            console.log('📦 Data chunk received, size:', event.data.size, 'Total chunks:', chunksRef.current.length, 'MediaRecorder state:', mediaRecorderRef.current.state)
+          } else {
+            console.warn('⚠️ Empty data chunk received')
+          }
+        } else {
+          console.log('⚠️ Ignoring data chunk - MediaRecorder is inactive or null')
         }
       }
 
+      mediaRecorder.onerror = (event) => {
+        console.error('❌ MediaRecorder error:', event)
+        setError('Recording error occurred. Please try again.')
+      }
+
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' })
-        setAudioBlob(blob)
-        setAudioUrl(URL.createObjectURL(blob))
+        console.log('🛑 MediaRecorder onstop fired, chunks:', chunksRef.current.length)
+        
+        // Only create blob if it hasn't been created yet (might have been created in stopRecording)
+        if (!blobCreatedRef.current && chunksRef.current.length > 0) {
+          const blobType = mimeType || 'audio/webm'
+          const blob = new Blob(chunksRef.current, { type: blobType })
+          console.log('✅ Blob created in onstop, size:', blob.size)
+          setAudioBlob(blob)
+          setAudioUrl(URL.createObjectURL(blob))
+          blobCreatedRef.current = true
+        } else if (blobCreatedRef.current) {
+          console.log('ℹ️ Blob already created, skipping')
+        } else {
+          console.warn('⚠️ onstop fired but no chunks available')
+        }
+        
         setRecordingState('stopped')
         
         // Clean up stream
@@ -137,33 +206,140 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           streamRef.current.getTracks().forEach(track => track.stop())
           streamRef.current = null
         }
+        
+        // Clean up audio context
+        if (audioContextRef.current) {
+          try {
+            if (audioContextRef.current.state !== 'closed') {
+              audioContextRef.current.close()
+            }
+          } catch (err) {
+            console.warn('Error closing audio context:', err)
+          }
+          audioContextRef.current = null
+        }
       }
 
+      // Start recording
       mediaRecorder.start(1000) // Collect data every second
-      setRecordingState('recording')
+      console.log('🎬 MediaRecorder started, state:', mediaRecorder.state)
+      
+      // State already set above for immediate feedback
       setDuration(0)
       startTimer()
       visualizeAudio()
 
-    } catch (err) {
-      console.error('Error starting recording:', err)
-      setError('Failed to start recording. Please check microphone permissions.')
+    } catch (err: any) {
+      console.error('❌ Error starting recording:', err)
+      let errorMessage = 'Failed to start recording. '
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage += 'Please allow microphone access and try again.'
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage += 'No microphone found. Please connect a microphone and try again.'
+      } else {
+        errorMessage += 'Please check microphone permissions and try again.'
+      }
+      setError(errorMessage)
+      setRecordingState('idle')
+      
+      // Clean up any partial setup
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current = null
+      }
+      if (audioContextRef.current) {
+        try {
+          if (audioContextRef.current.state !== 'closed') {
+            audioContextRef.current.close()
+          }
+        } catch (closeErr) {
+          console.warn('Error closing audio context on error:', closeErr)
+        }
+        audioContextRef.current = null
+      }
     }
-  }, [startTimer, visualizeAudio])
+  }, [startTimer, visualizeAudio, getSupportedMimeType])
+
+  // Helper function to create blob from chunks
+  const createBlobFromChunks = useCallback(() => {
+    if (chunksRef.current.length > 0 && !blobCreatedRef.current) {
+      try {
+        const mimeType = getSupportedMimeType() || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        console.log('✅ Blob created from chunks, size:', blob.size, 'chunks:', chunksRef.current.length)
+        setAudioBlob(blob)
+        setAudioUrl(URL.createObjectURL(blob))
+        setRecordingState('stopped')
+        blobCreatedRef.current = true
+        return true
+      } catch (err) {
+        console.error('❌ Error creating blob from chunks:', err)
+        return false
+      }
+    }
+    return false
+  }, [getSupportedMimeType])
 
   // Stop recording
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingState === 'recording') {
-      mediaRecorderRef.current.stop()
+    console.log('🛑 stopRecording called, state:', recordingState, 'mediaRecorder state:', mediaRecorderRef.current?.state, 'chunks:', chunksRef.current.length)
+    
+    if (mediaRecorderRef.current && (recordingState === 'recording' || recordingState === 'paused')) {
+      try {
+        // Stop the media recorder
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          console.log('🛑 Stopping MediaRecorder...')
+          mediaRecorderRef.current.stop()
+          
+          // Immediately try to create blob if chunks exist (don't wait for onstop)
+          // This handles cases where onstop doesn't fire properly
+          if (chunksRef.current.length > 0) {
+            console.log('📦 Chunks available, creating blob immediately...')
+            createBlobFromChunks()
+          }
+        } else {
+          console.log('⚠️ MediaRecorder already inactive, creating blob from existing chunks')
+          createBlobFromChunks()
+        }
+        
+        // Fallback: if onstop doesn't fire and blob wasn't created, try again
+        setTimeout(() => {
+          if (chunksRef.current.length > 0 && !blobCreatedRef.current) {
+            console.log('⚠️ onstop callback didn\'t fire after timeout, creating blob manually')
+            createBlobFromChunks()
+          }
+        }, 300)
+      } catch (err) {
+        console.error('❌ Error stopping media recorder:', err)
+        // Try to create blob from existing chunks as fallback
+        createBlobFromChunks()
+      }
+      
       stopTimer()
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
       }
       
       setVolume(0)
+      
+      // Don't clean up audio context and stream here - let onstop callback handle it
+      // This ensures the MediaRecorder can properly finalize the recording
+    } else {
+      console.warn('⚠️ stopRecording called but conditions not met:', {
+        hasMediaRecorder: !!mediaRecorderRef.current,
+        recordingState,
+        mediaRecorderState: mediaRecorderRef.current?.state,
+        chunks: chunksRef.current.length
+      })
+      // Even if conditions aren't met, try to create blob if chunks exist
+      if (chunksRef.current.length > 0) {
+        console.log('📦 Creating blob from chunks despite conditions not being met')
+        createBlobFromChunks()
+      }
     }
-  }, [recordingState, stopTimer])
+  }, [recordingState, stopTimer, createBlobFromChunks])
 
   // Pause recording
   const pauseRecording = useCallback(() => {
@@ -208,40 +384,146 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Reset recording
   const resetRecording = useCallback(() => {
+    console.log('🔄 Resetting recording, stopping MediaRecorder...')
+    
+    // CRITICAL: Stop the MediaRecorder FIRST before cleaning up
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+          console.log('🛑 Stopping MediaRecorder in reset, state:', mediaRecorderRef.current.state)
+          mediaRecorderRef.current.stop()
+        }
+      } catch (err) {
+        console.error('❌ Error stopping MediaRecorder in reset:', err)
+      }
+      // Clear the ref AFTER stopping
+      mediaRecorderRef.current = null
+    }
+    
     stopTimer()
     setRecordingState('idle')
     setDuration(0)
     setAudioBlob(null)
     setVolume(0)
+    blobCreatedRef.current = false
     
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl)
       setAudioUrl(null)
     }
     
+    // Stop stream tracks (this stops the actual recording)
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+      try {
+        console.log('🛑 Stopping stream tracks...')
+        streamRef.current.getTracks().forEach(track => {
+          track.stop()
+          console.log('✅ Track stopped:', track.kind, track.readyState)
+        })
+      } catch (err) {
+        console.warn('Error stopping stream tracks in reset:', err)
+      }
       streamRef.current = null
     }
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
     }
+    
+    if (audioContextRef.current) {
+      try {
+        if (audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close()
+        }
+      } catch (err) {
+        console.warn('Error closing audio context in reset:', err)
+      }
+      audioContextRef.current = null
+    }
+    
+    // Clear chunks
+    chunksRef.current = []
+    console.log('✅ Recording reset complete')
   }, [stopTimer, audioUrl])
 
   // Handle save
   const handleSave = useCallback(() => {
-    if (audioBlob) {
-      onRecordingComplete(audioBlob, duration)
+    console.log('💾 Save clicked, audioBlob:', !!audioBlob, 'size:', audioBlob?.size, 'type:', audioBlob?.type, 'duration:', duration, 'chunks:', chunksRef.current.length)
+    
+    let blobToSave = audioBlob
+    
+    // If no blob but we have chunks, create one
+    if (!blobToSave && chunksRef.current.length > 0) {
+      console.log('🔄 No blob but chunks exist, creating blob from chunks...')
+      const mimeType = getSupportedMimeType() || 'audio/webm'
+      try {
+        blobToSave = new Blob(chunksRef.current, { type: mimeType })
+        console.log('✅ Blob created from chunks, size:', blobToSave.size, 'type:', blobToSave.type)
+        // Update state so UI reflects the blob
+        setAudioBlob(blobToSave)
+        if (!audioUrl) {
+          setAudioUrl(URL.createObjectURL(blobToSave))
+        }
+      } catch (err) {
+        console.error('❌ Failed to create blob from chunks:', err)
+        setError('Cannot save: Failed to create audio file')
+        return
+      }
     }
-  }, [audioBlob, duration, onRecordingComplete])
+    
+    if (blobToSave && blobToSave.size > 0) {
+      console.log('✅ Calling onRecordingComplete with blob size:', blobToSave.size, 'type:', blobToSave.type)
+      onRecordingComplete(blobToSave, duration)
+    } else {
+      console.error('❌ Cannot save - no valid audio data')
+      setError('Cannot save: No audio data recorded. Please record audio before saving.')
+    }
+  }, [audioBlob, audioUrl, duration, onRecordingComplete, getSupportedMimeType])
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔄 Recording state changed to:', recordingState, 'MediaRecorder state:', mediaRecorderRef.current?.state)
+  }, [recordingState])
+
+  // Debug: Log audioBlob changes
+  useEffect(() => {
+    console.log('📦 audioBlob state changed:', !!audioBlob, 'size:', audioBlob?.size, 'chunks:', chunksRef.current.length, 'blobCreated:', blobCreatedRef.current)
+  }, [audioBlob])
+
+  // Safety net: Ensure blob is created when recording stops and chunks exist
+  useEffect(() => {
+    if ((recordingState === 'stopped' || recordingState === 'idle') && chunksRef.current.length > 0 && !blobCreatedRef.current && !audioBlob) {
+      console.log('🛡️ Safety net: Creating blob from chunks after recording stopped')
+      const mimeType = getSupportedMimeType() || 'audio/webm'
+      try {
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        console.log('✅ Safety net blob created, size:', blob.size)
+        setAudioBlob(blob)
+        setAudioUrl(URL.createObjectURL(blob))
+        blobCreatedRef.current = true
+        if (recordingState === 'stopped') {
+          // State already set, don't change it
+        }
+      } catch (err) {
+        console.error('❌ Safety net blob creation failed:', err)
+      }
+    }
+  }, [recordingState, audioBlob, getSupportedMimeType])
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
       resetRecording()
       if (audioContextRef.current) {
-        audioContextRef.current.close()
+        try {
+          if (audioContextRef.current.state !== 'closed') {
+            audioContextRef.current.close()
+          }
+        } catch (err) {
+          console.warn('Error closing audio context on unmount:', err)
+        }
+        audioContextRef.current = null
       }
     }
   }, [resetRecording])
@@ -454,7 +736,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       {/* Action Buttons */}
       <div className="flex items-center justify-between">
         <button
-          onClick={onCancel}
+          onClick={() => {
+            console.log('🚫 Cancel clicked, resetting recording...')
+            resetRecording()
+            onCancel()
+          }}
           className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg font-medium transition-colors border border-white/20"
         >
           Cancel
@@ -462,12 +748,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         
         <button
           onClick={handleSave}
-          disabled={!audioBlob}
+          disabled={!audioBlob && chunksRef.current.length === 0}
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            audioBlob
+            (audioBlob || chunksRef.current.length > 0)
               ? 'bg-blue-500 hover:bg-blue-600 text-white'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
+          title={audioBlob ? 'Save recording' : chunksRef.current.length > 0 ? 'Save recording (will create from chunks)' : 'No recording available'}
         >
           Save Recording
         </button>

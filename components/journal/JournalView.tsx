@@ -66,10 +66,15 @@ const JournalView: React.FC<JournalViewProps> = ({
 
   // Handle new recording complete
   const handleRecordingComplete = useCallback(async (audioBlob: Blob, duration: number) => {
-    if (!userId) return
+    if (!userId) {
+      console.error('❌ No userId available')
+      setError('User not authenticated')
+      return
+    }
 
     try {
       setError(null)
+      console.log('💾 Starting to save recording, duration:', duration, 'blob size:', audioBlob.size)
       
       // First create the journal entry
       const createResponse = await fetch('/api/journal', {
@@ -85,50 +90,116 @@ const JournalView: React.FC<JournalViewProps> = ({
         })
       })
 
-      const createResult = await createResponse.json()
+      console.log('📡 Create entry response status:', createResponse.status, 'ok:', createResponse.ok)
       
       if (!createResponse.ok) {
-        throw new Error(createResult.error || 'Failed to create entry')
+        const errorText = await createResponse.text()
+        console.error('❌ Create entry failed:', errorText)
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Failed to create entry' }
+        }
+        throw new Error(errorData.error || 'Failed to create entry')
       }
 
-      const newEntry = createResult.data
+      const createResult = await createResponse.json()
+      console.log('✅ Create entry response:', createResult)
+      
+      if (!createResult) {
+        throw new Error('Empty response from server')
+      }
+
+      // Handle different response structures
+      const newEntry = createResult.data || createResult.entry || createResult
+      
+      if (!newEntry || !newEntry.id) {
+        console.error('❌ Invalid entry structure:', createResult)
+        throw new Error('Invalid entry data received from server')
+      }
+      
+      console.log('✅ Entry created:', newEntry.id)
+
+      // Validate audio blob before uploading
+      if (!audioBlob || audioBlob.size === 0) {
+        console.error('❌ Invalid audio blob:', { 
+          hasBlob: !!audioBlob, 
+          size: audioBlob?.size,
+          type: audioBlob?.type 
+        })
+        throw new Error('No audio data to upload. Please record audio before saving.')
+      }
+
+      console.log('📤 Uploading audio, blob size:', audioBlob.size, 'type:', audioBlob.type)
 
       // Now upload the audio
       const formData = new FormData()
-      formData.append('audio', audioBlob, 'journal.webm')
+      
+      // Determine file extension based on blob type
+      let fileName = 'journal.webm'
+      if (audioBlob.type.includes('mp4') || audioBlob.type.includes('m4a')) {
+        fileName = 'journal.m4a'
+      } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+        fileName = 'journal.mp3'
+      } else if (audioBlob.type.includes('ogg')) {
+        fileName = 'journal.ogg'
+      } else if (audioBlob.type.includes('wav')) {
+        fileName = 'journal.wav'
+      }
+      
+      // Create a File object from the Blob with proper name and type
+      const audioFile = new File([audioBlob], fileName, { type: audioBlob.type || 'audio/webm' })
+      formData.append('audio', audioFile, fileName)
       formData.append('user_id', userId)
       formData.append('entry_id', newEntry.id)
       formData.append('duration', Math.round(duration).toString())
 
+      console.log('📤 FormData created, sending to /api/journal/audio')
+
       const audioResponse = await fetch('/api/journal/audio', {
         method: 'POST',
         body: formData
+        // Don't set Content-Type header - let browser set it with boundary
       })
 
-      const audioResult = await audioResponse.json()
+      console.log('📡 Audio upload response status:', audioResponse.status, 'ok:', audioResponse.ok)
 
       if (!audioResponse.ok) {
-        console.error('Audio upload failed:', audioResult.error)
+        const errorText = await audioResponse.text()
+        console.error('❌ Audio upload failed:', errorText)
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Audio upload failed' }
+        }
         // Entry was created, just without audio - show warning
-        setError('Entry created but audio upload failed. ' + (audioResult.details || ''))
+        setError('Entry created but audio upload failed. ' + (errorData.error || errorData.details || ''))
       } else {
+        const audioResult = await audioResponse.json()
+        console.log('✅ Audio uploaded:', audioResult)
+        
         // Update entry with audio info
-        newEntry.audio_file_path = audioResult.audio_file_path
-        if (audioResult.audio_url) {
-          setAudioUrls(prev => ({ ...prev, [newEntry.id]: audioResult.audio_url }))
+        newEntry.audio_file_path = audioResult.audio_file_path || audioResult.data?.audio_file_path
+        if (audioResult.audio_url || audioResult.data?.audio_url) {
+          setAudioUrls(prev => ({ ...prev, [newEntry.id]: audioResult.audio_url || audioResult.data?.audio_url }))
         }
       }
 
       // Add to entries list
       setEntries(prev => [newEntry, ...prev])
+      console.log('✅ Entry added to list')
       
       // Show the new entry
       setSelectedEntry(newEntry)
       setViewMode('view')
+      console.log('✅ Recording saved successfully')
       
     } catch (err: any) {
-      console.error('Error saving recording:', err)
+      console.error('❌ Error saving recording:', err)
       setError(err.message || 'Failed to save recording')
+      // Don't change view mode on error - let user try again
     }
   }, [userId])
 

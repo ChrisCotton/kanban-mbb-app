@@ -64,6 +64,17 @@ async function handleGetTask(req: NextApiRequest, res: NextApiResponse, id: stri
 async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: string) {
   const { title, description, status, priority, due_date, order_index, category_id } = req.body
 
+  console.log('📥 Task update request:', {
+    id,
+    hasTitle: title !== undefined,
+    hasDescription: description !== undefined,
+    descriptionLength: description?.length || 0,
+    descriptionPreview: description ? description.substring(0, 50) + '...' : '(empty)',
+    status,
+    priority,
+    category_id
+  })
+
   // Validate fields if provided
   if (title !== undefined && (typeof title !== 'string' || title.trim().length === 0)) {
     return res.status(400).json({ 
@@ -116,15 +127,30 @@ async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: s
   const updates: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> = {}
   
   if (title !== undefined) updates.title = title.trim()
-  if (description !== undefined) updates.description = description?.trim() || null
+  if (description !== undefined) {
+    updates.description = description?.trim() || null
+    console.log('📝 Description update:', {
+      original: description,
+      trimmed: description?.trim() || null,
+      willBeNull: !description?.trim()
+    })
+  }
   if (status !== undefined) updates.status = status
   if (priority !== undefined) updates.priority = priority
   if (due_date !== undefined) updates.due_date = due_date
   if (order_index !== undefined) updates.order_index = order_index
   if (category_id !== undefined) updates.category_id = category_id
 
+  console.log('💾 Update object:', updates)
+
   try {
     const updatedTask = await updateTask(id, updates)
+    console.log('✅ Task updated in database:', {
+      id: updatedTask.id,
+      title: updatedTask.title,
+      description: updatedTask.description ? updatedTask.description.substring(0, 50) + '...' : '(empty)',
+      descriptionLength: updatedTask.description?.length || 0
+    })
     
     return res.status(200).json({
       success: true,
