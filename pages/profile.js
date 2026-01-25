@@ -14,6 +14,18 @@ const ProfilePage = () => {
   const [saveMessage, setSaveMessage] = useState(null)
   const [categories, setCategories] = useState([])
   
+  // List of API key fields for reference
+  const apiKeyFields = [
+    'nano_banana_api_key',
+    'google_ai_api_key',
+    'openai_api_key',
+    'google_speech_api_key',
+    'assemblyai_api_key',
+    'deepgram_api_key',
+    'anthropic_claude_api_key',
+    'google_gemini_api_key'
+  ]
+  
   const [profile, setProfile] = useState({
     display_name: null,
     avatar_url: null,
@@ -23,7 +35,13 @@ const ProfilePage = () => {
     ai_audio_journal_provider: 'openai_whisper',
     ai_journal_insight_provider: 'openai_gpt4',
     nano_banana_api_key: null,
-    google_ai_api_key: null
+    google_ai_api_key: null,
+    openai_api_key: null,
+    google_speech_api_key: null,
+    assemblyai_api_key: null,
+    deepgram_api_key: null,
+    anthropic_claude_api_key: null,
+    google_gemini_api_key: null
   })
 
   // Check auth on mount
@@ -70,7 +88,16 @@ const ProfilePage = () => {
           default_target_revenue: result.data.default_target_revenue || 1000,
           ai_image_provider: result.data.ai_image_provider || 'openai_dalle',
           ai_audio_journal_provider: result.data.ai_audio_journal_provider || 'openai_whisper',
-          ai_journal_insight_provider: result.data.ai_journal_insight_provider || 'openai_gpt4'
+          ai_journal_insight_provider: result.data.ai_journal_insight_provider || 'openai_gpt4',
+          // Load all API keys
+          nano_banana_api_key: result.data.nano_banana_api_key || null,
+          google_ai_api_key: result.data.google_ai_api_key || null,
+          openai_api_key: result.data.openai_api_key || null,
+          google_speech_api_key: result.data.google_speech_api_key || null,
+          assemblyai_api_key: result.data.assemblyai_api_key || null,
+          deepgram_api_key: result.data.deepgram_api_key || null,
+          anthropic_claude_api_key: result.data.anthropic_claude_api_key || null,
+          google_gemini_api_key: result.data.google_gemini_api_key || null
         })
       }
     } catch (error) {
@@ -106,6 +133,7 @@ const ProfilePage = () => {
     setSaveMessage(null)
 
     try {
+      console.log('💾 Saving profile updates:', Object.keys(updates))
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -117,17 +145,66 @@ const ProfilePage = () => {
 
       const result = await response.json()
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to save')
+      if (!response.ok || !result.success) {
+        console.error('❌ Profile save failed:', result)
+        const errorMessage = result.error || result.details || 'Failed to save'
+        throw new Error(errorMessage)
       }
 
-      setProfile(prev => ({ ...prev, ...updates }))
+      console.log('✅ Profile saved successfully:', result.message)
+      
+      // Update local state with saved data
+      // IMPORTANT: Preserve API keys in local state even if server doesn't return them (for security)
+      setProfile(prev => {
+        const updated = { ...prev, ...updates }
+        // Preserve existing API keys if they weren't in the update (server might not return them)
+        apiKeyFields.forEach(field => {
+          if (!(field in updates) && prev[field]) {
+            updated[field] = prev[field]
+          }
+        })
+        return updated
+      })
+      
+      // Reload profile to get latest data from server
+      // Note: API keys might not be returned for security, so we preserve them above
+      try {
+        const reloadResponse = await fetch(`/api/profile?user_id=${user.id}`)
+        const reloadResult = await reloadResponse.json()
+        if (reloadResult.success && reloadResult.data) {
+          setProfile(prev => ({
+            display_name: reloadResult.data.display_name || null,
+            avatar_url: reloadResult.data.avatar_url || null,
+            default_category_id: reloadResult.data.default_category_id || null,
+            default_target_revenue: reloadResult.data.default_target_revenue || 1000,
+            ai_image_provider: reloadResult.data.ai_image_provider || 'openai_dalle',
+            ai_audio_journal_provider: reloadResult.data.ai_audio_journal_provider || 'openai_whisper',
+            ai_journal_insight_provider: reloadResult.data.ai_journal_insight_provider || 'openai_gpt4',
+            // Preserve API keys from previous state if server doesn't return them
+            nano_banana_api_key: reloadResult.data.nano_banana_api_key || prev.nano_banana_api_key || null,
+            google_ai_api_key: reloadResult.data.google_ai_api_key || prev.google_ai_api_key || null,
+            openai_api_key: reloadResult.data.openai_api_key || prev.openai_api_key || null,
+            google_speech_api_key: reloadResult.data.google_speech_api_key || prev.google_speech_api_key || null,
+            assemblyai_api_key: reloadResult.data.assemblyai_api_key || prev.assemblyai_api_key || null,
+            deepgram_api_key: reloadResult.data.deepgram_api_key || prev.deepgram_api_key || null,
+            anthropic_claude_api_key: reloadResult.data.anthropic_claude_api_key || prev.anthropic_claude_api_key || null,
+            google_gemini_api_key: reloadResult.data.google_gemini_api_key || prev.google_gemini_api_key || null
+          }))
+          console.log('✅ Profile reloaded successfully')
+        } else {
+          console.warn('⚠️ Profile reload returned no data, keeping current state')
+        }
+      } catch (reloadError) {
+        console.error('⚠️ Error reloading profile after save (non-critical):', reloadError)
+        // Don't throw - the save was successful, reload is just for sync
+      }
+      
       setSaveMessage({ type: 'success', text: 'Settings saved!' })
       
       // Clear message after 3 seconds
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (error) {
-      console.error('Error saving profile:', error)
+      console.error('❌ Error saving profile:', error)
       setSaveMessage({ type: 'error', text: error.message || 'Failed to save settings' })
     } finally {
       setSaving(false)
@@ -205,6 +282,12 @@ const ProfilePage = () => {
               aiJournalInsightProvider={profile.ai_journal_insight_provider}
               nanoBananaApiKey={profile.nano_banana_api_key}
               googleAiApiKey={profile.google_ai_api_key}
+              openaiApiKey={profile.openai_api_key}
+              googleSpeechApiKey={profile.google_speech_api_key}
+              assemblyaiApiKey={profile.assemblyai_api_key}
+              deepgramApiKey={profile.deepgram_api_key}
+              anthropicClaudeApiKey={profile.anthropic_claude_api_key}
+              googleGeminiApiKey={profile.google_gemini_api_key}
               categories={categories}
               onSettingsChange={handleSettingsChange}
             />

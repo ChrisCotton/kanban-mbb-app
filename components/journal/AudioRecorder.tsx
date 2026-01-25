@@ -163,17 +163,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       chunksRef.current = []
       blobCreatedRef.current = false
 
+      // Track if we're intentionally stopping (vs canceling)
+      let isIntentionalStop = false
+
       mediaRecorder.ondataavailable = (event) => {
-        // Only process chunks if MediaRecorder is still active (prevent chunks after cancel)
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-          if (event.data && event.data.size > 0) {
-            chunksRef.current.push(event.data)
-            console.log('📦 Data chunk received, size:', event.data.size, 'Total chunks:', chunksRef.current.length, 'MediaRecorder state:', mediaRecorderRef.current.state)
-          } else {
-            console.warn('⚠️ Empty data chunk received')
-          }
+        // CRITICAL FIX: Always capture chunks if they have data
+        // The state check was preventing final chunks from being captured when stopping
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data)
+          console.log('📦 Data chunk received, size:', event.data.size, 'Total chunks:', chunksRef.current.length, 'MediaRecorder state:', mediaRecorderRef.current?.state)
+        } else if (event.data) {
+          // Even empty chunks might be important (final chunk can be empty but still needed)
+          console.log('📦 Empty data chunk received (size: 0), but adding it anyway for completeness')
+          chunksRef.current.push(event.data)
         } else {
-          console.log('⚠️ Ignoring data chunk - MediaRecorder is inactive or null')
+          console.warn('⚠️ No data in event:', event)
         }
       }
 
@@ -183,20 +187,24 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       }
 
       mediaRecorder.onstop = () => {
-        console.log('🛑 MediaRecorder onstop fired, chunks:', chunksRef.current.length)
+        console.log('🛑 MediaRecorder onstop fired, chunks:', chunksRef.current.length, 'chunk sizes:', chunksRef.current.map(c => c.size))
         
-        // Only create blob if it hasn't been created yet (might have been created in stopRecording)
-        if (!blobCreatedRef.current && chunksRef.current.length > 0) {
-          const blobType = mimeType || 'audio/webm'
-          const blob = new Blob(chunksRef.current, { type: blobType })
-          console.log('✅ Blob created in onstop, size:', blob.size)
-          setAudioBlob(blob)
-          setAudioUrl(URL.createObjectURL(blob))
-          blobCreatedRef.current = true
-        } else if (blobCreatedRef.current) {
-          console.log('ℹ️ Blob already created, skipping')
+        // CRITICAL: Always try to create blob in onstop, even if chunks seem empty
+        // Sometimes chunks are captured but not yet in the array when checked earlier
+        if (!blobCreatedRef.current) {
+          if (chunksRef.current.length > 0) {
+            const blobType = mimeType || 'audio/webm'
+            const blob = new Blob(chunksRef.current, { type: blobType })
+            console.log('✅ Blob created in onstop, size:', blob.size, 'from', chunksRef.current.length, 'chunks')
+            setAudioBlob(blob)
+            setAudioUrl(URL.createObjectURL(blob))
+            blobCreatedRef.current = true
+          } else {
+            console.error('❌ onstop fired but no chunks available - recording may have failed')
+            setError('Recording failed: No audio data was captured. Please try recording again.')
+          }
         } else {
-          console.warn('⚠️ onstop fired but no chunks available')
+          console.log('ℹ️ Blob already created, skipping')
         }
         
         setRecordingState('stopped')
@@ -284,18 +292,53 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const stopRecording = useCallback(() => {
     console.log('🛑 stopRecording called, state:', recordingState, 'mediaRecorder state:', mediaRecorderRef.current?.state, 'chunks:', chunksRef.current.length)
     
+    // Prevent multiple calls
+    if (recordingState === 'stopped' || recordingState === 'idle') {
+      console.log('⚠️ Already stopped, ignoring stopRecording call')
+      return
+    }
+    
     if (mediaRecorderRef.current && (recordingState === 'recording' || recordingState === 'paused')) {
       try {
         // Stop the media recorder
-        if (mediaRecorderRef.current.state !== 'inactive') {
-          console.log('🛑 Stopping MediaRecorder...')
-          mediaRecorderRef.current.stop()
+        const currentState = mediaRecorderRef.current.state
+        if (currentState !== 'inactive') {
+          console.log('🛑 Stopping MediaRecorder, current state:', currentState)
+          
+          // CRITICAL: Request final data chunk before stopping
+          // This ensures we get all recorded data
+          if (currentState === 'recording' || currentState === 'paused') {
+            try {
+              // Request the final data chunk
+              mediaRecorderRef.current.requestData()
+              console.log('📤 Requested final data chunk')
+            } catch (reqErr: any) {
+              console.warn('⚠️ Could not request final data chunk:', reqErr?.message || reqErr)
+              // Continue anyway - stop() will still trigger final chunk
+            }
+          }
+          
+          // Now stop the recorder (this will trigger onstop callback)
+          try {
+            mediaRecorderRef.current.stop()
+            console.log('✅ MediaRecorder.stop() called successfully')
+          } catch (stopErr: any) {
+            console.error('❌ Error calling MediaRecorder.stop():', stopErr?.message || stopErr)
+            // Try to recover by creating blob from existing chunks
+            if (chunksRef.current.length > 0) {
+              console.log('🔄 Attempting recovery: creating blob from existing chunks')
+              createBlobFromChunks()
+            }
+            throw stopErr
+          }
           
           // Immediately try to create blob if chunks exist (don't wait for onstop)
           // This handles cases where onstop doesn't fire properly
           if (chunksRef.current.length > 0) {
             console.log('📦 Chunks available, creating blob immediately...')
             createBlobFromChunks()
+          } else {
+            console.warn('⚠️ No chunks available yet, will wait for onstop callback')
           }
         } else {
           console.log('⚠️ MediaRecorder already inactive, creating blob from existing chunks')
@@ -307,12 +350,20 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           if (chunksRef.current.length > 0 && !blobCreatedRef.current) {
             console.log('⚠️ onstop callback didn\'t fire after timeout, creating blob manually')
             createBlobFromChunks()
+          } else if (chunksRef.current.length === 0) {
+            console.error('❌ Still no chunks after timeout - recording may have failed')
+            setError('Recording failed: No audio data captured. Please try again.')
           }
-        }, 300)
-      } catch (err) {
-        console.error('❌ Error stopping media recorder:', err)
+        }, 500)
+      } catch (err: any) {
+        console.error('❌ Error stopping media recorder:', err?.message || err)
         // Try to create blob from existing chunks as fallback
-        createBlobFromChunks()
+        if (chunksRef.current.length > 0) {
+          console.log('🔄 Fallback: creating blob from existing chunks')
+          createBlobFromChunks()
+        } else {
+          setError('Error stopping recording: ' + (err?.message || 'Unknown error'))
+        }
       }
       
       stopTimer()

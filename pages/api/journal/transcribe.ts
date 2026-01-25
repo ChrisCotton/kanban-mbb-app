@@ -100,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let transcriptionError: string | null = null
 
     try {
-      transcription = await transcribeAudio(audioData, provider)
+      transcription = await transcribeAudio(audioData, provider, user_id)
     } catch (err: any) {
       transcriptionError = err.message
       console.error('Transcription error:', err)
@@ -149,7 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function transcribeAudio(audioBlob: Blob, provider: string): Promise<string> {
+async function transcribeAudio(audioBlob: Blob, provider: string, userId?: string): Promise<string> {
   // Check if we have the API key for the provider
   const providerConfig = TRANSCRIPTION_PROVIDERS[provider as keyof typeof TRANSCRIPTION_PROVIDERS]
   
@@ -157,12 +157,52 @@ async function transcribeAudio(audioBlob: Blob, provider: string): Promise<strin
     throw new Error(`Unknown transcription provider: ${provider}`)
   }
 
-  const apiKey = process.env[providerConfig.requiresKey]
+  // Map provider to profile API key field name
+  const providerKeyMap: Record<string, string> = {
+    'openai_whisper': 'openai_api_key',
+    'google_speech': 'google_speech_api_key',
+    'assemblyai': 'assemblyai_api_key',
+    'deepgram': 'deepgram_api_key'
+  }
+
+  // Try to get API key from user profile first, then fall back to environment variable
+  let apiKey: string | undefined = undefined
+  
+  if (userId) {
+    try {
+      const profileKeyField = providerKeyMap[provider]
+      if (profileKeyField) {
+        const { data: profile } = await getSupabase()
+          .from('user_profile')
+          .select(profileKeyField)
+          .eq('user_id', userId)
+          .single()
+        
+        if (profile && profile[profileKeyField]) {
+          apiKey = profile[profileKeyField]
+          console.log(`✅ Using ${providerConfig.name} API key from user profile`)
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not fetch user profile for API key:', err)
+    }
+  }
+  
+  // Fall back to environment variable if no user key found
+  if (!apiKey) {
+    apiKey = process.env[providerConfig.requiresKey]
+    if (apiKey) {
+      console.log(`✅ Using ${providerConfig.name} API key from environment variable`)
+    }
+  }
   
   if (!apiKey) {
     // Fallback: Return placeholder for demo/development
     console.warn(`No API key found for ${provider}. Using placeholder transcription.`)
-    return `[Transcription placeholder - ${providerConfig.name} API key not configured]\n\nTo enable real transcription, add ${providerConfig.requiresKey} to your environment variables.\n\nAudio duration: ${Math.round(audioBlob.size / 1000)}KB`
+    const message = userId 
+      ? `[Transcription placeholder - ${providerConfig.name} API key not configured]\n\nTo enable real transcription, add your API key in Profile Settings.\n\nAudio duration: ${Math.round(audioBlob.size / 1000)}KB`
+      : `[Transcription placeholder - ${providerConfig.name} API key not configured]\n\nTo enable real transcription, add ${providerConfig.requiresKey} to your environment variables.\n\nAudio duration: ${Math.round(audioBlob.size / 1000)}KB`
+    return message
   }
 
   // OpenAI Whisper transcription

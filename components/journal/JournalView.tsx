@@ -72,9 +72,31 @@ const JournalView: React.FC<JournalViewProps> = ({
       return
     }
 
+    // CRITICAL: Clone the blob immediately to preserve it before any async operations
+    // This prevents the blob from being consumed or garbage collected
+    let preservedBlob: Blob
+    try {
+      // Clone the blob to ensure it's not consumed
+      preservedBlob = audioBlob.slice(0, audioBlob.size, audioBlob.type || 'audio/webm')
+      console.log('💾 Blob cloned for preservation, original size:', audioBlob.size, 'cloned size:', preservedBlob.size, 'type:', preservedBlob.type)
+    } catch (cloneError) {
+      console.error('❌ Failed to clone blob, using original:', cloneError)
+      preservedBlob = audioBlob
+    }
+
     try {
       setError(null)
-      console.log('💾 Starting to save recording, duration:', duration, 'blob size:', audioBlob.size)
+      console.log('💾 Starting to save recording, duration:', duration, 'blob size:', preservedBlob.size)
+      
+      // Validate blob before proceeding
+      if (!preservedBlob || preservedBlob.size === 0) {
+        console.error('❌ Invalid audio blob:', { 
+          hasBlob: !!preservedBlob, 
+          size: preservedBlob?.size,
+          type: preservedBlob?.type 
+        })
+        throw new Error('No audio data to upload. Please record audio before saving.')
+      }
       
       // First create the journal entry
       const createResponse = await fetch('/api/journal', {
@@ -121,41 +143,58 @@ const JournalView: React.FC<JournalViewProps> = ({
       
       console.log('✅ Entry created:', newEntry.id)
 
-      // Validate audio blob before uploading
-      if (!audioBlob || audioBlob.size === 0) {
-        console.error('❌ Invalid audio blob:', { 
-          hasBlob: !!audioBlob, 
-          size: audioBlob?.size,
-          type: audioBlob?.type 
+      // Re-validate blob after async operation (it should still be valid, but check anyway)
+      if (!preservedBlob || preservedBlob.size === 0) {
+        console.error('❌ Blob became invalid after entry creation:', { 
+          hasBlob: !!preservedBlob, 
+          size: preservedBlob?.size,
+          type: preservedBlob?.type 
         })
-        throw new Error('No audio data to upload. Please record audio before saving.')
+        throw new Error('Audio data was lost. Please try recording again.')
       }
 
-      console.log('📤 Uploading audio, blob size:', audioBlob.size, 'type:', audioBlob.type)
+      console.log('📤 Uploading audio, blob size:', preservedBlob.size, 'type:', preservedBlob.type)
 
       // Now upload the audio
       const formData = new FormData()
       
       // Determine file extension based on blob type
       let fileName = 'journal.webm'
-      if (audioBlob.type.includes('mp4') || audioBlob.type.includes('m4a')) {
+      const blobType = preservedBlob.type || 'audio/webm'
+      if (blobType.includes('mp4') || blobType.includes('m4a')) {
         fileName = 'journal.m4a'
-      } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+      } else if (blobType.includes('mp3') || blobType.includes('mpeg')) {
         fileName = 'journal.mp3'
-      } else if (audioBlob.type.includes('ogg')) {
+      } else if (blobType.includes('ogg')) {
         fileName = 'journal.ogg'
-      } else if (audioBlob.type.includes('wav')) {
+      } else if (blobType.includes('wav')) {
         fileName = 'journal.wav'
       }
       
-      // Create a File object from the Blob with proper name and type
-      const audioFile = new File([audioBlob], fileName, { type: audioBlob.type || 'audio/webm' })
-      formData.append('audio', audioFile, fileName)
+      // Create a File object from the preserved Blob with proper name and type
+      let audioFile: File
+      try {
+        audioFile = new File([preservedBlob], fileName, { type: blobType })
+        console.log('✅ File object created:', { name: audioFile.name, size: audioFile.size, type: audioFile.type })
+      } catch (fileError) {
+        console.error('❌ Failed to create File object:', fileError)
+        throw new Error('Failed to prepare audio file for upload')
+      }
+
+      // Append file to FormData - File objects only need 2 arguments (key, value)
+      // The filename is already part of the File object
+      formData.append('audio', audioFile)
       formData.append('user_id', userId)
       formData.append('entry_id', newEntry.id)
       formData.append('duration', Math.round(duration).toString())
 
-      console.log('📤 FormData created, sending to /api/journal/audio')
+      // Verify FormData was created correctly
+      console.log('📤 FormData created with entries:', {
+        hasAudio: formData.has('audio'),
+        userId: formData.get('user_id'),
+        entryId: formData.get('entry_id'),
+        duration: formData.get('duration')
+      })
 
       const audioResponse = await fetch('/api/journal/audio', {
         method: 'POST',
@@ -263,6 +302,8 @@ const JournalView: React.FC<JournalViewProps> = ({
     if (!userId) return
 
     try {
+      console.log('📝 Updating journal entry:', entryId, 'Updates:', Object.keys(updates))
+      
       const response = await fetch(`/api/journal/${entryId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -274,18 +315,24 @@ const JournalView: React.FC<JournalViewProps> = ({
 
       const result = await response.json()
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update')
+      if (!response.ok || !result.success) {
+        const errorMessage = result.error || result.details || 'Failed to update'
+        console.error('❌ Update failed:', errorMessage)
+        throw new Error(errorMessage)
       }
 
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, ...updates } : e))
+      console.log('✅ Entry updated successfully')
       
+      // Update entries list
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, ...updates, updated_at: result.data?.updated_at || e.updated_at } : e))
+      
+      // Update selected entry if it's the one being edited
       if (selectedEntry?.id === entryId) {
-        setSelectedEntry(prev => prev ? { ...prev, ...updates } : null)
+        setSelectedEntry(prev => prev ? { ...prev, ...updates, updated_at: result.data?.updated_at || prev.updated_at } : null)
       }
 
     } catch (err: any) {
-      console.error('Update error:', err)
+      console.error('❌ Update error:', err)
       setError(err.message || 'Failed to update entry')
     }
   }, [userId, selectedEntry])
@@ -293,27 +340,40 @@ const JournalView: React.FC<JournalViewProps> = ({
   // Delete entry
   const handleEntryDelete = useCallback(async (entryId: string) => {
     if (!userId) return
-    if (!window.confirm('Are you sure you want to delete this journal entry?')) return
+    
+    const confirmed = window.confirm('Are you sure you want to delete this journal entry? This will also delete the associated audio file and cannot be undone.')
+    if (!confirmed) return
 
     try {
+      console.log('🗑️ Deleting journal entry:', entryId)
+      
       const response = await fetch(`/api/journal/${entryId}?user_id=${userId}`, {
         method: 'DELETE'
       })
 
-      if (!response.ok) {
-        const result = await response.json()
-        throw new Error(result.error || 'Failed to delete')
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        const errorMessage = result.error || result.details || 'Failed to delete'
+        console.error('❌ Delete failed:', errorMessage)
+        throw new Error(errorMessage)
       }
 
+      console.log('✅ Entry deleted successfully')
+      
+      // Remove from entries list
       setEntries(prev => prev.filter(e => e.id !== entryId))
       
+      // Clear selected entry if it was the deleted one
       if (selectedEntry?.id === entryId) {
         setSelectedEntry(null)
         setViewMode('list')
       }
+      
+      setError(null) // Clear any previous errors
 
     } catch (err: any) {
-      console.error('Delete error:', err)
+      console.error('❌ Delete error:', err)
       setError(err.message || 'Failed to delete entry')
     }
   }, [userId, selectedEntry])

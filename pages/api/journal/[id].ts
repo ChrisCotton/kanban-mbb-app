@@ -80,11 +80,15 @@ async function updateJournalEntry(id: string, req: NextApiRequest, res: NextApiR
     'title',
     'transcription',
     'transcription_status',
+    'transcription_provider',
     'use_audio_for_insights',
     'use_transcript_for_insights',
     'sentiment_score',
     'sentiment_label',
-    'tags'
+    'tags',
+    'audio_file_path',
+    'audio_duration',
+    'audio_file_size'
   ]
 
   const filteredData: Record<string, any> = {}
@@ -98,6 +102,9 @@ async function updateJournalEntry(id: string, req: NextApiRequest, res: NextApiR
     return res.status(400).json({ error: 'No valid fields to update' })
   }
 
+  // Log what's being updated (without sensitive data)
+  console.log('📝 Updating journal entry:', id, 'Fields:', Object.keys(filteredData))
+  
   filteredData.updated_at = new Date().toISOString()
 
   const { data: entry, error } = await getSupabase()
@@ -109,13 +116,24 @@ async function updateJournalEntry(id: string, req: NextApiRequest, res: NextApiR
     .single()
 
   if (error) {
-    console.error('Error updating journal entry:', error)
-    return res.status(500).json({ error: 'Failed to update journal entry' })
+    console.error('❌ Error updating journal entry:', error)
+    console.error('❌ Error details:', JSON.stringify(error, null, 2))
+    
+    if (error.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Journal entry not found or access denied' })
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to update journal entry',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 
   if (!entry) {
     return res.status(404).json({ error: 'Journal entry not found or access denied' })
   }
+
+  console.log('✅ Journal entry updated successfully:', id)
 
   return res.status(200).json({
     success: true,

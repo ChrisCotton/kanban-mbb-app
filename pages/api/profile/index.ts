@@ -30,6 +30,12 @@ export interface UserProfile {
   ai_journal_insight_provider: string
   nano_banana_api_key: string | null
   google_ai_api_key: string | null
+  openai_api_key: string | null
+  google_speech_api_key: string | null
+  assemblyai_api_key: string | null
+  deepgram_api_key: string | null
+  anthropic_claude_api_key: string | null
+  google_gemini_api_key: string | null
   created_at: string
   updated_at: string
 }
@@ -178,13 +184,30 @@ async function updateProfile(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Sanitize API keys - remove empty strings, keep null for unset
-  if (updateData.nano_banana_api_key === '') {
-    updateData.nano_banana_api_key = null
-  }
-  if (updateData.google_ai_api_key === '') {
-    updateData.google_ai_api_key = null
-  }
+  const apiKeyFields = [
+    'nano_banana_api_key',
+    'google_ai_api_key',
+    'openai_api_key',
+    'google_speech_api_key',
+    'assemblyai_api_key',
+    'deepgram_api_key',
+    'anthropic_claude_api_key',
+    'google_gemini_api_key'
+  ]
+  
+  apiKeyFields.forEach(field => {
+    if (updateData[field] === '') {
+      updateData[field] = null
+    }
+  })
 
+  // Log what we're about to save (without logging actual key values)
+  console.log('💾 Updating profile with fields:', Object.keys(updateData))
+  const updatingApiKeys = apiKeyFields.filter(field => updateData[field] !== undefined && updateData[field] !== null)
+  if (updatingApiKeys.length > 0) {
+    console.log('💾 API key fields being updated:', updatingApiKeys)
+  }
+  
   // Upsert the profile
   const { data: profile, error } = await getSupabase()
     .from('user_profile')
@@ -199,9 +222,29 @@ async function updateProfile(req: NextApiRequest, res: NextApiResponse) {
     .single()
 
   if (error) {
-    console.error('Error updating profile:', error)
-    return res.status(500).json({ error: 'Failed to update profile' })
+    console.error('❌ Error updating profile:', error)
+    console.error('❌ Error code:', error.code)
+    console.error('❌ Error message:', error.message)
+    console.error('❌ Error details:', JSON.stringify(error, null, 2))
+    
+    // Check if it's a column doesn't exist error
+    if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+      return res.status(500).json({ 
+        error: 'Database schema error',
+        details: 'API key columns may not exist. Please run database migrations: npm run migrate or supabase db push',
+        migrationHint: 'Run: supabase db push or check migrations/031_add_all_llm_api_keys_to_user_profile.sql'
+      })
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to update profile',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      code: error.code
+    })
   }
+
+  console.log('✅ Profile updated successfully')
+  console.log('✅ Updated fields:', Object.keys(profile || {}))
 
   return res.status(200).json({
     success: true,

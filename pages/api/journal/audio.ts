@@ -26,8 +26,43 @@ function getSupabase(): SupabaseClient {
   return supabase
 }
 
-const ALLOWED_TYPES = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav']
+// Base MIME types - browsers may add codec info (e.g., audio/webm;codecs=opus)
+const ALLOWED_BASE_TYPES = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav']
+// Also support common variants with codecs
+const ALLOWED_TYPES = [
+  'audio/webm',
+  'audio/webm;codecs=opus',
+  'audio/webm;codecs=vorbis',
+  'audio/mp4',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/mpeg',
+  'audio/mpeg3',
+  'audio/x-mpeg-3',
+  'audio/ogg',
+  'audio/ogg;codecs=opus',
+  'audio/ogg;codecs=vorbis',
+  'audio/wav',
+  'audio/wave',
+  'audio/x-wav'
+]
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB for 30 min audio
+
+// Helper function to check if MIME type is allowed (handles codec variants)
+function isAllowedMimeType(mimeType: string | null | undefined): boolean {
+  if (!mimeType) return false
+  
+  // Normalize the MIME type (lowercase, trim)
+  const normalized = mimeType.toLowerCase().trim()
+  
+  // Check exact match first
+  if (ALLOWED_TYPES.includes(normalized)) {
+    return true
+  }
+  
+  // Check base type match (e.g., "audio/webm;codecs=opus" matches "audio/webm")
+  const baseType = normalized.split(';')[0].trim()
+  return ALLOWED_BASE_TYPES.includes(baseType)
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -83,11 +118,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Read file
     const fileBuffer = fs.readFileSync(audioFile.filepath)
-    const fileExtension = audioFile.mimetype === 'audio/webm' ? '.webm' 
-      : audioFile.mimetype === 'audio/mp4' ? '.m4a'
-      : audioFile.mimetype === 'audio/mpeg' ? '.mp3'
-      : audioFile.mimetype === 'audio/ogg' ? '.ogg'
-      : '.wav'
+    
+    // Determine file extension from base MIME type (ignore codec info)
+    const baseMimeType = (audioFile.mimetype || '').toLowerCase().split(';')[0].trim()
+    let fileExtension = '.webm' // default
+    if (baseMimeType === 'audio/webm') {
+      fileExtension = '.webm'
+    } else if (baseMimeType === 'audio/mp4') {
+      fileExtension = '.m4a'
+    } else if (baseMimeType === 'audio/mpeg' || baseMimeType === 'audio/mpeg3') {
+      fileExtension = '.mp3'
+    } else if (baseMimeType === 'audio/ogg') {
+      fileExtension = '.ogg'
+    } else if (baseMimeType === 'audio/wav' || baseMimeType === 'audio/wave' || baseMimeType === 'audio/x-wav') {
+      fileExtension = '.wav'
+    }
+    
+    console.log('📁 File extension determined:', {
+      mimeType: audioFile.mimetype,
+      baseMimeType,
+      extension: fileExtension
+    })
     
     const fileName = `${userId}/${entryId || Date.now()}${fileExtension}`
 

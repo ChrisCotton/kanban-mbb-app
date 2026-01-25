@@ -20,6 +20,14 @@ interface ProfileSettingsProps {
   aiImageProvider: string
   aiAudioJournalProvider: string
   aiJournalInsightProvider: string
+  nanoBananaApiKey?: string | null
+  googleAiApiKey?: string | null
+  openaiApiKey?: string | null
+  googleSpeechApiKey?: string | null
+  assemblyaiApiKey?: string | null
+  deepgramApiKey?: string | null
+  anthropicClaudeApiKey?: string | null
+  googleGeminiApiKey?: string | null
   categories: Category[]
   onSettingsChange: (settings: Partial<ProfileSettingsData>) => void
 }
@@ -30,6 +38,14 @@ export interface ProfileSettingsData {
   ai_image_provider: string
   ai_audio_journal_provider: string
   ai_journal_insight_provider: string
+  nano_banana_api_key?: string | null
+  google_ai_api_key?: string | null
+  openai_api_key?: string | null
+  google_speech_api_key?: string | null
+  assemblyai_api_key?: string | null
+  deepgram_api_key?: string | null
+  anthropic_claude_api_key?: string | null
+  google_gemini_api_key?: string | null
 }
 
 export default function ProfileSettings({
@@ -40,6 +56,12 @@ export default function ProfileSettings({
   aiJournalInsightProvider,
   nanoBananaApiKey,
   googleAiApiKey,
+  openaiApiKey,
+  googleSpeechApiKey,
+  assemblyaiApiKey,
+  deepgramApiKey,
+  anthropicClaudeApiKey,
+  googleGeminiApiKey,
   categories,
   onSettingsChange
 }: ProfileSettingsProps) {
@@ -53,7 +75,13 @@ export default function ProfileSettings({
     ai_audio_journal_provider: aiAudioJournalProvider,
     ai_journal_insight_provider: aiJournalInsightProvider,
     nano_banana_api_key: nanoBananaApiKey || '',
-    google_ai_api_key: googleAiApiKey || ''
+    google_ai_api_key: googleAiApiKey || '',
+    openai_api_key: openaiApiKey || '',
+    google_speech_api_key: googleSpeechApiKey || '',
+    assemblyai_api_key: assemblyaiApiKey || '',
+    deepgram_api_key: deepgramApiKey || '',
+    anthropic_claude_api_key: anthropicClaudeApiKey || '',
+    google_gemini_api_key: googleGeminiApiKey || ''
   })
 
   useEffect(() => {
@@ -64,9 +92,15 @@ export default function ProfileSettings({
       ai_audio_journal_provider: aiAudioJournalProvider,
       ai_journal_insight_provider: aiJournalInsightProvider,
       nano_banana_api_key: nanoBananaApiKey || '',
-      google_ai_api_key: googleAiApiKey || ''
+      google_ai_api_key: googleAiApiKey || '',
+      openai_api_key: openaiApiKey || '',
+      google_speech_api_key: googleSpeechApiKey || '',
+      assemblyai_api_key: assemblyaiApiKey || '',
+      deepgram_api_key: deepgramApiKey || '',
+      anthropic_claude_api_key: anthropicClaudeApiKey || '',
+      google_gemini_api_key: googleGeminiApiKey || ''
     })
-  }, [defaultCategoryId, defaultTargetRevenue, aiImageProvider, aiAudioJournalProvider, aiJournalInsightProvider, nanoBananaApiKey, googleAiApiKey])
+  }, [defaultCategoryId, defaultTargetRevenue, aiImageProvider, aiAudioJournalProvider, aiJournalInsightProvider, nanoBananaApiKey, googleAiApiKey, openaiApiKey, googleSpeechApiKey, assemblyaiApiKey, deepgramApiKey, anthropicClaudeApiKey, googleGeminiApiKey])
 
   const handleChange = (field: keyof ProfileSettingsData, value: string | number | null) => {
     const newSettings = { ...localSettings, [field]: value }
@@ -265,6 +299,103 @@ export default function ProfileSettings({
             </option>
           ))}
         </select>
+        
+        {/* API Key Inputs for Audio Transcription Providers */}
+        {localSettings.ai_audio_journal_provider === 'openai_whisper' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              OpenAI API Key
+              <span className={styles.hint}>Required for Whisper transcription</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.openai_api_key || ''}
+              onChange={(e) => handleChange('openai_api_key', e.target.value)}
+              placeholder="sk-..."
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://platform.openai.com/api-keys" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from OpenAI Platform →
+            </a>
+          </div>
+        )}
+        
+        {localSettings.ai_audio_journal_provider === 'google_speech' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              Google Cloud Speech-to-Text API Key
+              <span className={styles.hint}>Required for Google Speech transcription</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.google_speech_api_key || ''}
+              onChange={(e) => handleChange('google_speech_api_key', e.target.value)}
+              placeholder="Enter your Google Cloud API key"
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://console.cloud.google.com/apis/credentials" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from Google Cloud Console →
+            </a>
+          </div>
+        )}
+        
+        {localSettings.ai_audio_journal_provider === 'assemblyai' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              AssemblyAI API Key
+              <span className={styles.hint}>Required for AssemblyAI transcription</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.assemblyai_api_key || ''}
+              onChange={(e) => handleChange('assemblyai_api_key', e.target.value)}
+              placeholder="Enter your AssemblyAI API key"
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://www.assemblyai.com/app/account" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from AssemblyAI →
+            </a>
+          </div>
+        )}
+        
+        {localSettings.ai_audio_journal_provider === 'deepgram' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              Deepgram API Key
+              <span className={styles.hint}>Required for Deepgram transcription</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.deepgram_api_key || ''}
+              onChange={(e) => handleChange('deepgram_api_key', e.target.value)}
+              placeholder="Enter your Deepgram API key"
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://console.deepgram.com/signup" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from Deepgram →
+            </a>
+          </div>
+        )}
       </div>
 
       {/* AI Journal Insight */}
@@ -287,6 +418,80 @@ export default function ProfileSettings({
             </option>
           ))}
         </select>
+        
+        {/* API Key Inputs for Journal Insight LLMs */}
+        {localSettings.ai_journal_insight_provider === 'openai_gpt4' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              OpenAI API Key
+              <span className={styles.hint}>Required for GPT-4 journal insights</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.openai_api_key || ''}
+              onChange={(e) => handleChange('openai_api_key', e.target.value)}
+              placeholder="sk-..."
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://platform.openai.com/api-keys" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from OpenAI Platform →
+            </a>
+          </div>
+        )}
+        
+        {localSettings.ai_journal_insight_provider === 'anthropic_claude' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              Anthropic Claude API Key
+              <span className={styles.hint}>Required for Claude journal insights</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.anthropic_claude_api_key || ''}
+              onChange={(e) => handleChange('anthropic_claude_api_key', e.target.value)}
+              placeholder="sk-ant-..."
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://console.anthropic.com/settings/keys" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from Anthropic Console →
+            </a>
+          </div>
+        )}
+        
+        {localSettings.ai_journal_insight_provider === 'google_gemini' && (
+          <div className={styles.apiKeyContainer}>
+            <label className={styles.apiKeyLabel}>
+              Google Gemini API Key
+              <span className={styles.hint}>Required for Gemini journal insights</span>
+            </label>
+            <input
+              type="password"
+              value={localSettings.google_gemini_api_key || ''}
+              onChange={(e) => handleChange('google_gemini_api_key', e.target.value)}
+              placeholder="Enter your Google Gemini API key"
+              className={styles.apiKeyInput}
+            />
+            <a 
+              href="https://makersuite.google.com/app/apikey" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.apiKeyLink}
+            >
+              Get API key from Google AI Studio →
+            </a>
+          </div>
+        )}
+        
         {localSettings.ai_journal_insight_provider === 'cognee_memory' && (
           <div className={styles.comingSoon}>
             <span className={styles.badge}>Coming Soon</span>
