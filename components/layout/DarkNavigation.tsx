@@ -16,6 +16,7 @@ const DarkNavigation: React.FC<DarkNavigationProps> = ({ className = '' }) => {
     { name: 'Kanban', href: '/dashboard', icon: '📋' },
     { name: 'Calendar', href: '/calendar', icon: '📅' },
     { name: 'Journal', href: '/journal', icon: '📝' },
+    { name: 'Goals', href: '/goals', icon: '🎯' },
     { name: 'Categories', href: '/categories', icon: '🏷️' },
     { name: 'MBB', href: '/mbb', icon: '💰' },
     { name: 'Vision Board', href: '/vision-board', icon: '🖼️' },

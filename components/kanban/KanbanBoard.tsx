@@ -1,17 +1,22 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
+import { TasksByStatus } from '../../hooks/useKanban'
 import SwimLane from './SwimLane'
 import TaskModal from './TaskModal'
 import TaskDetailModal from './TaskDetailModal'
 import BulkActionsToolbar from './BulkActionsToolbar'
 import BulkDeleteConfirmDialog from './BulkDeleteConfirmDialog'
+import FilterIndicator from './FilterIndicator'
+import GoalsHeaderStrip from '../../src/components/goals/GoalsHeaderStrip'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { useKanban } from '../../hooks/useKanban'
 import { useMultiSelect } from '../../hooks/useMultiSelect'
 import { useTaskSearch } from '../../hooks/useTaskSearch'
+import { useGoalsStore } from '../../src/stores/goals.store'
+import { supabase } from '../../lib/supabase'
 import SearchAndFilter, { SearchFilters } from './SearchAndFilter'
 
 interface KanbanBoardProps {
@@ -20,6 +25,17 @@ interface KanbanBoardProps {
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming }) => {
+  // Goals store for filtering
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore();
+  
+  // Fetch goals on mount if not already loaded
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   // Use centralized kanban hook for all task management
   const {
     tasks,
@@ -31,7 +47,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     deleteTask,
     moveTask,
     clearError,
-    refetchTasks
+    refetchTasks,
+    fetchTasks
   } = useKanban()
 
   // Search functionality
@@ -102,10 +119,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   // Use optimistic tasks if available (applies to BOTH regular and search modes)
   const tasksToDisplay = optimisticTasks || tasks
   const searchResultsToDisplay = optimisticTasks || searchResults
-  
-  // Apply search/filter on top of the optimistic or regular tasks
-  const displayTasks = isSearchMode ? searchResultsToDisplay : tasksToDisplay
-  const displayStats = isSearchMode ? searchStats : stats
 
   // Wrapper functions to match SwimLane interface expectations
   // MEMOIZED to prevent useDragAndDrop from recreating on every render
@@ -161,6 +174,21 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     clearSearch()
   }, [clearSearch])
 
+  // Calculate displayTasksForRender BEFORE using it in hooks
+  // Use tasks directly (already filtered server-side by goal_id if activeGoalFilter is set)
+  // In search mode, use searchResults instead
+  // Apply optimistic updates if available
+  const displayTasksForRender: TasksByStatus = useMemo(() => {
+    return isSearchMode 
+      ? (searchResultsToDisplay || {
+          backlog: [],
+          todo: [],
+          doing: [],
+          done: [],
+        })
+      : (tasksToDisplay || tasks);
+  }, [isSearchMode, searchResultsToDisplay, tasksToDisplay, tasks]);
+
   // Initialize drag and drop hook
   const {
     dragDropState,
@@ -168,7 +196,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     handleDragUpdate,
     handleDragEnd
   } = useDragAndDrop({
-    tasks: displayTasks,
+    tasks: displayTasksForRender as TasksByStatus,
     onTaskMove: handleTaskMove,
     onOptimisticUpdate: handleOptimisticUpdate
   })
@@ -260,8 +288,38 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
       await updateTask(editingTask.id, taskData)
     } else {
       // Creating new task
-      await createTask(taskData)
+      const createdTask = await createTask(taskData)
+      
+      // If goal filter is active, auto-link the new task to the goal
+      if (activeGoalFilter && createdTask) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const linkResponse = await fetch(`/api/goals/${activeGoalFilter}/tasks`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                user_id: session.user.id,
+                task_id: createdTask.id,
+                contribution_weight: 1,
+              }),
+            });
+            
+            if (!linkResponse.ok) {
+              console.error('Error linking task to goal:', await linkResponse.text());
+            }
+          }
+        } catch (error) {
+          console.error('Error linking task to goal:', error);
+        }
+      }
     }
+    
+    // Refresh tasks to reflect any changes
+    refetchTasks();
     
     // Refresh search results if in search mode
     if (isSearchMode && hasActiveFilters) {
@@ -299,8 +357,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
 
   // Enhanced task delete wrapper with confirmation
   const handleTaskDeleteWithConfirm = async (taskId: string) => {
-    const allTasks = Object.values(displayTasks).flat()
-    const task = allTasks.find(t => t.id === taskId)
+    const allTasks = Object.values(displayTasksForRender).flat()
+    const task = allTasks.find((t: Task) => t.id === taskId)
     if (task) {
       openDeleteConfirm(task)
     }
@@ -349,21 +407,87 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   }
 
   const handleSelectAll = () => {
-    const allTaskIds = Object.values(displayTasks).flat().map(task => task.id)
+    const allTaskIds = Object.values(displayTasksForRender).flat().map((task: Task) => task.id)
     selectAllTasks(allTaskIds)
   }
 
   const handleToggleTaskSelection = (taskId: string, shiftKey: boolean) => {
-    const allTasks = Object.values(displayTasks).flat()
+    const allTasks = Object.values(displayTasksForRender).flat() as Task[]
     toggleTaskSelection(taskId, shiftKey, allTasks)
   }
 
   const getSelectedTasks = (): Task[] => {
-    const allTasks = Object.values(displayTasks).flat()
-    return allTasks.filter(task => selectedTaskIds.includes(task.id))
+    const allTasks = Object.values(displayTasksForRender).flat() as Task[]
+    return allTasks.filter((task: Task) => selectedTaskIds.includes(task.id))
   }
 
-  const totalTaskCount = Object.values(displayTasks).flat().length
+  // Handle goal filter changes - MUST be before early returns
+  const handleGoalClick = useCallback(async (goalId: string) => {
+    // Toggle filter: if clicking the same goal, clear filter
+    const newFilter = activeGoalFilter === goalId ? null : goalId;
+    setActiveGoalFilter(newFilter);
+    // Refetch tasks - the hook will handle filtering via API
+    refetchTasks();
+  }, [activeGoalFilter, setActiveGoalFilter, refetchTasks]);
+
+  const handleClearGoalFilter = useCallback(async () => {
+    setActiveGoalFilter(null);
+    refetchTasks();
+  }, [setActiveGoalFilter, refetchTasks]);
+
+  // Refetch tasks when goal filter changes (modify useKanban hook to accept goal_id)
+  useEffect(() => {
+    if (!isSearchMode) {
+      // Fetch tasks with goal filter if active
+      const fetchFilteredTasks = async () => {
+        const url = activeGoalFilter 
+          ? `/api/kanban/tasks?goal_id=${activeGoalFilter}`
+          : '/api/kanban/tasks';
+        const response = await fetch(url);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            // Update tasks state manually
+            const tasksByStatus: TasksByStatus = {
+              backlog: [],
+              todo: [],
+              doing: [],
+              done: []
+            };
+            result.data.forEach((task: Task) => {
+              if (tasksByStatus[task.status]) {
+                tasksByStatus[task.status].push(task);
+              }
+            });
+            Object.keys(tasksByStatus).forEach(status => {
+              tasksByStatus[status as Task['status']].sort((a, b) => a.order_index - b.order_index);
+            });
+            // Note: This won't update the hook's state directly, but refetchTasks will
+            refetchTasks();
+          }
+        }
+      };
+      fetchFilteredTasks();
+    }
+  }, [activeGoalFilter, isSearchMode, refetchTasks]);
+
+  // Get active goal for filter indicator - MUST be before early returns
+  const activeGoal = activeGoalFilter 
+    ? goals.find((g) => g.id === activeGoalFilter) || null
+    : null;
+
+  // Calculate filtered stats - MUST be before early returns
+  const displayStatsForRender = useMemo(() => {
+    return isSearchMode ? searchStats : {
+      total: Object.values(displayTasksForRender).flat().length,
+      backlog: displayTasksForRender.backlog.length,
+      todo: displayTasksForRender.todo.length,
+      doing: displayTasksForRender.doing.length,
+      done: displayTasksForRender.done.length,
+    };
+  }, [isSearchMode, searchStats, displayTasksForRender]);
+
+  const totalTaskCount = Object.values(displayTasksForRender).flat().length
   const isAllSelected = selectedCount === totalTaskCount && totalTaskCount > 0
 
   const currentError = error || searchError
@@ -417,6 +541,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
       onDragEnd={handleDragEnd}
     >
       <div className={`kanban-board ${className}`}>
+        {/* Goals Header Strip */}
+        <GoalsHeaderStrip
+          goals={goals.filter((g) => g.status === 'active')}
+          activeGoalId={activeGoalFilter}
+          onGoalClick={handleGoalClick}
+          className="mb-4"
+        />
+
+        {/* Filter Indicator */}
+        {activeGoal && !isSearchMode && (
+          <FilterIndicator goal={activeGoal} onClear={handleClearGoalFilter} />
+        )}
+
         {/* Search and Filter Component */}
         <SearchAndFilter
           onSearch={handleSearch}
@@ -432,14 +569,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
             {isSearchMode 
-              ? `Found ${displayStats.total} task${displayStats.total !== 1 ? 's' : ''} matching your search`
+              ? `Found ${displayStatsForRender.total} task${displayStatsForRender.total !== 1 ? 's' : ''} matching your search`
               : 'Manage your tasks across four swim lanes'
             }
           </p>
           
           {/* Task stats display */}
           <div className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            Total tasks: {displayStats.total} • Completed: {displayStats.done} • In progress: {displayStats.doing}
+            Total tasks: {displayStatsForRender.total} • Completed: {displayStatsForRender.done} • In progress: {displayStatsForRender.doing}
           </div>
           
           {/* Search error display */}
@@ -462,7 +599,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           <SwimLane
             title="Backlog"
             status="backlog"
-            tasks={displayTasks.backlog}
+            tasks={displayTasksForRender.backlog}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('backlog')}
             onTaskEdit={openEditModal}
@@ -479,7 +616,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           <SwimLane
             title="To Do"
             status="todo"
-            tasks={displayTasks.todo}
+            tasks={displayTasksForRender.todo}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('todo')}
             onTaskEdit={openEditModal}
@@ -496,7 +633,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           <SwimLane
             title="Doing"
             status="doing"
-            tasks={displayTasks.doing}
+            tasks={displayTasksForRender.doing}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('doing')}
             onTaskEdit={openEditModal}
@@ -513,7 +650,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           <SwimLane
             title="Done"
             status="done"
-            tasks={displayTasks.done}
+            tasks={displayTasksForRender.done}
             onTaskMove={handleTaskMove}
             onOpenCreateModal={() => openCreateModal('done')}
             onTaskEdit={openEditModal}
@@ -531,19 +668,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
         {/* Task Statistics */}
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-gray-600">{displayStats.backlog}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-600">{displayStatsForRender.backlog}</div>
             <div className="text-xs sm:text-sm text-gray-500">Backlog</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{displayStats.todo}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{displayStatsForRender.todo}</div>
             <div className="text-xs sm:text-sm text-gray-500">To Do</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{displayStats.doing}</div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{displayStatsForRender.doing}</div>
             <div className="text-xs sm:text-sm text-gray-500">Doing</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{displayStats.done}</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{displayStatsForRender.done}</div>
             <div className="text-xs sm:text-sm text-gray-500">Done</div>
           </div>
         </div>
@@ -564,7 +701,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           task={viewingTask}
           onUpdate={handleTaskUpdate}
           onMove={handleTaskMove}
-          allTasks={displayTasks}
+          allTasks={displayTasksForRender}
           onStartTiming={onStartTiming}
         />
 

@@ -45,17 +45,31 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   // Handle clicks outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Don't close if clicking inside the dropdown container
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+        const target = event.target as HTMLElement;
+        
+        // Check if we're inside a modal context
+        // Look for modal backdrop or modal content containers
+        const isInsideModal = target.closest('.fixed.inset-0') !== null && 
+                            (target.closest('.bg-black.bg-opacity-50') !== null ||
+                             target.closest('[class*="z-\\[80\\]"]') !== null ||
+                             target.closest('[class*="z-\\[90\\]"]') !== null);
+        
+        // If we're inside a modal, don't close the dropdown
+        // The modal's backdrop click handler will manage closing
+        if (!isInsideModal) {
+          setIsOpen(false);
+        }
       }
     }
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside, true);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside, true);
     }
   }, [isOpen])
 
@@ -64,7 +78,11 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     setIsOpen(false)
   }
 
-  const handleToggle = () => {
+  const handleToggle = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     if (!disabled && !loading) {
       setIsOpen(!isOpen)
     }
@@ -94,7 +112,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     return (
       <div ref={containerRef} className={`relative ${className}`}>
         <button
-          onClick={handleToggle}
+          onClick={(e) => handleToggle(e)}
           disabled={disabled || loading}
           className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full transition-colors ${
             selectedCategory
@@ -125,11 +143,17 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         </button>
 
         {isOpen && !loading && (
-          <div className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0">
+          <div 
+            className="absolute z-[100] mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
               {allowNone && (
                 <button
-                  onClick={() => handleSelect(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(null);
+                  }}
                   className={`w-full text-left px-3 py-2 text-sm rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
                     !value ? 'bg-gray-100 dark:bg-gray-700' : ''
                   }`}
@@ -143,7 +167,10 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
               {categories.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => handleSelect(category.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(category.id);
+                  }}
                   className={`w-full text-left px-3 py-2 text-sm rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
                     value === category.id ? 'bg-gray-100 dark:bg-gray-700' : ''
                   }`}
@@ -177,10 +204,14 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   }
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div 
+      ref={containerRef} 
+      className={`relative ${className}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Trigger Button */}
       <button
-        onClick={handleToggle}
+        onClick={(e) => handleToggle(e)}
         disabled={disabled || loading}
         className={`flex items-center justify-between w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
           error
@@ -240,8 +271,11 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       )}
 
       {/* Dropdown */}
-      {isOpen && !loading && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0">
+        {isOpen && !loading && (
+          <div 
+            className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg right-0"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div className="p-2">
             <div className="mb-2">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">Select Category</p>
@@ -249,7 +283,10 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {allowNone && (
                 <button
-                  onClick={() => handleSelect(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(null);
+                  }}
                   className={`w-full text-left px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     !value 
                       ? 'bg-gray-50 dark:bg-gray-700 ring-1 ring-blue-200 dark:ring-blue-800' 
@@ -277,7 +314,10 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
               {categories.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => handleSelect(category.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(category.id);
+                  }}
                   className={`w-full text-left px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     value === category.id 
                       ? 'bg-gray-50 dark:bg-gray-700 ring-1 ring-blue-200 dark:ring-blue-800' 

@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGetTasks(req: NextApiRequest, res: NextApiResponse) {
-  const { status } = req.query
+  const { status, goal_id } = req.query
   
   // Validate status parameter if provided
   const validStatuses = ['backlog', 'todo', 'doing', 'done']
@@ -34,7 +34,18 @@ async function handleGetTasks(req: NextApiRequest, res: NextApiResponse) {
     })
   }
 
-  const tasks = await getTasks(status as Task['status'])
+  // Validate goal_id if provided
+  let goalId: string | undefined;
+  if (goal_id) {
+    if (typeof goal_id !== 'string') {
+      return res.status(400).json({ 
+        error: 'goal_id must be a string' 
+      })
+    }
+    goalId = goal_id;
+  }
+
+  const tasks = await getTasks(status as Task['status'], goalId)
   
   return res.status(200).json({
     success: true,

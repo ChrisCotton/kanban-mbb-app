@@ -8,6 +8,8 @@ import { Task } from '../../lib/database/kanban-queries'
 import { useComments } from '../../hooks/useComments'
 import CommentSection from './CommentSection'
 import SubtaskList from './SubtaskList'
+import TaskGoalLink from './TaskGoalLink'
+import { useTaskGoals } from '../../hooks/useTaskGoals'
 import PrioritySelector from '../ui/PrioritySelector'
 import DatePicker from '../ui/DatePicker'
 import PositionalMoveDropdown from './PositionalMoveDropdown'
@@ -96,6 +98,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     deleteComment
   } = useComments(task?.id || '')
 
+  const {
+    linkedGoals,
+    isLoading: goalsLoading,
+    error: goalsError,
+    refetch: refetchTaskGoals
+  } = useTaskGoals(task?.id || null)
+
   // Initialize edit fields when task changes
   useEffect(() => {
     if (task) {
@@ -171,16 +180,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       
       if (editTitle !== task.title) updates.title = editTitle
       if (editDescription !== (task.description || '')) {
-        updates.description = editDescription
+        updates.description = editDescription || undefined
         console.log('📝 Updating description:', {
           old: task.description || '(empty)',
           new: editDescription || '(empty)',
           length: editDescription.length
         })
       }
-      if (editDueDate !== (task.due_date || '')) updates.due_date = editDueDate || null
+      if (editDueDate !== (task.due_date || '')) updates.due_date = editDueDate.trim() || undefined
       if (editPriority !== task.priority) updates.priority = editPriority
-      if (editCategoryId !== (task.category_id || null)) updates.category_id = editCategoryId
+      if (editCategoryId !== (task.category_id || null)) updates.category_id = editCategoryId || undefined
 
       console.log('💾 Sending task update:', updates)
       await onUpdate(task.id, updates)
@@ -646,8 +655,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     Category
                   </span>
                   <CategorySelector
-                    value={isEditing ? editCategoryId : (task.category_id || null)}
-                    onChange={isEditing ? setEditCategoryId : () => {}}
+                    value={isEditing ? (editCategoryId || undefined) : (task.category_id || undefined)}
+                    onChange={isEditing ? (id) => setEditCategoryId(id || null) : () => {}}
                     variant="compact"
                     disabled={!isEditing}
                     allowNone={true}
@@ -729,6 +738,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 {/* Subtasks Section */}
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                   <SubtaskList taskId={task.id} />
+                  
+                  {/* Goals Section */}
+                  <TaskGoalLink
+                    task={task}
+                    linkedGoals={linkedGoals}
+                    onLinkChange={refetchTaskGoals}
+                  />
                 </div>
 
               {/* Task ID (for debugging/reference) */}

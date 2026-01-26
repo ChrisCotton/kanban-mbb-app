@@ -138,3 +138,17 @@ const localStorageMock = {
   clear: jest.fn(),
 };
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+
+// Mock next/headers for App Router tests
+jest.mock('next/headers', () => {
+  const mockCookies = {
+    get: jest.fn(),
+    set: jest.fn(),
+    has: jest.fn(),
+    delete: jest.fn(),
+    getAll: jest.fn(() => []),
+  };
+  return {
+    cookies: jest.fn(() => mockCookies),
+  };
+});

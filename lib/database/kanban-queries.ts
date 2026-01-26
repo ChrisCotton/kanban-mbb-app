@@ -77,10 +77,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // ============================================================================
 
 /**
- * Get all tasks for the current user, optionally filtered by status
+ * Get all tasks for the current user, optionally filtered by status and goal_id
  * 🔧 FIX: Include category data with hourly_rate_usd for timer calculations
  */
-export async function getTasks(status?: Task['status']) {
+export async function getTasks(status?: Task['status'], goalId?: string) {
+  // If filtering by goal, first get task IDs from goal_tasks junction table
+  let taskIds: string[] | undefined;
+  if (goalId) {
+    const { data: goalTasks, error: goalTasksError } = await supabase
+      .from('goal_tasks')
+      .select('task_id')
+      .eq('goal_id', goalId);
+
+    if (goalTasksError) {
+      throw new Error(`Failed to fetch goal tasks: ${goalTasksError.message}`);
+    }
+
+    taskIds = goalTasks?.map((gt: any) => gt.task_id) || [];
+    // If no tasks linked to goal, return empty array
+    if (taskIds.length === 0) {
+      return [] as TaskWithCategory[];
+    }
+  }
+
   let query = supabase
     .from('tasks')
     .select(`
@@ -92,6 +111,11 @@ export async function getTasks(status?: Task['status']) {
 
   if (status) {
     query = query.eq('status', status)
+  }
+
+  // Filter by task IDs if goal filtering is active
+  if (taskIds && taskIds.length > 0) {
+    query = query.in('id', taskIds)
   }
 
   const { data, error } = await query

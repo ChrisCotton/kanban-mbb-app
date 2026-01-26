@@ -25,7 +25,7 @@ export interface UseKanbanReturn {
   stats: TaskStats
   
   // Actions
-  fetchTasks: () => Promise<void>
+  fetchTasks: (goalId?: string) => Promise<void>
   createTask: (taskData: Partial<Task>) => Promise<Task>
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<Task>
   deleteTask: (taskId: string) => Promise<void>
@@ -62,13 +62,18 @@ export const useKanban = (): UseKanbanReturn => {
 
   /**
    * Fetch all tasks and organize them by status
+   * Optionally filter by goal_id
    */
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (goalId?: string) => {
     try {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch('/api/kanban/tasks')
+      const url = goalId 
+        ? `/api/kanban/tasks?goal_id=${goalId}`
+        : '/api/kanban/tasks';
+      
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Failed to fetch tasks: ${response.statusText}`)
       }
@@ -311,6 +316,7 @@ export const useKanban = (): UseKanbanReturn => {
   }, [fetchTasks])
 
   // Fetch tasks on hook initialization
+  // Note: Goal filtering is handled by the component that uses this hook
   useEffect(() => {
     fetchTasks()
   }, [fetchTasks])
