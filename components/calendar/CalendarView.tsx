@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useWeatherData, getCurrentMonthDateRange, formatDateForAPI } from '../../hooks/useWeatherData'
+import { parseLocalDate } from '../../lib/utils/date-helpers'
 import DailyWeatherCard, { DailyWeatherCardSkeleton } from '../weather/DailyWeatherCard'
 
 interface Task {
@@ -106,7 +107,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       // Find tasks for this date
       const dayTasks = tasks.filter(task => {
         if (!task.due_date) return false
-        const taskDate = new Date(task.due_date)
+        // Use parseLocalDate to avoid timezone shifts
+        const { parseLocalDate } = require('../../lib/utils/date-helpers')
+        const taskDate = parseLocalDate(task.due_date)
         taskDate.setHours(0, 0, 0, 0)
         return taskDate.getTime() === date.getTime()
       })
@@ -400,7 +403,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">Due Date</label>
                   <p className="text-sm text-white/70">
-                    {new Date(selectedTask.due_date).toLocaleDateString('en-US', {
+                    {parseLocalDate(selectedTask.due_date).toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',

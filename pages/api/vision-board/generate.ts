@@ -127,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user_id,
       prompt,
       goal,
+      goal_id,
       due_date,
       media_type = 'image',
       style,
@@ -140,9 +141,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'prompt is required' })
     }
-    if (!goal || !goal.trim()) {
-      return res.status(400).json({ error: 'goal is required' })
+    
+    // Goal validation: either goal_id or goal text must be provided
+    let goalText = '';
+    let finalGoalId: string | null = null;
+    
+    if (goal_id) {
+      // If goal_id is provided, fetch the goal to get its title
+      const { data: goalData, error: goalError } = await supabase
+        .from('goals')
+        .select('id, title')
+        .eq('id', goal_id)
+        .eq('user_id', user_id)
+        .single();
+      
+      if (goalError || !goalData) {
+        return res.status(400).json({ 
+          error: 'Invalid goal_id or goal does not belong to user'
+        })
+      }
+      
+      finalGoalId = goalData.id;
+      goalText = goalData.title; // Use goal title as goal text
+    } else if (goal && goal.trim()) {
+      // Use provided goal text
+      const trimmedGoal = goal.trim();
+      if (trimmedGoal.length === 0) {
+        return res.status(400).json({ 
+          error: 'goal cannot be empty or whitespace only'
+        })
+      }
+      if (trimmedGoal.length > 500) {
+        return res.status(400).json({ 
+          error: 'goal must be 500 characters or less'
+        })
+      }
+      goalText = trimmedGoal;
+    } else {
+      return res.status(400).json({ 
+        error: 'Missing required field: either goal_id or goal text must be provided'
+      })
     }
+    
     if (!due_date) {
       return res.status(400).json({ error: 'due_date is required' })
     }
@@ -273,12 +313,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         user_id,
         file_name: fileName,
         file_path: filePath,
-        title: goal.trim().substring(0, 200) || 'Generated Vision',
+        title: goalText.substring(0, 200) || 'Generated Vision',
         description: prompt.trim().substring(0, 500) || null,
         is_active: true,
         display_order: nextDisplayOrder,
         view_count: 0,
-        goal: goal.trim(),
+        goal: goalText,
+        goal_id: finalGoalId,
         due_date: dueDateISO,
         media_type: media_type,
         generation_prompt: prompt.trim(),
@@ -291,6 +332,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (dbError) {
       console.error('Error creating vision board image:', dbError)
       return res.status(500).json({ error: 'Failed to create vision board image record' })
+    }
+
+    // Create link in goal_vision_images junction table if goal_id is provided
+    if (finalGoalId && newImage) {
+      const { error: linkError } = await supabase
+        .from('goal_vision_images')
+        .insert({
+          goal_id: finalGoalId,
+          vision_image_id: newImage.id
+        })
+
+      if (linkError) {
+        console.error('Error creating goal-vision image link:', linkError)
+        // Don't fail the request, but log the error
+        // The goal_id is already set on the image, so the relationship exists
+      }
     }
 
     return res.status(201).json({

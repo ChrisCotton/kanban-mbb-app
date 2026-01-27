@@ -4,24 +4,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import DatePicker from './DatePicker';
 
-// Mock date to ensure consistent testing
-const mockDate = new Date('2025-01-15T12:00:00.000Z');
-const originalDate = global.Date;
-
-const mockDateNow = jest.fn(() => mockDate.getTime());
-global.Date = jest.fn((dateString?: string | number | Date) => {
-  if (dateString === undefined) {
-    return mockDate;
-  }
-  return new originalDate(dateString);
-}) as any;
-global.Date.now = mockDateNow;
-Object.setPrototypeOf(global.Date, originalDate);
-Object.getOwnPropertyNames(originalDate).forEach(name => {
-  if (name !== 'prototype') {
-    (global.Date as any)[name] = (originalDate as any)[name];
-  }
-});
+// Remove manual Date mocking and use Jest's fake timers
 
 const defaultProps = {
   value: '',
@@ -30,11 +13,13 @@ const defaultProps = {
 
 describe('DatePicker', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2025-01-15T12:00:00.000Z')); // Set a fixed date for consistency
     jest.clearAllMocks();
   });
 
-  afterAll(() => {
-    global.Date = originalDate;
+  afterEach(() => {
+    jest.useRealTimers(); // Restore real timers after each test
   });
 
   describe('Basic Rendering', () => {
@@ -513,4 +498,4 @@ describe('DatePicker', () => {
       // This depends on the component's internal logic for invalid dates
     });
   });
-}); 
+});

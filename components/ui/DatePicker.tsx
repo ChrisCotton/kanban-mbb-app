@@ -30,9 +30,23 @@ const DatePicker: React.FC<DatePickerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Format date for display
+  // Format date for display - handles YYYY-MM-DD format correctly (avoids UTC conversion)
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return ''
+    
+    // If date is in YYYY-MM-DD format, parse it as local date (not UTC)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number)
+      const date = new Date(year, month - 1, day) // month is 0-indexed
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    }
+    
+    // For other formats, parse normally
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -42,11 +56,24 @@ const DatePicker: React.FC<DatePickerProps> = ({
     })
   }
 
-  // Format date for input (YYYY-MM-DD)
+  // Helper function to get local date string (YYYY-MM-DD) - avoids UTC conversion issues
+  const getLocalDateString = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Format date for input (YYYY-MM-DD) - use local timezone
   const formatInputDate = (dateString: string) => {
     if (!dateString) return ''
+    // If already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString
+    }
+    // Otherwise parse and format using local timezone
     const date = new Date(dateString)
-    return date.toISOString().split('T')[0]
+    return getLocalDateString(date)
   }
 
   // Update input value when value prop changes
@@ -71,26 +98,26 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
   }, [isOpen])
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0]
+  // Get today's date in YYYY-MM-DD format using local timezone
+  const today = getLocalDateString(new Date())
 
-  // Get date shortcuts
+  // Get date shortcuts using local timezone (fixes timezone issues)
   const getDateShortcuts = () => {
-    const today = new Date()
-    const tomorrow = new Date(today)
+    const todayDate = new Date()
+    const tomorrow = new Date(todayDate)
     tomorrow.setDate(tomorrow.getDate() + 1)
     
-    const nextWeek = new Date(today)
+    const nextWeek = new Date(todayDate)
     nextWeek.setDate(nextWeek.getDate() + 7)
     
-    const nextMonth = new Date(today)
+    const nextMonth = new Date(todayDate)
     nextMonth.setMonth(nextMonth.getMonth() + 1)
 
     return [
-      { label: 'Today', date: today.toISOString().split('T')[0] },
-      { label: 'Tomorrow', date: tomorrow.toISOString().split('T')[0] },
-      { label: 'Next Week', date: nextWeek.toISOString().split('T')[0] },
-      { label: 'Next Month', date: nextMonth.toISOString().split('T')[0] }
+      { label: 'Today', date: getLocalDateString(todayDate) },
+      { label: 'Tomorrow', date: getLocalDateString(tomorrow) },
+      { label: 'Next Week', date: getLocalDateString(nextWeek) },
+      { label: 'Next Month', date: getLocalDateString(nextMonth) }
     ]
   }
 

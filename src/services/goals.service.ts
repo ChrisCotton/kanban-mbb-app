@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { 
   Goal, 
+  GoalWithRelations,
   CreateGoalInput, 
   UpdateGoalInput, 
   GoalFilters, 
@@ -9,7 +10,7 @@ import {
 } from '../types/goals';
 
 export interface GetGoalsResult {
-  goals: Goal[];
+  goals: GoalWithRelations[];
   count?: number;
 }
 
@@ -105,16 +106,65 @@ export class GoalsService {
       throw new Error(error.message || 'Failed to fetch goals');
     }
 
+    const goals = data || [];
+
+    // Fetch vision board images for all goals
+    if (goals.length > 0) {
+      const goalIds = goals.map(g => g.id);
+      
+      // Fetch vision image links
+      const { data: visionLinks, error: linksError } = await this.supabase
+        .from('goal_vision_images')
+        .select('goal_id, vision_image_id')
+        .in('goal_id', goalIds);
+
+      if (!linksError && visionLinks && visionLinks.length > 0) {
+        // Get unique vision image IDs
+        const visionImageIds = [...new Set(visionLinks.map(link => link.vision_image_id))];
+        
+        // Fetch vision board images
+        const { data: visionImages, error: imagesError } = await this.supabase
+          .from('vision_board_images')
+          .select('id, file_path')
+          .in('id', visionImageIds);
+
+        if (!imagesError && visionImages) {
+          // Create a map of goal_id to vision images
+          const goalVisionMap = new Map<string, typeof visionImages>();
+          
+          visionLinks.forEach(link => {
+            const image = visionImages.find(img => img.id === link.vision_image_id);
+            if (image) {
+              if (!goalVisionMap.has(link.goal_id)) {
+                goalVisionMap.set(link.goal_id, []);
+              }
+              goalVisionMap.get(link.goal_id)!.push(image);
+            }
+          });
+
+          // Add vision_images to each goal
+          goals.forEach(goal => {
+            const images = goalVisionMap.get(goal.id) || [];
+            (goal as any).vision_images = images.map(img => ({
+              id: img.id,
+              url: img.file_path,
+              thumbnail_url: img.file_path, // Use same URL for thumbnail
+            }));
+          });
+        }
+      }
+    }
+
     return {
-      goals: data || [],
-      count: data?.length || 0,
+      goals: goals as GoalWithRelations[],
+      count: goals.length,
     };
   }
 
   /**
    * Get a single goal by ID
    */
-  async getGoalById(id: string, userId?: string): Promise<Goal> {
+  async getGoalById(id: string, userId?: string): Promise<GoalWithRelations> {
     const currentUserId = await this.getCurrentUserId(userId);
 
     const { data, error } = await this.supabase
@@ -135,13 +185,59 @@ export class GoalsService {
       throw new Error('Goal not found');
     }
 
-    return data as Goal;
+    const goal = data as Goal;
+
+    // Fetch category if present
+    if (goal.category_id) {
+      const { data: category, error: categoryError } = await this.supabase
+        .from('categories')
+        .select('id, name, color')
+        .eq('id', goal.category_id)
+        .single();
+
+      if (!categoryError && category) {
+        (goal as any).category = category;
+      } else {
+        (goal as any).category = null;
+      }
+    } else {
+      (goal as any).category = null;
+    }
+
+    // Fetch vision board images for this goal
+    const { data: visionLinks, error: linksError } = await this.supabase
+      .from('goal_vision_images')
+      .select('vision_image_id')
+      .eq('goal_id', id);
+
+    if (!linksError && visionLinks && visionLinks.length > 0) {
+      const visionImageIds = visionLinks.map(link => link.vision_image_id);
+      
+      const { data: visionImages, error: imagesError } = await this.supabase
+        .from('vision_board_images')
+        .select('id, file_path')
+        .in('id', visionImageIds);
+
+      if (!imagesError && visionImages) {
+        (goal as any).vision_images = visionImages.map(img => ({
+          id: img.id,
+          url: img.file_path,
+          thumbnail_url: img.file_path, // Use same URL for thumbnail
+        }));
+      } else {
+        (goal as any).vision_images = [];
+      }
+    } else {
+      (goal as any).vision_images = [];
+    }
+
+    return goal as GoalWithRelations;
   }
 
   /**
    * Create a new goal
    */
-  async createGoal(input: CreateGoalInput, userId?: string): Promise<Goal> {
+  async createGoal(input: CreateGoalInput, userId?: string): Promise<GoalWithRelations> {
     const currentUserId = await this.getCurrentUserId(userId);
 
     // Validate input
@@ -173,13 +269,32 @@ export class GoalsService {
       throw new Error(error.message || 'Failed to create goal');
     }
 
-    return data as Goal;
+    const newGoal = data as Goal;
+
+    // Create vision image links if provided
+    if (input.vision_image_ids && input.vision_image_ids.length > 0) {
+      const visionImageLinks = input.vision_image_ids.map(imageId => ({
+        goal_id: newGoal.id,
+        vision_image_id: imageId,
+      }));
+
+      const { error: linkError } = await this.supabase
+        .from('goal_vision_images')
+        .insert(visionImageLinks);
+
+      if (linkError) {
+        console.error('Error creating vision image links:', linkError);
+        // Don't fail the goal creation, but log the error
+      }
+    }
+
+    return newGoal;
   }
 
   /**
    * Update an existing goal
    */
-  async updateGoal(id: string, input: UpdateGoalInput, userId?: string): Promise<Goal> {
+  async updateGoal(id: string, input: UpdateGoalInput, userId?: string): Promise<GoalWithRelations> {
     const currentUserId = await this.getCurrentUserId(userId);
 
     // Validate input
@@ -220,20 +335,113 @@ export class GoalsService {
       throw new Error('Goal not found');
     }
 
-    return data as Goal;
+    const updatedGoal = data as Goal;
+
+    // Fetch category if present
+    if (updatedGoal.category_id) {
+      const { data: category, error: categoryError } = await this.supabase
+        .from('categories')
+        .select('id, name, color')
+        .eq('id', updatedGoal.category_id)
+        .single();
+
+      if (!categoryError && category) {
+        (updatedGoal as any).category = category;
+      } else {
+        (updatedGoal as any).category = null;
+      }
+    } else {
+      (updatedGoal as any).category = null;
+    }
+
+    // Handle vision image links if provided
+    if (input.vision_image_ids !== undefined) {
+      // Delete existing links
+      const { error: deleteError } = await this.supabase
+        .from('goal_vision_images')
+        .delete()
+        .eq('goal_id', id);
+
+      if (deleteError) {
+        console.error('Error deleting existing vision image links:', deleteError);
+      }
+
+      // Create new links if any provided
+      if (input.vision_image_ids.length > 0) {
+        const visionImageLinks = input.vision_image_ids.map(imageId => ({
+          goal_id: id,
+          vision_image_id: imageId,
+        }));
+
+        const { error: linkError } = await this.supabase
+          .from('goal_vision_images')
+          .insert(visionImageLinks);
+
+        if (linkError) {
+          console.error('Error creating vision image links:', linkError);
+        } else {
+          // Fetch the vision images to include in response
+          const { data: visionImages, error: imagesError } = await this.supabase
+            .from('vision_board_images')
+            .select('id, file_path')
+            .in('id', input.vision_image_ids);
+
+          if (!imagesError && visionImages) {
+            (updatedGoal as any).vision_images = visionImages.map(img => ({
+              id: img.id,
+              url: img.file_path,
+              thumbnail_url: img.file_path,
+            }));
+          } else {
+            (updatedGoal as any).vision_images = [];
+          }
+        }
+      } else {
+        (updatedGoal as any).vision_images = [];
+      }
+    } else {
+      // If vision_image_ids not provided, fetch existing ones
+      const { data: visionLinks, error: linksError } = await this.supabase
+        .from('goal_vision_images')
+        .select('vision_image_id')
+        .eq('goal_id', id);
+
+      if (!linksError && visionLinks && visionLinks.length > 0) {
+        const visionImageIds = visionLinks.map(link => link.vision_image_id);
+        
+        const { data: visionImages, error: imagesError } = await this.supabase
+          .from('vision_board_images')
+          .select('id, file_path')
+          .in('id', visionImageIds);
+
+        if (!imagesError && visionImages) {
+          (updatedGoal as any).vision_images = visionImages.map(img => ({
+            id: img.id,
+            url: img.file_path,
+            thumbnail_url: img.file_path,
+          }));
+        } else {
+          (updatedGoal as any).vision_images = [];
+        }
+      } else {
+        (updatedGoal as any).vision_images = [];
+      }
+    }
+
+    return updatedGoal as GoalWithRelations;
   }
 
   /**
    * Delete (soft delete - archive) a goal
    */
-  async deleteGoal(id: string, userId?: string): Promise<Goal> {
+  async deleteGoal(id: string, userId?: string): Promise<GoalWithRelations> {
     return this.updateGoal(id, { status: 'archived' }, userId);
   }
 
   /**
    * Mark a goal as completed
    */
-  async completeGoal(id: string, userId?: string): Promise<Goal> {
+  async completeGoal(id: string, userId?: string): Promise<GoalWithRelations> {
     const currentUserId = await this.getCurrentUserId(userId);
 
     const updateData = {
@@ -261,7 +469,8 @@ export class GoalsService {
       throw new Error('Goal not found');
     }
 
-    return data as Goal;
+    // Use updateGoal to get full relations (category, vision_images)
+    return this.updateGoal(id, {}, userId);
   }
 
   /**

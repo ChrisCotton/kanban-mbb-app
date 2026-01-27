@@ -3,6 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ImageUploader } from './ImageUploader';
 
+// Mock CSS imports
+jest.mock('react-datepicker/dist/react-datepicker.css', () => ({}));
+
 // Mock react-datepicker
 jest.mock('react-datepicker', () => {
   return function MockDatePicker({ selected, onChange, ...props }: any) {
@@ -46,6 +49,33 @@ jest.mock('@/lib/supabase', () => ({
   }
 }));
 
+// Mock GoalSelector
+jest.mock('../goals/GoalSelector', () => {
+  return function MockGoalSelector({
+    value,
+    onChange,
+    userId,
+    placeholder,
+    error,
+    showCreateOption,
+  }: any) {
+    return (
+      <div data-testid="goal-selector">
+        <button
+          data-testid="goal-selector-button"
+          onClick={() => onChange && onChange('goal-123')}
+        >
+          {value ? `Selected: ${value}` : placeholder || 'Select a goal...'}
+        </button>
+        {error && <div data-testid="goal-selector-error">{error}</div>}
+        {showCreateOption && (
+          <button data-testid="create-goal-button">Create New Goal</button>
+        )}
+      </div>
+    );
+  };
+});
+
 // Mock URL.createObjectURL and revokeObjectURL
 global.URL.createObjectURL = jest.fn(() => 'blob:test-url');
 global.URL.revokeObjectURL = jest.fn();
@@ -71,10 +101,10 @@ describe('ImageUploader', () => {
     })
   });
 
-  it('renders goal and due date fields', () => {
+  it('renders GoalSelector and due date fields', () => {
     render(<ImageUploader {...defaultProps} />);
     
-    expect(screen.getByLabelText(/goal/i)).toBeInTheDocument();
+    expect(screen.getByTestId('goal-selector')).toBeInTheDocument();
     expect(screen.getByLabelText(/due date/i)).toBeInTheDocument();
     expect(screen.getByText(/required information/i)).toBeInTheDocument();
   });
@@ -137,37 +167,98 @@ describe('ImageUploader', () => {
     }, { timeout: 2000 });
   });
 
-  it('includes goal and due_date in API call when uploading', async () => {
-    render(<ImageUploader {...defaultProps} />);
-    
-    // Fill in goal and due_date
-    const goalInput = screen.getByLabelText(/goal/i);
-    fireEvent.change(goalInput, { target: { value: 'Test goal' } });
-    
-    // Select an interval (default is one_month)
-    const dropdown = screen.getByRole('combobox');
-    expect(dropdown).toBeInTheDocument();
-    
-    // Add file
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
-    
-    Object.defineProperty(fileInput, 'files', {
-      value: [imageFile],
-      writable: false,
+  describe('GoalSelector Integration (Chunk 4A)', () => {
+    it('includes goal_id in API call when goal is selected', async () => {
+      render(<ImageUploader {...defaultProps} />);
+      
+      // Select a goal via GoalSelector
+      const goalSelectorButton = screen.getByTestId('goal-selector-button');
+      fireEvent.click(goalSelectorButton);
+      
+      // Select an interval (default is one_month)
+      const dropdown = screen.getByRole('combobox');
+      expect(dropdown).toBeInTheDocument();
+      
+      // Add file
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+      
+      Object.defineProperty(fileInput, 'files', {
+        value: [imageFile],
+        writable: false,
+      });
+      
+      fireEvent.change(fileInput);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/vision-board',
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('"goal_id":"goal-123"')
+          })
+        )
+      }, { timeout: 3000 });
     });
-    
-    fireEvent.change(fileInput);
-    
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/vision-board',
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('"goal":"Test goal"')
-        })
-      )
-    }, { timeout: 3000 });
+
+    it('includes goal text in API call when text input is used', async () => {
+      render(<ImageUploader {...defaultProps} />);
+      
+      // Use fallback text input
+      const goalTextInput = screen.getByLabelText(/or enter goal text manually/i);
+      fireEvent.change(goalTextInput, { target: { value: 'Manual goal text' } });
+      
+      // Select an interval (default is one_month)
+      const dropdown = screen.getByRole('combobox');
+      expect(dropdown).toBeInTheDocument();
+      
+      // Add file
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+      
+      Object.defineProperty(fileInput, 'files', {
+        value: [imageFile],
+        writable: false,
+      });
+      
+      fireEvent.change(fileInput);
+      
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/vision-board',
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('"goal":"Manual goal text"')
+          })
+        )
+      }, { timeout: 3000 });
+    });
+
+    it('shows error when neither goal nor goal text is provided', async () => {
+      render(<ImageUploader {...defaultProps} />);
+      
+      // Don't select goal or enter text
+      // Add file directly
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+      
+      Object.defineProperty(fileInput, 'files', {
+        value: [imageFile],
+        writable: false,
+      });
+      
+      fireEvent.change(fileInput);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/please select a goal/i)).toBeInTheDocument();
+      });
+    });
+
+    it('shows Create New Goal option in GoalSelector', () => {
+      render(<ImageUploader {...defaultProps} />);
+      
+      expect(screen.getByTestId('create-goal-button')).toBeInTheDocument();
+    });
   });
 
   it('shows character count for goal field', () => {
@@ -179,11 +270,11 @@ describe('ImageUploader', () => {
     expect(screen.getByText(/10\/500 characters/i)).toBeInTheDocument();
   });
 
-  it('prevents upload if goal exceeds 500 characters', async () => {
+  it('prevents upload if goal text exceeds 500 characters', async () => {
     render(<ImageUploader {...defaultProps} />);
     
-    const goalInput = screen.getByLabelText(/goal/i);
-    fireEvent.change(goalInput, { target: { value: 'a'.repeat(501) } });
+    const goalTextInput = screen.getByLabelText(/or enter goal text manually/i);
+    fireEvent.change(goalTextInput, { target: { value: 'a'.repeat(501) } });
     
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
@@ -196,7 +287,7 @@ describe('ImageUploader', () => {
     fireEvent.change(fileInput);
     
     await waitFor(() => {
-      expect(screen.getByText(/goal must be 500 characters or less/i)).toBeInTheDocument();
+      expect(screen.getByText(/goal text must be 500 characters or less/i)).toBeInTheDocument();
     });
   });
 

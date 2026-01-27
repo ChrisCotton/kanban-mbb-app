@@ -10,6 +10,7 @@ import TagSelector from '../ui/TagSelector'
 import { useTaskTags } from '../../hooks/useTags'
 import { Tag } from '../../pages/api/tags/index'
 import { supabase } from '../../lib/supabase'
+import { parseLocalDate } from '../../lib/utils/date-helpers'
 
 interface TaskModalProps {
   isOpen: boolean
@@ -112,7 +113,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
     }
 
     if (formData.due_date) {
-      const dueDate = new Date(formData.due_date)
+      // Use parseLocalDate to avoid timezone shifts
+      const dueDate = parseLocalDate(formData.due_date)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       

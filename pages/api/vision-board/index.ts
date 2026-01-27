@@ -109,6 +109,7 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
     file_name,
     is_active = true,
     goal,
+    goal_id,
     due_date,
     media_type = 'image'
   } = req.body
@@ -124,27 +125,51 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
       error: 'Missing required field: file_path'
     })
   }
-  if (!goal || !goal.trim()) {
+  
+  // Goal validation: either goal_id or goal text must be provided
+  let goalText = '';
+  let finalGoalId: string | null = null;
+  
+  if (goal_id) {
+    // If goal_id is provided, fetch the goal to get its title
+    const { data: goalData, error: goalError } = await supabase
+      .from('goals')
+      .select('id, title')
+      .eq('id', goal_id)
+      .eq('user_id', user_id)
+      .single();
+    
+    if (goalError || !goalData) {
+      return res.status(400).json({ 
+        error: 'Invalid goal_id or goal does not belong to user'
+      })
+    }
+    
+    finalGoalId = goalData.id;
+    goalText = goalData.title; // Use goal title as goal text
+  } else if (goal && goal.trim()) {
+    // Use provided goal text
+    const trimmedGoal = goal.trim();
+    if (trimmedGoal.length === 0) {
+      return res.status(400).json({ 
+        error: 'goal cannot be empty or whitespace only'
+      })
+    }
+    if (trimmedGoal.length > 500) {
+      return res.status(400).json({ 
+        error: 'goal must be 500 characters or less'
+      })
+    }
+    goalText = trimmedGoal;
+  } else {
     return res.status(400).json({ 
-      error: 'Missing required field: goal (cannot be empty or whitespace only)'
+      error: 'Missing required field: either goal_id or goal text must be provided'
     })
   }
+  
   if (!due_date) {
     return res.status(400).json({ 
       error: 'Missing required field: due_date'
-    })
-  }
-
-  // Validate goal is not just whitespace
-  const trimmedGoal = goal.trim()
-  if (trimmedGoal.length === 0) {
-    return res.status(400).json({ 
-      error: 'goal cannot be empty or whitespace only'
-    })
-  }
-  if (trimmedGoal.length > 500) {
-    return res.status(400).json({ 
-      error: 'goal must be 500 characters or less'
     })
   }
 
@@ -185,12 +210,13 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
         user_id,
         file_name: file_name || file_path.split('/').pop() || 'untitled',
         file_path,
-        title: title || trimmedGoal.substring(0, 200) || 'Untitled Vision',
+        title: title || goalText.substring(0, 200) || 'Untitled Vision',
         description: description || null,
         is_active: Boolean(is_active),
         display_order: nextDisplayOrder,
         view_count: 0,
-        goal: trimmedGoal,
+        goal: goalText,
+        goal_id: finalGoalId,
         due_date: dueDateISO,
         media_type: media_type,
         ai_provider: null, // Manual uploads don't have AI provider
@@ -205,6 +231,22 @@ async function createVisionBoardImage(req: NextApiRequest, res: NextApiResponse)
         error: 'Failed to create vision board image',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       })
+    }
+
+    // Create link in goal_vision_images junction table if goal_id is provided
+    if (finalGoalId && newImage) {
+      const { error: linkError } = await supabase
+        .from('goal_vision_images')
+        .insert({
+          goal_id: finalGoalId,
+          vision_image_id: newImage.id
+        })
+
+      if (linkError) {
+        console.error('Error creating goal-vision image link:', linkError)
+        // Don't fail the request, but log the error
+        // The goal_id is already set on the image, so the relationship exists
+      }
     }
 
     return res.status(201).json({

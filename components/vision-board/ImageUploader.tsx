@@ -9,6 +9,7 @@ import {
   getDateColorStyles,
   formatDueDateISO
 } from '@/lib/utils/due-date-intervals';
+import GoalSelector from '../goals/GoalSelector';
 
 interface MediaFile {
   file: File;
@@ -41,7 +42,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Goal and due date state
-  const [goal, setGoal] = useState('');
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [goalText, setGoalText] = useState(''); // Fallback text goal for backward compatibility
   const [selectedInterval, setSelectedInterval] = useState<DueDateInterval>('one_month');
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [goalError, setGoalError] = useState<string | undefined>();
@@ -59,11 +61,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const validateGoalAndDueDate = useCallback((): boolean => {
     let isValid = true;
 
-    if (!goal.trim()) {
-      setGoalError('Goal is required');
+    // Goal is required - either selected goal or text goal
+    if (!selectedGoalId && !goalText.trim()) {
+      setGoalError('Please select a goal or enter goal text');
       isValid = false;
-    } else if (goal.trim().length > 500) {
-      setGoalError('Goal must be 500 characters or less');
+    } else if (goalText.trim().length > 500) {
+      setGoalError('Goal text must be 500 characters or less');
       isValid = false;
     } else {
       setGoalError(undefined);
@@ -77,7 +80,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
 
     return isValid;
-  }, [goal, selectedInterval, customDate]);
+  }, [selectedGoalId, goalText, selectedInterval, customDate]);
 
   const validateFile = useCallback((file: File): string | null => {
     const isImage = file.type.startsWith('image/');
@@ -92,9 +95,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const uploadMedia = useCallback(async (mediaFile: MediaFile) => {
     // Validate goal and due date before upload
-    if (!goal.trim() || (selectedInterval === 'custom' && !customDate)) {
+    if ((!selectedGoalId && !goalText.trim()) || (selectedInterval === 'custom' && !customDate)) {
       setMediaFiles(prev => prev.map(file => 
-        file.id === mediaFile.id ? { ...file, error: 'Please fill in goal and due date' } : file
+        file.id === mediaFile.id ? { ...file, error: 'Please select a goal and due date' } : file
       ));
       return;
     }
@@ -126,6 +129,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
       // Save to database via API
       const dueDateISO = formatDueDateISO(dueDate);
+      // Use goal text from selected goal or fallback to text input
+      const goalTextValue = selectedGoalId 
+        ? '' // Will be fetched from goal if needed, but we'll use goal_id
+        : goalText.trim();
+      
       const response = await fetch('/api/vision-board', {
         method: 'POST',
         headers: {
@@ -138,7 +146,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           title: mediaFile.file.name.split('.')[0],
           description: '',
           is_active: true,
-          goal: goal.trim(),
+          goal: goalTextValue, // Keep for backward compatibility
+          goal_id: selectedGoalId, // New field for goal linking
           due_date: dueDateISO,
           media_type: mediaFile.mediaType
         })
@@ -161,7 +170,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       ));
       onUploadError?.(errorMessage);
     }
-  }, [goal, selectedInterval, customDate, userId, onUploadComplete, onUploadError]);
+  }, [selectedGoalId, goalText, selectedInterval, customDate, userId, onUploadComplete, onUploadError]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -249,32 +258,56 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       <div className="space-y-4 bg-white/5 rounded-lg p-4 border border-white/10">
         <h3 className="text-sm font-medium text-white mb-3">Required Information</h3>
         
-        {/* Goal Input */}
+        {/* Goal Selector */}
         <div>
-          <label htmlFor="upload-goal" className="block text-sm font-medium text-white mb-2">
+          <label htmlFor="upload-goal-selector" className="block text-sm font-medium text-white mb-2">
             Goal <span className="text-red-400">*</span>
           </label>
-          <input
-            id="upload-goal"
-            type="text"
-            value={goal}
-            onChange={(e) => {
-              setGoal(e.target.value);
+          <GoalSelector
+            value={selectedGoalId}
+            onChange={(goalId) => {
+              setSelectedGoalId(goalId);
               if (goalError) {
                 setGoalError(undefined);
               }
             }}
-            maxLength={500}
-            className={`w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              goalError ? 'border-red-500' : 'border-white/20'
-            }`}
-            placeholder="Enter your goal for this vision..."
-            required
+            userId={userId}
+            placeholder="Select a goal or create new..."
+            showCreateOption={true}
+            error={goalError}
+            required={true}
+            className="mb-2"
           />
+          
+          {/* Fallback text input for backward compatibility or manual entry */}
+          <div className="mt-2">
+            <label htmlFor="upload-goal-text" className="block text-xs font-medium text-white/70 mb-1">
+              Or enter goal text manually:
+            </label>
+            <input
+              id="upload-goal-text"
+              type="text"
+              value={goalText}
+              onChange={(e) => {
+                setGoalText(e.target.value);
+                if (goalError) {
+                  setGoalError(undefined);
+                }
+              }}
+              maxLength={500}
+              className={`w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                goalError ? 'border-red-500' : 'border-white/20'
+              }`}
+              placeholder="Enter goal text (optional if goal selected above)..."
+            />
+            {goalText && (
+              <p className="mt-1 text-xs text-white/60">{goalText.length}/500 characters</p>
+            )}
+          </div>
+          
           {goalError && (
             <p className="mt-1 text-sm text-red-400">{goalError}</p>
           )}
-          <p className="mt-1 text-xs text-white/60">{goal.length}/500 characters</p>
         </div>
 
         {/* Due Date Selection */}

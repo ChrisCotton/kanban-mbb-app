@@ -233,11 +233,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   if (!isOpen || !task) return null
 
+  // Helper to parse date string as local date (not UTC) to avoid timezone shifts
+  const parseLocalDate = (dateString: string): Date => {
+    // If date is in YYYY-MM-DD format, parse as local date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number)
+      return new Date(year, month - 1, day) // month is 0-indexed
+    }
+    // For other formats, parse normally
+    return new Date(dateString)
+  }
+
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return null
     
     try {
-      const date = new Date(dateString)
+      const date = parseLocalDate(dateString)
       const now = new Date()
       const diffInDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       

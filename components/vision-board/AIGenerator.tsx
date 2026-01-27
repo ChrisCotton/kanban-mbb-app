@@ -9,6 +9,7 @@ import {
   getDateColorStyles,
   formatDueDateISO
 } from '@/lib/utils/due-date-intervals'
+import GoalSelector from '../goals/GoalSelector'
 
 interface AIGeneratorProps {
   userId: string
@@ -24,7 +25,8 @@ export default function AIGenerator({
   onGenerationError
 }: AIGeneratorProps) {
   const [prompt, setPrompt] = useState('')
-  const [goal, setGoal] = useState('')
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
+  const [goalText, setGoalText] = useState('') // Fallback text goal
   const [selectedInterval, setSelectedInterval] = useState<DueDateInterval>('one_month')
   const [customDate, setCustomDate] = useState<Date | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
@@ -47,10 +49,11 @@ export default function AIGenerator({
       newErrors.prompt = 'Prompt is required'
     }
 
-    if (!goal.trim()) {
-      newErrors.goal = 'Goal is required'
-    } else if (goal.trim().length > 500) {
-      newErrors.goal = 'Goal must be 500 characters or less'
+    // Goal validation: either goal_id or goal text must be provided
+    if (!selectedGoalId && !goalText.trim()) {
+      newErrors.goal = 'Please select a goal or enter goal text'
+    } else if (goalText.trim().length > 500) {
+      newErrors.goal = 'Goal text must be 500 characters or less'
     }
 
     if (selectedInterval === 'custom' && !customDate) {
@@ -59,7 +62,7 @@ export default function AIGenerator({
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [prompt, goal, selectedInterval, customDate])
+  }, [prompt, selectedGoalId, goalText, selectedInterval, customDate])
 
   // Handle form submission
   const handleGenerate = useCallback(async (e: React.FormEvent) => {
@@ -98,7 +101,8 @@ export default function AIGenerator({
       if (result.success && result.data) {
         // Reset form
         setPrompt('')
-        setGoal('')
+        setSelectedGoalId(null)
+        setGoalText('')
         setSelectedInterval('one_month')
         setCustomDate(null)
         setMediaType('image')
@@ -120,7 +124,7 @@ export default function AIGenerator({
     } finally {
       setIsGenerating(false)
     }
-  }, [prompt, goal, selectedInterval, customDate, mediaType, calculatedDueDate, userId, validateForm, onGenerationComplete, onGenerationError])
+  }, [prompt, selectedGoalId, goalText, selectedInterval, customDate, mediaType, calculatedDueDate, userId, validateForm, onGenerationComplete, onGenerationError])
 
   // Update custom date when interval changes
   useEffect(() => {
@@ -160,32 +164,56 @@ export default function AIGenerator({
           )}
         </div>
 
-        {/* Goal Input */}
+        {/* Goal Selector */}
         <div>
-          <label htmlFor="goal" className="block text-sm font-medium text-white mb-2">
+          <label htmlFor="goal-selector" className="block text-sm font-medium text-white mb-2">
             Goal <span className="text-red-400">*</span>
           </label>
-          <input
-            id="goal"
-            type="text"
-            value={goal}
-            onChange={(e) => {
-              setGoal(e.target.value)
+          <GoalSelector
+            value={selectedGoalId}
+            onChange={(goalId) => {
+              setSelectedGoalId(goalId)
               if (errors.goal) {
                 setErrors(prev => ({ ...prev, goal: undefined }))
               }
             }}
-            maxLength={500}
-            className={`w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.goal ? 'border-red-500' : 'border-white/20'
-            }`}
-            placeholder="Enter your goal for this vision..."
-            required
+            userId={userId}
+            placeholder="Select a goal or create new..."
+            showCreateOption={true}
+            error={errors.goal}
+            required={true}
+            className="mb-2"
           />
+          
+          {/* Fallback text input for backward compatibility or manual entry */}
+          <div className="mt-2">
+            <label htmlFor="goal-text" className="block text-xs font-medium text-white/70 mb-1">
+              Or enter goal text manually:
+            </label>
+            <input
+              id="goal-text"
+              type="text"
+              value={goalText}
+              onChange={(e) => {
+                setGoalText(e.target.value)
+                if (errors.goal) {
+                  setErrors(prev => ({ ...prev, goal: undefined }))
+                }
+              }}
+              maxLength={500}
+              className={`w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.goal ? 'border-red-500' : 'border-white/20'
+              }`}
+              placeholder="Enter goal text (optional if goal selected above)..."
+            />
+            {goalText && (
+              <p className="mt-1 text-xs text-white/60">{goalText.length}/500 characters</p>
+            )}
+          </div>
+          
           {errors.goal && (
             <p className="mt-1 text-sm text-red-400">{errors.goal}</p>
           )}
-          <p className="mt-1 text-xs text-white/60">{goal.length}/500 characters</p>
         </div>
 
         {/* Due Date Selection */}

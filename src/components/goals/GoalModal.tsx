@@ -3,6 +3,7 @@ import { Goal, CreateGoalInput, UpdateGoalInput, GoalProgressType } from '../../
 import { useGoalsStore } from '../../stores/goals.store';
 import CategorySelector from '../../../components/ui/CategorySelector';
 import DatePicker from '../../../components/ui/DatePicker';
+import IconSelector from '../../../components/ui/IconSelector';
 import { supabase } from '../../../lib/supabase';
 
 interface VisionBoardImage {
@@ -145,7 +146,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
         target_date: formData.target_date || undefined,
         progress_type: formData.progress_type,
         color: formData.color || undefined,
-        icon: formData.icon || undefined,
+        icon: formData.icon || '🎯', // Default to 🎯 if no icon selected
         vision_image_ids: selectedVisionImageIds.length > 0 ? selectedVisionImageIds : undefined,
       };
 
@@ -319,7 +320,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
               Progress Type
             </label>
             <div className="space-y-2">
-              <label className="flex items-center">
+              <label className="flex items-start">
                 <input
                   type="radio"
                   name="progress_type"
@@ -331,11 +332,16 @@ const GoalModal: React.FC<GoalModalProps> = ({
                       progress_type: e.target.value as GoalProgressType,
                     })
                   }
-                  className="mr-2"
+                  className="mr-2 mt-1"
                 />
-                <span className="text-gray-700 dark:text-gray-300">Manual</span>
+                <div className="flex-1">
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">Manual</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    You manually update progress percentage yourself.
+                  </p>
+                </div>
               </label>
-              <label className="flex items-center">
+              <label className="flex items-start">
                 <input
                   type="radio"
                   name="progress_type"
@@ -347,11 +353,16 @@ const GoalModal: React.FC<GoalModalProps> = ({
                       progress_type: e.target.value as GoalProgressType,
                     })
                   }
-                  className="mr-2"
+                  className="mr-2 mt-1"
                 />
-                <span className="text-gray-700 dark:text-gray-300">Task-based</span>
+                <div className="flex-1">
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">Task-based</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Progress automatically updates based on completion of linked Kanban tasks.
+                  </p>
+                </div>
               </label>
-              <label className="flex items-center">
+              <label className="flex items-start">
                 <input
                   type="radio"
                   name="progress_type"
@@ -363,9 +374,14 @@ const GoalModal: React.FC<GoalModalProps> = ({
                       progress_type: e.target.value as GoalProgressType,
                     })
                   }
-                  className="mr-2"
+                  className="mr-2 mt-1"
                 />
-                <span className="text-gray-700 dark:text-gray-300">Milestone-based</span>
+                <div className="flex-1">
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">Milestone-based</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Progress automatically updates based on completion of goal milestones you define.
+                  </p>
+                </div>
               </label>
             </div>
           </div>
@@ -441,16 +457,12 @@ const GoalModal: React.FC<GoalModalProps> = ({
               >
                 Icon
               </label>
-              <input
-                id="goal-icon"
-                type="text"
-                value={formData.icon}
-                onChange={(e) =>
-                  setFormData({ ...formData, icon: e.target.value })
+              <IconSelector
+                value={formData.icon || null}
+                onChange={(icon) =>
+                  setFormData({ ...formData, icon: icon || '🎯' })
                 }
-                maxLength={2}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl"
-                placeholder="🎯"
+                placeholder="Select an icon..."
               />
             </div>
           </div>

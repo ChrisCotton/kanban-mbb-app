@@ -6,6 +6,7 @@ import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
 import { useSubtaskProgress } from '../../hooks/useSubtaskProgress'
 import { formatCurrency } from '../../lib/utils/currency-formatter'
+import { parseLocalDate } from '../../lib/utils/date-helpers'
 
 interface TaskCardProps {
   task: TaskWithCategory
@@ -33,7 +34,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const { total, completed, loading } = useSubtaskProgress(task.id)
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+    // Use parseLocalDate to avoid timezone shifts
+    const date = parseLocalDate(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
@@ -41,10 +43,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }
 
   const isOverdue = (dueDateString: string) => {
-    const dueDate = new Date(dueDateString)
+    // Use parseLocalDate to avoid timezone shifts
+    const dueDate = parseLocalDate(dueDateString)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    return dueDate < today
+    dueDate.setHours(0, 0, 0, 0)
+    return dueDate.getTime() < today.getTime()
   }
 
   const getCategoryIcon = (categoryName: string) => {

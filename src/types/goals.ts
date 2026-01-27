@@ -50,6 +50,7 @@ export interface UpdateGoalInput {
   color?: string | null;
   icon?: string | null;
   display_order?: number;
+  vision_image_ids?: string[];
 }
 
 export interface GoalTask {

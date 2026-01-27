@@ -145,6 +145,7 @@ async function updateGoal(req: NextApiRequest, res: NextApiResponse) {
     color: updateData.color,
     icon: updateData.icon,
     display_order: updateData.display_order,
+    vision_image_ids: updateData.vision_image_ids,
   };
 
   const goal = await service.updateGoal(id, input, user_id);

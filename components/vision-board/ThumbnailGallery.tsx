@@ -13,6 +13,7 @@ import {
   formatDueDateISO,
   formatDueDate
 } from '@/lib/utils/due-date-intervals'
+import { parseLocalDate } from '@/lib/utils/date-helpers'
 
 interface VisionBoardImage {
   id: string
@@ -27,6 +28,7 @@ interface VisionBoardImage {
   view_count?: number
   created_at: string
   goal: string
+  goal_id?: string | null
   due_date: string
   media_type: 'image' | 'video'
   generation_prompt?: string | null
@@ -157,7 +159,8 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
     setEditGoal(image.goal)
     
     // Find closest interval for current due_date
-    const currentDate = new Date(image.due_date)
+    // Use parseLocalDate to avoid timezone shifts
+    const currentDate = parseLocalDate(image.due_date)
     const closestInterval = getClosestInterval(currentDate)
     setEditInterval(closestInterval)
     
@@ -414,9 +417,25 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
                 
                 {/* Goal Display */}
                 {image.goal && (
-                  <p className="text-xs text-white/80 truncate" title={image.goal}>
-                    {image.goal}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    {image.goal_id ? (
+                      <a
+                        href={`/goals?goal=${image.goal_id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="text-xs text-blue-300 hover:text-blue-200 truncate flex items-center gap-1"
+                        title={`View goal: ${image.goal}`}
+                      >
+                        <span>🎯</span>
+                        <span className="underline">{image.goal}</span>
+                      </a>
+                    ) : (
+                      <p className="text-xs text-white/80 truncate" title={image.goal}>
+                        {image.goal}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Due Date Badge with Color Coding */}

@@ -19,6 +19,7 @@ interface VisionBoardImage {
   view_count?: number
   media_type?: 'image' | 'video'
   goal?: string
+  goal_id?: string | null
   due_date?: string
 }
 
@@ -548,14 +549,24 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
             {currentImage.goal && !shouldShowGoalText && (
               <div className="mb-2">
                 <span className="text-white/70 text-sm">Goal: </span>
-                <span className="text-white font-medium">{currentImage.goal}</span>
+                {currentImage.goal_id ? (
+                  <a
+                    href={`/goals?goal=${currentImage.goal_id}`}
+                    className="text-white font-medium hover:text-blue-300 underline flex items-center gap-1"
+                  >
+                    <span>🎯</span>
+                    <span>{currentImage.goal}</span>
+                  </a>
+                ) : (
+                  <span className="text-white font-medium">{currentImage.goal}</span>
+                )}
               </div>
             )}
             {currentImage.due_date && (
               <div className="mb-2">
                 <span className="text-white/70 text-sm">Due Date: </span>
                 <span className="text-white font-medium">
-                  {new Date(currentImage.due_date).toLocaleDateString('en-US', {
+                  {parseLocalDate(currentImage.due_date).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
