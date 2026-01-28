@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import AudioRecorder from './AudioRecorder'
 import TranscriptEditor from './TranscriptEditor'
 
@@ -39,6 +39,11 @@ const JournalView: React.FC<JournalViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10) // Show 10 entries per page
+  
+  // Ref to store handleTranscribe so it can be called from handleRecordingComplete
+  const handleTranscribeRef = useRef<((entryId: string) => Promise<void>) | null>(null)
 
   // Load journal entries from API
   const loadEntries = useCallback(async () => {
@@ -196,7 +201,7 @@ const JournalView: React.FC<JournalViewProps> = ({
         duration: formData.get('duration')
       })
 
-      const audioResponse = await fetch('/api/journal/audio', {
+      let audioResponse = await fetch('/api/journal/audio', {
         method: 'POST',
         body: formData
         // Don't set Content-Type header - let browser set it with boundary
@@ -204,6 +209,7 @@ const JournalView: React.FC<JournalViewProps> = ({
 
       console.log('📡 Audio upload response status:', audioResponse.status, 'ok:', audioResponse.ok)
 
+      let audioUploadSuccess = false
       if (!audioResponse.ok) {
         const errorText = await audioResponse.text()
         console.error('❌ Audio upload failed:', errorText)
@@ -224,8 +230,17 @@ const JournalView: React.FC<JournalViewProps> = ({
         if (audioResult.audio_url || audioResult.data?.audio_url) {
           setAudioUrls(prev => ({ ...prev, [newEntry.id]: audioResult.audio_url || audioResult.data?.audio_url }))
         }
+        audioUploadSuccess = true
       }
 
+      // Validate audio file size - reject files that are too small (likely silence)
+      if (preservedBlob.size < 2000) {
+        console.warn('⚠️ Audio file is very small (' + preservedBlob.size + ' bytes) - likely silence')
+        setError('Audio file is too small. The microphone may not be capturing audio. Please check your microphone settings and try again.')
+        // Still add entry but mark transcription as failed
+        newEntry.transcription_status = 'failed'
+      }
+      
       // Add to entries list
       setEntries(prev => [newEntry, ...prev])
       console.log('✅ Entry added to list')
@@ -234,6 +249,19 @@ const JournalView: React.FC<JournalViewProps> = ({
       setSelectedEntry(newEntry)
       setViewMode('view')
       console.log('✅ Recording saved successfully')
+      
+      // Automatically trigger transcription if audio was uploaded successfully
+      if (audioUploadSuccess && preservedBlob.size >= 2000 && newEntry.audio_file_path) {
+        console.log('🎙️ Auto-triggering transcription for entry:', newEntry.id, 'file size:', preservedBlob.size)
+        // Wait a moment for the entry to be fully saved, then transcribe
+        setTimeout(() => {
+          if (handleTranscribeRef.current) {
+            handleTranscribeRef.current(newEntry.id)
+          }
+        }, 500)
+      } else if (preservedBlob.size < 2000) {
+        console.warn('⚠️ Skipping auto-transcription - audio file too small:', preservedBlob.size)
+      }
       
     } catch (err: any) {
       console.error('❌ Error saving recording:', err)
@@ -293,6 +321,11 @@ const JournalView: React.FC<JournalViewProps> = ({
       setIsTranscribing(false)
     }
   }, [userId, selectedEntry])
+  
+  // Store handleTranscribe in ref so it can be called from handleRecordingComplete
+  useEffect(() => {
+    handleTranscribeRef.current = handleTranscribe
+  }, [handleTranscribe])
 
   // Update entry
   const handleEntryUpdate = useCallback(async (
@@ -396,6 +429,24 @@ const JournalView: React.FC<JournalViewProps> = ({
     entry.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entry.transcription?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredEntries.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedEntries = filteredEntries.slice(startIndex, endIndex)
+  
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+  
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    // Scroll to top of entries list
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     loadEntries()
@@ -502,8 +553,9 @@ const JournalView: React.FC<JournalViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredEntries.map(entry => (
+                <>
+                  <div className="space-y-4">
+                    {paginatedEntries.map(entry => (
                     <div
                       key={entry.id}
                       className="border border-white/20 bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-all cursor-pointer"
@@ -545,8 +597,74 @@ const JournalView: React.FC<JournalViewProps> = ({
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="mt-6 pt-6 border-t border-white/20">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="text-sm text-white/70">
+                          Showing {startIndex + 1}-{Math.min(endIndex, filteredEntries.length)} of {filteredEntries.length} entries
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {/* Previous Button */}
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                              currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            Previous
+                          </button>
+                          
+                          {/* Page Numbers */}
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                              let pageNum: number
+                              if (totalPages <= 5) {
+                                pageNum = i + 1
+                              } else if (currentPage <= 3) {
+                                pageNum = i + 1
+                              } else if (currentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i
+                              } else {
+                                pageNum = currentPage - 2 + i
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => handlePageChange(pageNum)}
+                                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors border ${
+                                    currentPage === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          
+                          {/* Next Button */}
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${
+                              currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
