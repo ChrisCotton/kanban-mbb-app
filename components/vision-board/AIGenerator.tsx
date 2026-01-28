@@ -78,6 +78,11 @@ export default function AIGenerator({
     try {
       const dueDateISO = formatDueDateISO(calculatedDueDate)
 
+      // Use goal text from selected goal or fallback to text input
+      const goalTextValue = selectedGoalId 
+        ? '' // Will be fetched from goal if needed, but we'll use goal_id
+        : goalText.trim();
+
       const response = await fetch('/api/vision-board/generate', {
         method: 'POST',
         headers: {
@@ -86,7 +91,8 @@ export default function AIGenerator({
         body: JSON.stringify({
           user_id: userId,
           prompt: prompt.trim(),
-          goal: goal.trim(),
+          goal: goalTextValue, // Keep for backward compatibility
+          goal_id: selectedGoalId, // New field for goal linking
           due_date: dueDateISO,
           media_type: mediaType
         })

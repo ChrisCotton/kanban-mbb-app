@@ -1,5 +1,6 @@
 import React from 'react';
 import { GoalWithRelations } from '../../types/goals';
+import { parseLocalDate } from '../../../lib/utils/date-helpers';
 
 interface GoalCardProps {
   goal: GoalWithRelations;
@@ -17,19 +18,23 @@ export default function GoalCard({
   className = '' 
 }: GoalCardProps) {
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Use parseLocalDate to avoid timezone issues (YYYY-MM-DD interpreted as UTC)
+    const date = parseLocalDate(dateString);
+    const currentYear = new Date().getFullYear();
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+      year: date.getFullYear() !== currentYear ? 'numeric' : undefined,
     });
   };
 
   const isOverdue = (targetDate: string | null, status: string): boolean => {
     if (!targetDate || status === 'completed') return false;
-    const dueDate = new Date(targetDate);
+    // Use parseLocalDate to avoid timezone issues
+    const dueDate = parseLocalDate(targetDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
     return dueDate < today;
   };
 

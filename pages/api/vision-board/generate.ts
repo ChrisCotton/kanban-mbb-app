@@ -21,7 +21,8 @@ const AI_PROVIDERS = {
 }
 
 /**
- * Generate image using Nano Banana API
+ * Generate image using Google Imagen API (via Gemini API endpoint)
+ * Note: This uses Google's Imagen API, accessible through the Gemini API endpoint
  */
 async function generateWithNanoBanana(
   prompt: string, 
@@ -29,40 +30,169 @@ async function generateWithNanoBanana(
   options: { dimensions?: string } = {}
 ): Promise<{ imageUrl: string; imageBuffer?: Buffer }> {
   // Use user's API key if provided, otherwise fall back to environment variable
-  const apiKey = userApiKey || process.env.NANO_BANANA_API_KEY
+  const apiKey = userApiKey || process.env.NANO_BANANA_API_KEY || process.env.GOOGLE_AI_API_KEY
   
   if (!apiKey) {
-    throw new Error('NANO_BANANA_API_KEY is not configured. Please add it to your Profile & Settings or environment variables.')
+    throw new Error('API key is not configured. Please add your Google API key to your Profile & Settings or set NANO_BANANA_API_KEY in environment variables.')
   }
 
-  // TODO: Implement actual Nano Banana API call
-  // This is a placeholder - replace with actual API implementation
-  // Example structure:
-  /*
-  const response = await fetch(AI_PROVIDERS.nano_banana.endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      prompt,
-      ...options
+  try {
+    // Use Google Imagen API via Gemini API endpoint
+    // Available models: imagen-4.0-generate-001, imagen-4.0-fast-generate-001, imagen-4.0-ultra-generate-001
+    // Using fast version for better performance
+    // Note: You can also use actual "Nano Banana" models: gemini-2.5-flash-image (uses generateContent method)
+    const model = 'imagen-4.0-fast-generate-001'
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`
+    
+    // Parse dimensions if provided (format: "1024x1024" or "512x768")
+    let aspectRatio = '1:1' // default
+    if (options.dimensions) {
+      const [width, height] = options.dimensions.split('x').map(Number)
+      if (width && height) {
+        // Convert to aspect ratio format
+        const ratio = width / height
+        if (ratio > 1.3) aspectRatio = '16:9'
+        else if (ratio > 1.1) aspectRatio = '4:3'
+        else if (ratio > 0.9) aspectRatio = '1:1'
+        else if (ratio > 0.7) aspectRatio = '3:4'
+        else aspectRatio = '9:16'
+      }
+    }
+
+    console.log(`🖼️ Calling Google Imagen API with model: ${model}`)
+    console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`)
+    
+    const response = await fetch(`${endpoint}?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        instances: [{
+          prompt: prompt
+        }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: aspectRatio
+          // Note: enhancePrompt is not supported via Gemini API endpoint (only via Vertex AI)
+          // Note: addWatermark parameter is not supported by Imagen API via Gemini endpoint
+        }
+      })
     })
-  })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.message || 'Nano Banana API error')
+    const responseText = await response.text()
+    
+    if (!response.ok) {
+      let errorMessage = 'Google Imagen API error'
+      
+      // Log the full response for debugging
+      console.error('❌ Google Imagen API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText.substring(0, 500) // First 500 chars
+      })
+      
+      try {
+        const errorJson = JSON.parse(responseText)
+        errorMessage = errorJson.error?.message || errorJson.error?.details?.[0]?.message || errorJson.error || errorMessage
+        
+        // Log the parsed error for debugging
+        console.error('❌ Parsed error JSON:', JSON.stringify(errorJson, null, 2))
+        
+        // Check for specific permission/API enablement errors
+        const errorStr = JSON.stringify(errorJson).toLowerCase()
+        if (errorStr.includes('permission') || errorStr.includes('not enabled') || errorStr.includes('api not enabled') || errorStr.includes('service not enabled') || errorStr.includes('403') || errorStr.includes('forbidden')) {
+          throw new Error('API key does not have permission to use Imagen API. This usually means:\n1. Billing is not enabled for your Google Cloud project\n2. The Generative Language API is not enabled\n\nTo fix:\n- Go to Google AI Studio: https://aistudio.google.com/app/apikey\n- Find your project and click "Set up Billing"\n- Or enable billing in Google Cloud Console: https://console.cloud.google.com/billing\n- Then enable the Generative Language API: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com')
+        }
+        if (errorStr.includes('quota') || errorStr.includes('limit exceeded') || errorStr.includes('billing') || errorStr.includes('billing not enabled') || errorStr.includes('no billing account')) {
+          throw new Error('Billing is required for Imagen API. Please set up billing:\n1. Go to Google AI Studio: https://aistudio.google.com/app/apikey\n2. Find your project (MBB VisionBoard) and click "Set up Billing"\n3. Link a billing account\n\nNote: Google provides free credits for new accounts, so you won\'t be charged immediately.')
+        }
+        if (errorStr.includes('invalid api key') || errorStr.includes('api key not valid') || errorStr.includes('api key invalid') || errorStr.includes('invalid key')) {
+          throw new Error('Invalid Google API key. Please check your API key in Profile & Settings.')
+        }
+      } catch (parseError: any) {
+        // If we already threw a specific error above, re-throw it
+        if (parseError.message?.includes('API key') || parseError.message?.includes('quota') || parseError.message?.includes('permission') || parseError.message?.includes('billing')) {
+          throw parseError
+        }
+        // Otherwise, use the raw response text
+        errorMessage = responseText || `HTTP ${response.status}: ${response.statusText}`
+      }
+      
+      console.error('❌ Google Imagen API error:', errorMessage)
+      throw new Error(`Google Imagen API error: ${errorMessage}`)
+    }
+
+    let result: any
+    try {
+      result = JSON.parse(responseText)
+    } catch (e) {
+      throw new Error('Invalid JSON response from API: ' + responseText.substring(0, 200))
+    }
+    
+    // Extract image data from response
+    // The response structure may vary, so we handle different formats
+    let imageData: string | undefined
+    
+    if (result.predictions && result.predictions[0]) {
+      // Vertex AI format: predictions[0].bytesBase64Encoded or predictions[0].image
+      imageData = result.predictions[0].bytesBase64Encoded || result.predictions[0].image
+    } else if (result.images && result.images[0]) {
+      // Alternative format: images array
+      imageData = result.images[0]
+    } else if (result.data && result.data[0]) {
+      // Another possible format: data array
+      imageData = result.data[0]
+    } else if (result.generatedImages && result.generatedImages[0]) {
+      // Gemini API format
+      imageData = result.generatedImages[0].base64String || result.generatedImages[0].image
+    }
+
+    if (!imageData) {
+      console.error('❌ Unexpected API response format:', JSON.stringify(result).substring(0, 500))
+      throw new Error('No image data found in API response. The API may have returned an unexpected format.')
+    }
+
+    // Convert base64 to buffer
+    let imageBuffer: Buffer
+    if (imageData.startsWith('data:image')) {
+      // Data URL format: data:image/png;base64,...
+      const base64Data = imageData.split(',')[1]
+      imageBuffer = Buffer.from(base64Data, 'base64')
+    } else {
+      // Assume base64 string
+      imageBuffer = Buffer.from(imageData, 'base64')
+    }
+
+    if (imageBuffer.length === 0) {
+      throw new Error('Image buffer is empty - API may have returned invalid data')
+    }
+
+    console.log(`✅ Successfully generated image (${imageBuffer.length} bytes)`)
+
+    // Return buffer - the calling code will upload it to Supabase Storage
+    return { 
+      imageUrl: 'placeholder://will-be-replaced-after-upload',
+      imageBuffer: imageBuffer
+    }
+  } catch (error: any) {
+    console.error('❌ Error calling Google Imagen API:', error)
+    // If error already has a specific message (from above), re-throw it
+    if (error.message?.includes('API key does not have permission') || 
+        error.message?.includes('quota exceeded') ||
+        error.message?.includes('Invalid Google API key')) {
+      throw error
+    }
+    // Provide more helpful error messages for other cases
+    if (error.message?.includes('API key')) {
+      throw new Error('Invalid or missing Google API key. Please check your API key in Profile & Settings.')
+    } else if (error.message?.includes('quota') || error.message?.includes('limit')) {
+      throw new Error('API quota exceeded. Please check your Google Cloud billing and quotas.')
+    } else if (error.message?.includes('permission') || error.message?.includes('access') || error.message?.includes('not enabled')) {
+      throw new Error('API key does not have permission to use Imagen API. Please enable the Generative Language API in Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com')
+    }
+    throw new Error(`Failed to generate image: ${error.message || 'Unknown error'}`)
   }
-
-  const result = await response.json()
-  return { imageUrl: result.image_url, imageBuffer: result.image_buffer }
-  */
-
-  // Placeholder: Return a placeholder image URL for now
-  // In production, this should call the actual Nano Banana API
-  throw new Error('Nano Banana API integration not yet implemented. Please check the API documentation and update the generateWithNanoBanana function.')
 }
 
 /**
@@ -197,18 +327,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch user profile to get AI provider and API keys
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profile')
-      .select('ai_image_provider, nano_banana_api_key, google_ai_api_key')
-      .eq('user_id', user_id)
-      .single()
+    // Use select('*') to get all available columns - this avoids errors if some API key columns don't exist yet
+    let profile: any = null
+    let profileError: any = null
+    
+    try {
+      const result = await supabase
+        .from('user_profile')
+        .select('*')
+        .eq('user_id', user_id)
+        .single()
+      
+      profile = result.data
+      profileError = result.error
+    } catch (err: any) {
+      // Handle any unexpected errors
+      console.error('Error fetching user profile:', err)
+      profileError = err
+    }
 
+    // If profile doesn't exist, that's okay - we'll use defaults
     if (profileError && profileError.code !== 'PGRST116') {
       console.error('Error fetching user profile:', profileError)
-      return res.status(500).json({ error: 'Failed to fetch user profile' })
+      // If the error is about a missing column (42703), the migration hasn't been run
+      if (profileError.code === '42703' || profileError.message?.includes('does not exist')) {
+        return res.status(500).json({ 
+          error: 'Database schema mismatch. The API key columns are missing. Please run the migration: database/migrations/028_add_api_keys_to_user_profile.sql',
+          details: profileError.message,
+          code: 'MIGRATION_REQUIRED'
+        })
+      }
+      return res.status(500).json({ 
+        error: 'Failed to fetch user profile',
+        details: profileError.message 
+      })
     }
 
     const aiProvider = profile?.ai_image_provider || 'nano_banana'
+
+    // Log provider and API key availability for debugging
+    console.log('🔍 Image generation request:', {
+      aiProvider,
+      hasNanoBananaKey: !!profile?.nano_banana_api_key,
+      hasGoogleAiKey: !!profile?.google_ai_api_key,
+      user_id
+    })
 
     // Route to appropriate provider
     let generatedMedia: { mediaUrl: string; mediaBuffer?: Buffer }
@@ -220,9 +383,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error: 'Nano Banana only supports image generation. Use Veo 3 for video generation.' 
           })
         }
-        generatedMedia = await generateWithNanoBanana(prompt.trim(), profile?.nano_banana_api_key, { dimensions })
+        // Use nano_banana_api_key if available, otherwise fall back to google_ai_api_key
+        // (since nano_banana provider uses Google Imagen API)
+        const apiKey = profile?.nano_banana_api_key || profile?.google_ai_api_key
+        
+        if (!apiKey) {
+          return res.status(400).json({
+            error: 'API key is required. Please add your Google AI API key in Profile & Settings. You can use either the "Nano Banana API Key" or "Google AI API Key" field.'
+          })
+        }
+        
+        console.log('🔑 Using API key:', apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4))
+        const nanoResult = await generateWithNanoBanana(prompt.trim(), apiKey, { dimensions })
+        // Convert to expected format
+        generatedMedia = {
+          mediaUrl: nanoResult.imageUrl,
+          mediaBuffer: nanoResult.imageBuffer
+        }
       } else if (aiProvider === 'veo_3') {
-        generatedMedia = await generateWithVeo3(prompt.trim(), media_type, profile?.google_ai_api_key, { dimensions })
+        // Safely access google_ai_api_key - it may not exist if migration hasn't been run
+        const googleAiKey = profile?.google_ai_api_key || null
+        generatedMedia = await generateWithVeo3(prompt.trim(), media_type, googleAiKey, { dimensions })
       } else {
         return res.status(400).json({ 
           error: `Unsupported AI provider: ${aiProvider}. Supported providers: nano_banana, veo_3` 
@@ -307,14 +488,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : due_date
 
     // Create database record
+    // Don't use goal text or prompt as title to avoid showing prompt content
+    // Use goal text as title (it will be hidden if it matches goal field) or a generic default
+    const imageTitle = goalText.substring(0, 50) || 'AI Generated Image'
+    
     const { data: newImage, error: dbError } = await supabase
       .from('vision_board_images')
       .insert({
         user_id,
         file_name: fileName,
         file_path: filePath,
-        title: goalText.substring(0, 200) || 'Generated Vision',
-        description: prompt.trim().substring(0, 500) || null,
+        title: imageTitle,
+        description: null, // Don't store prompt in description to avoid showing it on carousel
         is_active: true,
         display_order: nextDisplayOrder,
         view_count: 0,

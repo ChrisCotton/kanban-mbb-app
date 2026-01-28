@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
 import { useFileNamePreference } from '../../hooks/useFileNamePreference'
 import { getClosestInterval, formatDueDate, INTERVAL_OPTIONS } from '../../lib/utils/due-date-intervals'
+import { parseLocalDate } from '../../lib/utils/date-helpers'
 
 interface VisionBoardImage {
   id: string
@@ -21,6 +22,8 @@ interface VisionBoardImage {
   goal?: string
   goal_id?: string | null
   due_date?: string
+  generation_prompt?: string | null // AI generation prompt - if present, don't show title/description
+  ai_provider?: string | null
 }
 
 interface VisionBoardGalleryModalProps {
@@ -88,6 +91,76 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
     
     // Consider it a filename if it has separators and no spaces, or matches generated patterns
     return (hasFilenameSeparators && noSpaces) || isUppercaseWithSeparators || looksLikeGeneratedName
+  }
+
+  // Helper function to clean goal text - ensures only clean goal text is displayed
+  // Removes any prompt-like content that might have been accidentally included
+  const cleanGoalText = (goalText: string): string => {
+    if (!goalText) return ''
+    
+    // Trim whitespace
+    let cleaned = goalText.trim()
+    
+    // Common prompt starters that indicate prompt content follows - remove everything after these
+    const promptStarters = [
+      /\s+big\s+beautiful/i,
+      /\s+big\s+to\s+small/i,
+      /\s+a\s+photo\s+of/i,
+      /\s+an?\s+image\s+of/i,
+      /\s+generate\s+an?\s+image/i,
+      /\s+create\s+an?\s+image/i,
+      /\s+depict/i,
+      /\s+show/i,
+      /\s+picture\s+of/i,
+      /\s+illustration\s+of/i,
+      /\s+rendering\s+of/i,
+      /\s+on\s+the\s+side\s+of/i,
+      /\s+with\s+.*\s+in\s+the\s+background/i,
+      /\s+featuring\s+/i,
+      /\s+showing\s+/i,
+      /\s+that\s+includes/i,
+      /\s+containing/i,
+      /\s+into\s+a\s+/i, // "into a multiethnic crowd"
+      /\s+wildly\s+/i, // "wildly spewing"
+      /\s+spewing\s+/i,
+      /\s+solely\s+spinning/i,
+      /\s+realistic\s+scene/i,
+      /\s+multiethnic\s+crowd/i,
+      /\s+elegant\s+scene/i,
+      /\s+motivated\s+in/i,
+      /\s+catching\s+their/i,
+      /\s+major\s+believes/i
+    ]
+    
+    // Remove any text after prompt starters
+    for (const starter of promptStarters) {
+      const match = cleaned.match(starter)
+      if (match && match.index !== undefined) {
+        // Keep only the text before the prompt starter
+        cleaned = cleaned.substring(0, match.index).trim()
+        break
+      }
+    }
+    
+    // If goal text is very long (over 100 chars), it might contain prompt content
+    // Try to extract just the goal part (usually the first sentence or before first period)
+    if (cleaned.length > 100) {
+      // Split on periods, newlines, or common separators
+      const parts = cleaned.split(/[\.\n]/)
+      if (parts.length > 1) {
+        // Take the first part that's reasonable length
+        const firstPart = parts[0].trim()
+        if (firstPart.length > 0 && firstPart.length < 100) {
+          // Check if first part doesn't look like a prompt
+          const looksLikePrompt = promptStarters.some(p => p.test(firstPart))
+          if (!looksLikePrompt) {
+            cleaned = firstPart
+          }
+        }
+      }
+    }
+    
+    return cleaned
   }
 
   // Update current index when initialIndex changes
@@ -493,10 +566,10 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
         {/* Goal Text Overlay with Due Date - Prominent if enabled */}
         {shouldShowGoalText && currentImage && hasGoal(currentImage) && (
           <div className="absolute top-32 left-1/2 -translate-x-1/2 z-10 max-w-4xl w-full mx-4">
-            <div className="bg-black/25 backdrop-blur-lg rounded-xl px-6 py-4 border border-white/20">
+            <div className="bg-black/70 backdrop-blur-md rounded-xl px-6 py-4 border-2 border-white/30 shadow-2xl">
               <p className="text-2xl md:text-3xl font-bold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] text-center">
-                {currentImage.goal}
-                {currentImage.due_date && (() => {
+                {cleanGoalText(currentImage.goal)}
+                {currentImage.due_date ? (() => {
                   const interval = getClosestInterval(currentImage.due_date)
                   const option = INTERVAL_OPTIONS.find(opt => opt.value === interval)
                   return (
@@ -520,7 +593,11 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
                       />
                     </span>
                   )
-                })()}
+                })() : (
+                  <span className="ml-3 text-lg md:text-xl font-normal text-white/70">
+                    (No due date)
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -538,11 +615,12 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
         {/* Metadata Overlay */}
         {showMetadata && currentImage && (
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-black/70 backdrop-blur-md text-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            {/* Show title only if file name preference is enabled, or if title doesn't look like a filename */}
-            {currentImage.title && (fileNameEnabled || !titleLooksLikeFileName(currentImage.title)) && (
+            {/* Title and Description are HIDDEN for AI-generated images to avoid showing prompt */}
+            {/* Only show title/description for manually uploaded images */}
+            {!currentImage.generation_prompt && currentImage.title && (fileNameEnabled || !titleLooksLikeFileName(currentImage.title)) && (
               <h3 className="text-2xl font-bold mb-2">{currentImage.title}</h3>
             )}
-            {currentImage.description && (
+            {!currentImage.generation_prompt && currentImage.description && (
               <p className="text-white/90 mb-4">{currentImage.description}</p>
             )}
             {/* Only show goal in metadata if not showing prominent goal text overlay */}
@@ -555,10 +633,10 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
                     className="text-white font-medium hover:text-blue-300 underline flex items-center gap-1"
                   >
                     <span>🎯</span>
-                    <span>{currentImage.goal}</span>
+                    <span>{cleanGoalText(currentImage.goal)}</span>
                   </a>
                 ) : (
-                  <span className="text-white font-medium">{currentImage.goal}</span>
+                  <span className="text-white font-medium">{cleanGoalText(currentImage.goal)}</span>
                 )}
               </div>
             )}

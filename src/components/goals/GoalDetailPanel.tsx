@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GoalWithRelations, GoalMilestone } from '../../types/goals';
 import { useGoalsStore } from '../../stores/goals.store';
 import GoalModal from './GoalModal';
+import { parseLocalDate } from '../../../lib/utils/date-helpers';
 
 interface GoalDetailPanelProps {
   goal: GoalWithRelations;
@@ -24,19 +25,23 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return '';
-    const date = new Date(dateString);
+    // Use parseLocalDate to avoid timezone issues (YYYY-MM-DD interpreted as UTC)
+    const date = parseLocalDate(dateString);
+    const currentYear = new Date().getFullYear();
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+      year: date.getFullYear() !== currentYear ? 'numeric' : undefined,
     });
   };
 
   const isOverdue = (targetDate: string | null, status: string): boolean => {
     if (!targetDate || status === 'completed') return false;
-    const dueDate = new Date(targetDate);
+    // Use parseLocalDate to avoid timezone issues
+    const dueDate = parseLocalDate(targetDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
     return dueDate < today;
   };
 

@@ -88,6 +88,12 @@
   color: #ef4444;
 }
 
+.saveMessage.warning {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
 .messageIcon {
   width: 18px;
   height: 18px;

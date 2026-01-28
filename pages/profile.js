@@ -153,6 +153,17 @@ const ProfilePage = () => {
 
       console.log('✅ Profile saved successfully:', result.message)
       
+      // Show warning if API keys couldn't be saved due to missing columns
+      if (result.warning) {
+        console.warn('⚠️ Warning:', result.warning)
+        setSaveMessage({
+          type: 'warning',
+          text: result.warning + (result.migrationHint ? ` ${result.migrationHint}` : '')
+        })
+        // Clear warning after 10 seconds
+        setTimeout(() => setSaveMessage(null), 10000)
+      }
+      
       // Update local state with saved data
       // IMPORTANT: Preserve API keys in local state even if server doesn't return them (for security)
       setProfile(prev => {
@@ -251,6 +262,10 @@ const ProfilePage = () => {
             {saveMessage.type === 'success' ? (
               <svg viewBox="0 0 24 24" fill="currentColor" className={styles.messageIcon}>
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            ) : saveMessage.type === 'warning' ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" className={styles.messageIcon}>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
               </svg>
             ) : (
               <svg viewBox="0 0 24 24" fill="currentColor" className={styles.messageIcon}>

@@ -162,13 +162,15 @@ const GoalsPage = () => {
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Goals</h1>
-              <p className="text-white/70">
-                Track your progress and achieve your objectives.
-              </p>
-            </div>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Goals</h1>
+            <p className="text-white/70">
+              Track your progress and achieve your objectives.
+            </p>
+          </div>
+
+          {/* Filter/Sort Controls */}
+          <div className="flex flex-wrap items-center gap-4 mb-6">
             <button
               onClick={handleCreateGoal}
               className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
@@ -188,10 +190,6 @@ const GoalsPage = () => {
               </svg>
               New Goal
             </button>
-          </div>
-
-          {/* Filter/Sort Controls */}
-          <div className="flex flex-wrap items-center gap-4 mb-6">
             <div className="flex items-center gap-2">
               <label htmlFor="status-filter" className="text-white/70 text-sm">
                 Status:

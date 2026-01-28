@@ -326,39 +326,40 @@ const MBBPage = () => {
     <Layout carouselImages={visionBoardImages} userId={user?.id}>
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Mental Bank Balance</h1>
-              <p className="text-white/70">
-                Track your progress towards your financial goals and analyze your earning patterns.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  if (user?.id && !analyticsRefreshing) {
-                    loadMBBData(user.id, true)
-                    loadTimeSessions(user.id, timeSessionsPage, timeSessionsPerPage)
-                  }
-                }}
-                disabled={analyticsRefreshing}
-                className={`px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${analyticsRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title="Refresh analytics data"
-              >
-                <svg className={`w-5 h-5 ${analyticsRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  setNewTarget(mbbData.targetBalance.toString())
-                  setShowTargetModal(true)
-                }}
-                className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-              >
-                Set Target
-              </button>
-            </div>
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Mental Bank Balance</h1>
+            <p className="text-white/70">
+              Track your progress towards your financial goals and analyze your earning patterns.
+            </p>
+          </div>
+
+          {/* Action Buttons Row */}
+          <div className="flex items-center gap-3 mb-8">
+            <button
+              onClick={() => {
+                if (user?.id && !analyticsRefreshing) {
+                  loadMBBData(user.id, true)
+                  loadTimeSessions(user.id, timeSessionsPage, timeSessionsPerPage)
+                }
+              }}
+              disabled={analyticsRefreshing}
+              className={`px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors border border-white/20 ${analyticsRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="Refresh analytics data"
+            >
+              <svg className={`w-5 h-5 ${analyticsRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setNewTarget(mbbData.targetBalance.toString())
+                setShowTargetModal(true)
+              }}
+              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+            >
+              Set Target
+            </button>
           </div>
 
           {/* Main MBB Card */}

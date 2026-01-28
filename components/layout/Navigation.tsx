@@ -1,8 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import Image from 'next/image'
+import { supabase } from '../../lib/supabase'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
 import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
 
@@ -19,9 +21,55 @@ interface NavItem {
 
 const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const router = useRouter()
   const { enabled: carouselEnabled, toggle: toggleCarousel } = useCarouselPreference()
   const { enabled: goalTextEnabled, toggle: toggleGoalText } = useGoalTextPreference()
+  
+  // Load user and profile picture
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUser(user)
+        // Load profile picture
+        const { data: profile } = await supabase
+          .from('user_profile')
+          .select('avatar_url')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (profile?.avatar_url) {
+          setAvatarUrl(profile.avatar_url)
+        }
+      }
+    }
+    loadUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        const { data: profile } = await supabase
+          .from('user_profile')
+          .select('avatar_url')
+          .eq('user_id', session.user.id)
+          .single()
+        
+        if (profile?.avatar_url) {
+          setAvatarUrl(profile.avatar_url)
+        } else {
+          setAvatarUrl(null)
+        }
+      } else {
+        setUser(null)
+        setAvatarUrl(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
   
   // Debug: Log carousel state
   console.log('[Navigation] Carousel state:', { carouselEnabled })
@@ -223,12 +271,24 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
               {/* User Avatar/Profile Link */}
               <Link 
                 href="/profile" 
-                className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center border border-white/20 hover:bg-white/20 transition-colors"
+                className={`w-8 h-8 rounded-full flex items-center justify-center border border-white/20 hover:border-white/40 transition-all overflow-hidden ${
+                  avatarUrl ? 'bg-transparent' : 'bg-white/10 hover:bg-white/20'
+                }`}
                 title="Profile & Settings"
               >
-                <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt="Profile"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
               </Link>
             </div>
 
@@ -334,6 +394,45 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                   <div className="text-xs text-white/50">Currently: {goalTextEnabled ? 'On' : 'Off'}</div>
                 </div>
               </button>
+
+              {/* Profile Link in Mobile Menu */}
+              <Link
+                href="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`
+                  w-full block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200
+                  flex items-center space-x-3
+                  ${
+                    isActiveRoute('/profile')
+                      ? 'bg-white/20 text-white border-l-4 border-blue-400'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }
+                `}
+              >
+                <span className={`
+                  ${isActiveRoute('/profile') ? 'text-white' : 'text-white/60'}
+                `}>
+                  {avatarUrl ? (
+                    <div className="w-6 h-6 rounded-full overflow-hidden">
+                      <Image
+                        src={avatarUrl}
+                        alt="Profile"
+                        width={24}
+                        height={24}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                </span>
+                <div>
+                  <div className="font-medium">Profile</div>
+                  <div className="text-xs text-white/50">Settings & preferences</div>
+                </div>
+              </Link>
             </div>
           </div>
         )}

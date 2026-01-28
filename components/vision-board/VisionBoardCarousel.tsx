@@ -91,6 +91,76 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
     return (hasFilenameSeparators && noSpaces) || isUppercaseWithSeparators || looksLikeGeneratedName
   }
 
+  // Helper function to clean goal text - ensures only clean goal text is displayed
+  // Removes any prompt-like content that might have been accidentally included
+  const cleanGoalText = (goalText: string): string => {
+    if (!goalText) return ''
+    
+    // Trim whitespace
+    let cleaned = goalText.trim()
+    
+    // Common prompt starters that indicate prompt content follows - remove everything after these
+    const promptStarters = [
+      /\s+big\s+beautiful/i,
+      /\s+big\s+to\s+small/i,
+      /\s+a\s+photo\s+of/i,
+      /\s+an?\s+image\s+of/i,
+      /\s+generate\s+an?\s+image/i,
+      /\s+create\s+an?\s+image/i,
+      /\s+depict/i,
+      /\s+show/i,
+      /\s+picture\s+of/i,
+      /\s+illustration\s+of/i,
+      /\s+rendering\s+of/i,
+      /\s+on\s+the\s+side\s+of/i,
+      /\s+with\s+.*\s+in\s+the\s+background/i,
+      /\s+featuring\s+/i,
+      /\s+showing\s+/i,
+      /\s+that\s+includes/i,
+      /\s+containing/i,
+      /\s+into\s+a\s+/i, // "into a multiethnic crowd"
+      /\s+wildly\s+/i, // "wildly spewing"
+      /\s+spewing\s+/i,
+      /\s+solely\s+spinning/i,
+      /\s+realistic\s+scene/i,
+      /\s+multiethnic\s+crowd/i,
+      /\s+elegant\s+scene/i,
+      /\s+motivated\s+in/i,
+      /\s+catching\s+their/i,
+      /\s+major\s+believes/i
+    ]
+    
+    // Remove any text after prompt starters
+    for (const starter of promptStarters) {
+      const match = cleaned.match(starter)
+      if (match && match.index !== undefined) {
+        // Keep only the text before the prompt starter
+        cleaned = cleaned.substring(0, match.index).trim()
+        break
+      }
+    }
+    
+    // If goal text is very long (over 100 chars), it might contain prompt content
+    // Try to extract just the goal part (usually the first sentence or before first period)
+    if (cleaned.length > 100) {
+      // Split on periods, newlines, or common separators
+      const parts = cleaned.split(/[\.\n]/)
+      if (parts.length > 1) {
+        // Take the first part that's reasonable length
+        const firstPart = parts[0].trim()
+        if (firstPart.length > 0 && firstPart.length < 100) {
+          // Check if first part doesn't look like a prompt
+          const looksLikePrompt = promptStarters.some(p => p.test(firstPart))
+          if (!looksLikePrompt) {
+            cleaned = firstPart
+          }
+        }
+      }
+    }
+    
+    return cleaned
+  }
+
   // Load active images from database if userId is provided and no images prop
   useEffect(() => {
     if (userId && images.length === 0) {
@@ -342,10 +412,10 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
               <div className="max-w-2xl">
                 {/* Goal Text with Due Date - Prominent if enabled */}
                 {goalTextEnabled && hasGoal(image) && (
-                  <div className="mb-4 bg-black/25 backdrop-blur-lg rounded-xl px-6 py-4 border border-white/20">
+                  <div className="mb-4 bg-black/70 backdrop-blur-md rounded-xl px-6 py-4 border-2 border-white/30 shadow-2xl">
                     <p className="text-2xl md:text-3xl font-bold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                      {image.goal}
-                      {image.due_date && (() => {
+                      {cleanGoalText(image.goal)}
+                      {image.due_date ? (() => {
                         const interval = getClosestInterval(image.due_date)
                         const option = INTERVAL_OPTIONS.find(opt => opt.value === interval)
                         return (
@@ -369,26 +439,17 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
                             />
                           </span>
                         )
-                      })()}
+                      })() : (
+                        <span className="ml-3 text-lg md:text-xl font-normal text-white/70">
+                          (No due date)
+                        </span>
+                      )}
                     </p>
                   </div>
                 )}
-                {/* Title/Filename display */}
-                {/* Show title only if: 
-                    1. fileNameEnabled is true (show all titles including filename-like ones), OR
-                    2. The title does NOT look like a filename (always show human-friendly titles)
-                    When fileNameEnabled is false and title looks like a filename, hide it.
-                */}
-                {image.title && (fileNameEnabled || !titleLooksLikeFileName(image.title)) && (
-                  <h3 className="text-xl md:text-2xl font-bold mb-2 drop-shadow-lg">
-                    {image.title}
-                  </h3>
-                )}
-                {image.description && (
-                  <p className="text-sm md:text-base text-white/90 drop-shadow">
-                    {image.description}
-                  </p>
-                )}
+                {/* Title and Description are HIDDEN on carousel - only show goal + due date */}
+                {/* Title/description can be viewed in the gallery modal or thumbnail gallery if needed */}
+                {/* This prevents prompt text from appearing on carousel images */}
               </div>
             </div>
           </div>

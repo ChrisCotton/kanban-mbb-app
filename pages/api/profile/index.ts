@@ -208,12 +208,24 @@ async function updateProfile(req: NextApiRequest, res: NextApiResponse) {
     console.log('💾 API key fields being updated:', updatingApiKeys)
   }
   
-  // Upsert the profile
-  const { data: profile, error } = await getSupabase()
+  // Separate API key fields from other fields
+  const apiKeyUpdateData: Record<string, any> = {}
+  const nonApiKeyUpdateData: Record<string, any> = {}
+  
+  Object.keys(updateData).forEach(key => {
+    if (apiKeyFields.includes(key)) {
+      apiKeyUpdateData[key] = updateData[key]
+    } else {
+      nonApiKeyUpdateData[key] = updateData[key]
+    }
+  })
+
+  // First, try to update non-API-key fields (these should always exist)
+  let { data: profile, error } = await getSupabase()
     .from('user_profile')
     .upsert({
       user_id,
-      ...updateData,
+      ...nonApiKeyUpdateData,
       updated_at: new Date().toISOString()
     }, {
       onConflict: 'user_id'
@@ -221,26 +233,63 @@ async function updateProfile(req: NextApiRequest, res: NextApiResponse) {
     .select()
     .single()
 
-  if (error) {
-    console.error('❌ Error updating profile:', error)
-    console.error('❌ Error code:', error.code)
-    console.error('❌ Error message:', error.message)
-    console.error('❌ Error details:', JSON.stringify(error, null, 2))
-    
-    // Check if it's a column doesn't exist error
-    if (error.message?.includes('column') && error.message?.includes('does not exist')) {
-      return res.status(500).json({ 
-        error: 'Database schema error',
-        details: 'API key columns may not exist. Please run database migrations: npm run migrate or supabase db push',
-        migrationHint: 'Run: supabase db push or check migrations/031_add_all_llm_api_keys_to_user_profile.sql'
-      })
-    }
-    
+  // If basic update failed, return error
+  if (error && error.code !== 'PGRST116') {
+    console.error('❌ Error updating profile (non-API fields):', error)
     return res.status(500).json({ 
       error: 'Failed to update profile',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       code: error.code
     })
+  }
+
+  // Now try to update API key fields if any were provided
+  if (Object.keys(apiKeyUpdateData).length > 0) {
+    const apiKeyUpdate = await getSupabase()
+      .from('user_profile')
+      .upsert({
+        user_id,
+        ...apiKeyUpdateData,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      })
+      .select()
+      .single()
+
+    if (apiKeyUpdate.error) {
+      // Check if it's a missing column error
+      if (apiKeyUpdate.error.code === '42703' || 
+          (apiKeyUpdate.error.message?.includes('column') && apiKeyUpdate.error.message?.includes('does not exist'))) {
+        // Extract missing column name
+        const missingColumnMatch = apiKeyUpdate.error.message?.match(/column "?(\w+)"? does not exist/i)
+        const missingColumn = missingColumnMatch ? missingColumnMatch[1] : 'unknown'
+        
+        console.warn(`⚠️ API key column "${missingColumn}" does not exist. Profile updated without API keys.`)
+        
+        // Return success for non-API fields, but warn about missing columns
+        return res.status(200).json({
+          success: true,
+          data: profile,
+          message: 'Profile updated successfully',
+          warning: `API key fields could not be saved: column "${missingColumn}" does not exist in the database.`,
+          skippedFields: Object.keys(apiKeyUpdateData),
+          migrationHint: 'To enable API key storage, run: supabase db push or manually execute database/migrations/028_add_api_keys_to_user_profile.sql'
+        })
+      }
+      
+      // Other error updating API keys
+      console.error('❌ Error updating API key fields:', apiKeyUpdate.error)
+      return res.status(500).json({ 
+        error: 'Failed to update API key fields',
+        details: process.env.NODE_ENV === 'development' ? apiKeyUpdate.error.message : undefined,
+        code: apiKeyUpdate.error.code,
+        message: 'Profile was updated but API keys could not be saved'
+      })
+    }
+    
+    // API keys updated successfully
+    profile = apiKeyUpdate.data
   }
 
   console.log('✅ Profile updated successfully')
