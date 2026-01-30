@@ -222,12 +222,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'hidden'
+      // Don't prevent body scrolling - let the backdrop handle scrolling
+      // This allows the footer to be accessible when scrolling the backdrop
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'unset'
     }
   }, [isOpen, isEditing])
 
@@ -310,9 +310,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[80] flex items-start justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
       <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] my-auto flex flex-col transition-all duration-150 ${
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] mt-4 mb-4 flex flex-col transition-all duration-150 ${
           isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
         }`}
       >
@@ -393,9 +393,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {/* Modal Body - Scrollable */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-y-auto">
           {/* Task Details Panel */}
-          <div className="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+          <div className="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700">
             <div className="space-y-6">
               {/* Task Title */}
               <div>
@@ -774,7 +774,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
           {/* Comments Panel */}
           <div className="w-1/2 flex flex-col">
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1">
               <div className="p-6">
                 {commentsError ? (
                   <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">

@@ -3,12 +3,17 @@ import { useRouter } from 'next/router'
 import Layout from '@/components/layout/Layout'
 import JournalView from '@/components/journal/JournalView'
 import { supabase } from '../lib/supabase'
+import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import { useGoalsStore } from '../src/stores/goals.store'
 
 const JournalPage = () => {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [visionBoardImages, setVisionBoardImages] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Goals store for header strip
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,6 +38,22 @@ const JournalPage = () => {
 
     getUser()
   }, [router])
+
+  // Fetch goals on mount
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals()
+    }
+  }, [goals.length, fetchGoals])
+
+  const handleGoalClick = (goalId) => {
+    // Toggle goal filter
+    if (activeGoalFilter === goalId) {
+      setActiveGoalFilter(null)
+    } else {
+      setActiveGoalFilter(goalId)
+    }
+  }
 
   if (loading) {
     return (
@@ -59,6 +80,14 @@ const JournalPage = () => {
               Record your thoughts and ideas as audio entries. Your recordings will be automatically transcribed and you can edit the transcripts using markdown formatting.
             </p>
           </div>
+
+          {/* Goals Header Strip */}
+          <GoalsHeaderStrip
+            goals={goals.filter((g) => g.status === 'active')}
+            activeGoalId={activeGoalFilter}
+            onGoalClick={handleGoalClick}
+            className="mb-6"
+          />
           
           <JournalView userId={user?.id} />
         </div>

@@ -136,8 +136,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setError(null)
     
     try {
-      console.log('Loading tasks from API...')
-      
       const response = await fetch('/api/kanban/tasks')
       
       if (!response.ok) {
@@ -155,7 +153,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         task.due_date != null
       )
       
-      console.log('Loaded tasks with due dates:', tasksWithDueDates)
       setTasks(tasksWithDueDates)
     } catch (err) {
       console.error('Error loading tasks:', err)

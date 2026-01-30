@@ -15,16 +15,30 @@ const TaskGoalLink: React.FC<TaskGoalLinkProps> = ({
   linkedGoals,
   onLinkChange,
 }) => {
-  const { goals, fetchGoals } = useGoalsStore();
+  const { goals, fetchGoals, isLoading: goalsStoreLoading, error: goalsStoreError } = useGoalsStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
-    if (goals.length === 0) {
-      fetchGoals();
+    // Always try to fetch goals if we don't have any, or if the store might be stale
+    if (goals.length === 0 && !goalsStoreLoading) {
+      console.log('[TaskGoalLink] Fetching goals...')
+      fetchGoals().catch((error) => {
+        console.error('[TaskGoalLink] Error fetching goals:', error)
+        alert(`Failed to load goals: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goals.length]);
+  }, [goals.length, goalsStoreLoading]);
+
+  // Log goals store state for debugging
+  useEffect(() => {
+    console.log('[TaskGoalLink] Goals state:', {
+      goalsCount: goals.length,
+      isLoading: goalsStoreLoading,
+      error: goalsStoreError
+    })
+  }, [goals.length, goalsStoreLoading, goalsStoreError])
 
   // Get linked goal IDs
   const linkedGoalIds = linkedGoals.map((lg) => lg.goal_id);

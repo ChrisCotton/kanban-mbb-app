@@ -86,6 +86,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
 
   // Optimistic tasks state for instant drag feedback
   const [optimisticTasks, setOptimisticTasks] = useState<TasksByStatus | null>(null)
+  const optimisticTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  // Track the last moved task to verify it's in correct status before clearing optimistic state
+  const lastMovedTaskRef = React.useRef<{ taskId: string; expectedStatus: Task['status'] } | null>(null)
+  // Track previous tasks to detect when tasks prop actually updates
+  const prevTasksRef = React.useRef<TasksByStatus>(tasks)
 
   const tasksMatchByIdOrder = useCallback((left: TasksByStatus, right: TasksByStatus) => {
     const statuses: Task['status'][] = ['backlog', 'todo', 'doing', 'done']
@@ -94,26 +99,100 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
       const leftIds = left[status].map(task => task.id)
       const rightIds = right[status].map(task => task.id)
 
-      if (leftIds.length !== rightIds.length) return false
+      if (leftIds.length !== rightIds.length) {
+        return false
+      }
 
-      return leftIds.every((id, index) => id === rightIds[index])
+      // Check if the sets of IDs match (same tasks, order doesn't matter)
+      // This handles cases where server returns tasks in different order
+      const leftSet = new Set(leftIds)
+      const rightSet = new Set(rightIds)
+      return leftIds.every(id => rightSet.has(id)) && rightIds.every(id => leftSet.has(id))
     })
   }, [])
 
   // Clear optimistic state when tasks update from server (after background refetch)
   useEffect(() => {
     if (optimisticTasks !== null) {
+      const matchResult = tasksMatchByIdOrder(tasks, optimisticTasks)
+
       // Only clear optimistic state when server data matches it
-      if (tasksMatchByIdOrder(tasks, optimisticTasks)) {
-        setOptimisticTasks(null)
+      // This ensures we don't revert to stale data
+      if (matchResult) {
+        // Additional verification: Check if the moved task is actually in the correct status
+        // AND if tasks prop has actually updated (not stale)
+        let shouldClear = true
+        if (lastMovedTaskRef.current) {
+          const { taskId, expectedStatus } = lastMovedTaskRef.current
+          const taskInExpectedStatus = tasks[expectedStatus]?.some(t => t.id === taskId)
+          
+          // Check if tasks prop has actually changed from previous render by comparing task IDs
+          // This ensures we're not clearing optimistic state with stale props
+          const prevTaskIds = prevTasksRef.current[expectedStatus]?.map(t => t.id) || []
+          const currentTaskIds = tasks[expectedStatus]?.map(t => t.id) || []
+          const tasksChanged = prevTaskIds.length !== currentTaskIds.length || 
+            !prevTaskIds.every((id, idx) => id === currentTaskIds[idx])
+          
+          if (!taskInExpectedStatus || !tasksChanged) {
+            // Task is not in expected status yet, or tasks prop hasn't changed - keep optimistic state
+            shouldClear = false
+          }
+        }
+        
+        if (shouldClear) {
+          // Clear any pending timeout
+          if (optimisticTimeoutRef.current) {
+            clearTimeout(optimisticTimeoutRef.current)
+            optimisticTimeoutRef.current = null
+          }
+          
+          // Use small delay for clearing optimistic state to ensure React has propagated state updates
+          const tasksAtScheduleTime = tasks
+          optimisticTimeoutRef.current = setTimeout(() => {
+            optimisticTimeoutRef.current = null
+            setOptimisticTasks(null)
+            lastMovedTaskRef.current = null
+            prevTasksRef.current = tasksAtScheduleTime
+          }, 50)
+        } else {
+          // Update prevTasksRef even when not clearing optimistic state
+          prevTasksRef.current = tasks
+        }
+      } else {
+        // If data doesn't match, keep optimistic state to prevent snap-back
+        // Set a fallback timeout to clear optimistic state after 5 seconds
+        if (!optimisticTimeoutRef.current) {
+          optimisticTimeoutRef.current = setTimeout(() => {
+            setOptimisticTasks(null)
+            optimisticTimeoutRef.current = null
+          }, 5000)
+        }
+        prevTasksRef.current = tasks
+      }
+    } else {
+      // No optimistic state, just update prevTasksRef
+      prevTasksRef.current = tasks
+    }
+    
+    return () => {
+      if (optimisticTimeoutRef.current) {
+        clearTimeout(optimisticTimeoutRef.current)
+        optimisticTimeoutRef.current = null
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, optimisticTasks, tasksMatchByIdOrder])
 
   // Handle optimistic updates for drag and drop (memoized to prevent recreation)
-  const handleOptimisticUpdate = useCallback((updatedTasks: typeof tasks) => {
+  const handleOptimisticUpdate = useCallback((updatedTasks: typeof tasks, movedTaskId?: string, newStatus?: Task['status']) => {
     // Apply optimistic UI update immediately for instant feedback
     setOptimisticTasks(updatedTasks)
+    // Track the moved task for verification (or clear if undefined)
+    if (movedTaskId && newStatus) {
+      lastMovedTaskRef.current = { taskId: movedTaskId, expectedStatus: newStatus }
+    } else {
+      lastMovedTaskRef.current = null // Clear tracking on error/revert
+    }
   }, [])
 
   // Use optimistic tasks if available (applies to BOTH regular and search modes)
@@ -123,12 +202,20 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
   // Wrapper functions to match SwimLane interface expectations
   // MEMOIZED to prevent useDragAndDrop from recreating on every render
   const handleTaskMove = useCallback(async (taskId: string, newStatus: Task['status'], newOrderIndex: number) => {
-    await moveTask(taskId, newStatus, newOrderIndex)
-    
-    // DON'T clear optimistic state immediately - let background refetch handle it
-    // This prevents the "snap back" effect when fetchTasks returns stale data
-    // setOptimisticTasks(null) is called when fetchTasks completes
-  }, [moveTask]) // Memoize with dependencies
+    try {
+      await moveTask(taskId, newStatus, newOrderIndex)
+      // DON'T clear optimistic state immediately - let background refetch handle it
+      // The optimistic state will persist until fetchTasks returns matching data
+      // This prevents the "snap back" effect when fetchTasks returns stale data
+    } catch (error) {
+      console.error('[KanbanBoard] Task move failed:', error)
+      // On error, revert optimistic update immediately
+      if (optimisticTasks !== null) {
+        setOptimisticTasks(null)
+      }
+      throw error
+    }
+  }, [moveTask, optimisticTasks]) // Memoize with dependencies
 
   const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {
     console.log('🔄 handleTaskUpdate called:', { taskId, updates })
@@ -560,6 +647,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           onClear={handleClearSearch}
           isLoading={isSearching}
           className="mb-6"
+          isSearchMode={isSearchMode}
         />
 
         {/* Board Header */}

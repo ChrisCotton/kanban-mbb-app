@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { updateComment, deleteComment } from '../../../../lib/database/kanban-queries'
+import { createClient } from '@supabase/supabase-js'
+
+// Use service role key to bypass RLS for server-side operations
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
@@ -38,11 +44,45 @@ async function handleUpdateComment(req: NextApiRequest, res: NextApiResponse, id
   }
 
   try {
-    const updatedComment = await updateComment(id, content.trim())
+    // Update the comment using service role client
+    const { data, error } = await supabase
+      .from('comments')
+      .update({ 
+        content: content.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+
+    if (error) {
+      throw new Error(`Failed to update comment: ${error.message}`)
+    }
+
+    // Check if any rows were updated
+    if (!data || data.length === 0) {
+      // Check if comment exists
+      const { data: existingComment } = await supabase
+        .from('comments')
+        .select('id')
+        .eq('id', id)
+        .single()
+
+      if (!existingComment) {
+        return res.status(404).json({ 
+          error: 'Comment not found',
+          id 
+        })
+      } else {
+        return res.status(403).json({ 
+          error: 'You don\'t have permission to update this comment',
+          id 
+        })
+      }
+    }
     
     return res.status(200).json({
       success: true,
-      data: updatedComment,
+      data: data[0],
       message: 'Comment updated successfully'
     })
   } catch (error) {
@@ -58,7 +98,15 @@ async function handleUpdateComment(req: NextApiRequest, res: NextApiResponse, id
 
 async function handleDeleteComment(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    await deleteComment(id)
+    // Delete the comment using service role client
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      throw new Error(`Failed to delete comment: ${error.message}`)
+    }
     
     return res.status(200).json({
       success: true,

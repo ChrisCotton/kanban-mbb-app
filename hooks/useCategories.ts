@@ -106,7 +106,15 @@ export function useCategories(): UseCategoriesReturn {
         throw new Error(result.error || 'Failed to load categories')
       }
       
-      setCategories(result.data || [])
+      // Normalize categories: ensure hourly_rate_usd is available
+      // API returns hourly_rate_usd, but we also support hourly_rate for compatibility
+      const normalizedCategories = (result.data || []).map((cat: any) => ({
+        ...cat,
+        hourly_rate: cat.hourly_rate ?? cat.hourly_rate_usd ?? 0,
+        hourly_rate_usd: cat.hourly_rate_usd ?? cat.hourly_rate ?? 0
+      }))
+      
+      setCategories(normalizedCategories)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // Request was cancelled, ignore

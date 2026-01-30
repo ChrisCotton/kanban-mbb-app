@@ -3,12 +3,17 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import CalendarView from '../components/calendar/CalendarView'
+import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import { useGoalsStore } from '../src/stores/goals.store'
 
 const CalendarPage = () => {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [visionBoardImages, setVisionBoardImages] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Goals store for header strip
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,6 +38,22 @@ const CalendarPage = () => {
 
     getUser()
   }, [router])
+
+  // Fetch goals on mount
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals()
+    }
+  }, [goals.length, fetchGoals])
+
+  const handleGoalClick = (goalId) => {
+    // Toggle goal filter (same behavior as KanbanBoard)
+    if (activeGoalFilter === goalId) {
+      setActiveGoalFilter(null)
+    } else {
+      setActiveGoalFilter(goalId)
+    }
+  }
 
   if (loading) {
     return (
@@ -59,6 +80,14 @@ const CalendarPage = () => {
               View and manage your tasks by their due dates. Click on any date to see tasks scheduled for that day.
             </p>
           </div>
+
+          {/* Goals Header Strip */}
+          <GoalsHeaderStrip
+            goals={goals.filter((g) => g.status === 'active')}
+            activeGoalId={activeGoalFilter}
+            onGoalClick={handleGoalClick}
+            className="mb-6"
+          />
           
           <CalendarView userId={user?.id} />
         </div>

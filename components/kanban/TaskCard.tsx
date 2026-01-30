@@ -4,7 +4,6 @@ import React from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
-import { useSubtaskProgress } from '../../hooks/useSubtaskProgress'
 import { formatCurrency } from '../../lib/utils/currency-formatter'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
 
@@ -31,7 +30,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   isSelected = false,
   onToggleSelection
 }) => {
-  const { total, completed, loading } = useSubtaskProgress(task.id)
+  // PERFORMANCE FIX: Use subtask counts from task object instead of fetching individually
+  // This eliminates N+1 query problem (was making 1 API call per task!)
+  const total = task.subtask_count || 0
+  const completed = task.subtask_completed || 0
+  const loading = false // No longer loading since counts come with task
 
   const formatDate = (dateString: string) => {
     // Use parseLocalDate to avoid timezone shifts

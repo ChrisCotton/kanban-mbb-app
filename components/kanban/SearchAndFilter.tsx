@@ -11,6 +11,7 @@ interface SearchAndFilterProps {
   isLoading?: boolean
   className?: string
   userId?: string
+  isSearchMode?: boolean  // Add this so we can show "Exit Search" when in search mode
 }
 
 export interface SearchFilters {
@@ -28,7 +29,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onClear,
   isLoading = false,
   className = '',
-  userId
+  userId,
+  isSearchMode = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -49,11 +51,23 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
     }, 300)
   }, [onSearch])
 
-  // Handle search query changes
+  // Handle search query changes - but only trigger search if there's an actual query
+  // Don't trigger search on mount with empty query (this was causing permanent search mode)
+  const isFirstRender = useRef(true)
   useEffect(() => {
+    // Skip the first render to avoid triggering search on mount
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    
     const newFilters = { ...filters, query: searchQuery || undefined }
     setFilters(newFilters)
-    performSearch(newFilters)
+    
+    // Only trigger search if there's an actual search query
+    if (searchQuery && searchQuery.trim()) {
+      performSearch(newFilters)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]) // Only depend on searchQuery, not performSearch (performSearch is stable via useCallback)
 
@@ -136,12 +150,12 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             )}
           </button>
           
-          {hasActiveFilters && (
+          {(hasActiveFilters || isSearchMode) && (
             <button
               onClick={handleClearAll}
-              className="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              className="px-3 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
-              Clear
+              {isSearchMode ? '✕ Exit Search' : 'Clear'}
             </button>
           )}
         </div>

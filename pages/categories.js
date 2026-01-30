@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import CategoryManager from '../components/ui/CategoryManager'
 import CategoryBulkUpload from '../components/ui/CategoryBulkUpload'
+import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import { useGoalsStore } from '../src/stores/goals.store'
 
 const CategoriesPage = () => {
   const router = useRouter()
@@ -11,6 +13,9 @@ const CategoriesPage = () => {
   const [visionBoardImages, setVisionBoardImages] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCSVUpload, setShowCSVUpload] = useState(false)
+
+  // Goals store for header strip
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
     const getUser = async () => {
@@ -36,6 +41,22 @@ const CategoriesPage = () => {
 
     getUser()
   }, [router])
+
+  // Fetch goals on mount
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals()
+    }
+  }, [goals.length, fetchGoals])
+
+  const handleGoalClick = (goalId) => {
+    // Toggle goal filter
+    if (activeGoalFilter === goalId) {
+      setActiveGoalFilter(null)
+    } else {
+      setActiveGoalFilter(goalId)
+    }
+  }
 
   // Handle CSV upload completion
   const handleCSVUploadComplete = (uploadedCount) => {
@@ -80,6 +101,14 @@ const CategoriesPage = () => {
               </button>
             </div>
           </div>
+
+          {/* Goals Header Strip */}
+          <GoalsHeaderStrip
+            goals={goals.filter((g) => g.status === 'active')}
+            activeGoalId={activeGoalFilter}
+            onGoalClick={handleGoalClick}
+            className="mb-6"
+          />
 
           {/* Enhanced Category Manager with CSV functionality */}
           <CategoryManager 

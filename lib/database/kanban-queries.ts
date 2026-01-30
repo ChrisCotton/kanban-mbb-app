@@ -39,6 +39,8 @@ export interface Category {
 
 export interface TaskWithCategory extends Task {
   category?: Category
+  subtask_count?: number
+  subtask_completed?: number
 }
 
 export interface Comment {
@@ -124,13 +126,39 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
     throw new Error(`Failed to fetch tasks: ${error.message}`)
   }
 
-  console.log('[getTasks] Fetched tasks with categories:', data?.map(t => ({
-    title: t.title,
-    category: t.category?.name,
-    rate: (t.category as any)?.hourly_rate_usd
-  })))
+  // PERFORMANCE FIX: Batch fetch all subtask counts in one query instead of N+1 queries
+  // Get all task IDs from the fetched tasks
+  const fetchedTaskIds = data?.map(t => t.id) || []
+  
+  let subtaskCounts: Record<string, { total: number; completed: number }> = {}
+  
+  if (fetchedTaskIds.length > 0) {
+    // Fetch all subtasks for these tasks in one query
+    const { data: allSubtasks, error: subtasksError } = await supabase
+      .from('subtasks')
+      .select('task_id, completed')
+      .in('task_id', fetchedTaskIds)
+    
+    if (!subtasksError && allSubtasks) {
+      // Calculate counts per task
+      fetchedTaskIds.forEach(taskId => {
+        const taskSubtasks = allSubtasks.filter(s => s.task_id === taskId)
+        subtaskCounts[taskId] = {
+          total: taskSubtasks.length,
+          completed: taskSubtasks.filter(s => s.completed).length
+        }
+      })
+    }
+  }
 
-  return data as TaskWithCategory[]
+  // Add subtask counts to each task
+  const tasksWithCounts = (data || []).map(task => ({
+    ...task,
+    subtask_count: subtaskCounts[task.id]?.total || 0,
+    subtask_completed: subtaskCounts[task.id]?.completed || 0
+  }))
+
+  return tasksWithCounts as TaskWithCategory[]
 }
 
 /**
@@ -219,7 +247,35 @@ export async function searchTasks(params: {
     filteredData = filteredData.filter(task => taskIdsWithTags.includes(task.id))
   }
 
-  return filteredData
+  // PERFORMANCE FIX: Batch fetch all subtask counts in one query instead of N+1 queries
+  const fetchedTaskIds = filteredData.map(t => t.id)
+  let subtaskCounts: Record<string, { total: number; completed: number }> = {}
+  
+  if (fetchedTaskIds.length > 0) {
+    const { data: allSubtasks, error: subtasksError } = await supabase
+      .from('subtasks')
+      .select('task_id, completed')
+      .in('task_id', fetchedTaskIds)
+    
+    if (!subtasksError && allSubtasks) {
+      fetchedTaskIds.forEach(taskId => {
+        const taskSubtasks = allSubtasks.filter(s => s.task_id === taskId)
+        subtaskCounts[taskId] = {
+          total: taskSubtasks.length,
+          completed: taskSubtasks.filter(s => s.completed).length
+        }
+      })
+    }
+  }
+
+  // Add subtask counts to each task
+  const tasksWithCounts = filteredData.map(task => ({
+    ...task,
+    subtask_count: subtaskCounts[task.id]?.total || 0,
+    subtask_completed: subtaskCounts[task.id]?.completed || 0
+  }))
+
+  return tasksWithCounts as TaskWithCategory[]
 }
 
 /**
@@ -388,18 +444,38 @@ export async function createComment(commentData: Omit<Comment, 'id' | 'created_a
  * Update an existing comment
  */
 export async function updateComment(id: string, content: string) {
+  // Update the comment - don't use .single() initially to avoid the error
   const { data, error } = await supabase
     .from('comments')
-    .update({ content })
+    .update({ 
+      content,
+      updated_at: new Date().toISOString()
+    })
     .eq('id', id)
     .select()
-    .single()
 
   if (error) {
     throw new Error(`Failed to update comment: ${error.message}`)
   }
 
-  return data as Comment
+  // Check if any rows were updated
+  if (!data || data.length === 0) {
+    // Check if comment exists (might be permission issue)
+    const { data: existingComment } = await supabase
+      .from('comments')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (!existingComment) {
+      throw new Error(`Comment not found`)
+    } else {
+      throw new Error(`You don't have permission to update this comment`)
+    }
+  }
+
+  // Return the first (and should be only) updated comment
+  return data[0] as Comment
 }
 
 /**

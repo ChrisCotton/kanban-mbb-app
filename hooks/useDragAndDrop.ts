@@ -143,14 +143,15 @@ export const useDragAndDrop = ({
     }
 
     try {
+      // Persist changes to backend
+      const newStatus = destination.droppableId as Task['status']
+      
       // Perform optimistic update if callback provided
       if (onOptimisticUpdate) {
         const optimisticTasks = moveTaskBetweenColumns(source, destination, tasks)
-        onOptimisticUpdate(optimisticTasks)
+        onOptimisticUpdate(optimisticTasks, draggableId, newStatus)
       }
 
-      // Persist changes to backend
-      const newStatus = destination.droppableId as Task['status']
       await onTaskMove(draggableId, newStatus, destination.index)
 
     } catch (error) {
@@ -158,7 +159,7 @@ export const useDragAndDrop = ({
       
       // Revert optimistic update on error if callback provided
       if (onOptimisticUpdate) {
-        onOptimisticUpdate(tasks)
+        onOptimisticUpdate(tasks, undefined, undefined) // Clear tracking by passing undefined
       }
       
       // You might want to show a toast notification here

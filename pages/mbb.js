@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import { useRealtimeAnalytics } from '../hooks/useRealtimeAnalytics'
 import { useTimerContext } from '../contexts/TimerContext'
+import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import { useGoalsStore } from '../src/stores/goals.store'
 
 const MBBPage = () => {
   const router = useRouter()
@@ -12,6 +14,9 @@ const MBBPage = () => {
   
   // Get live timer data from context to combine with DB analytics
   const { timers, totalEarnings: liveTimerEarnings, totalActiveTimers } = useTimerContext()
+
+  // Goals store for header strip
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   // Restore target from localStorage on mount (fallback for when DB table doesn't exist)
   useEffect(() => {
@@ -207,6 +212,22 @@ const MBBPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, timeSessionsPage, timeSessionsPerPage])
 
+  // Fetch goals on mount
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals()
+    }
+  }, [goals.length, fetchGoals])
+
+  const handleGoalClick = (goalId) => {
+    // Toggle goal filter
+    if (activeGoalFilter === goalId) {
+      setActiveGoalFilter(null)
+    } else {
+      setActiveGoalFilter(goalId)
+    }
+  }
+
   // Handle updating target balance
   const handleUpdateTarget = async (e) => {
     e.preventDefault()
@@ -333,6 +354,14 @@ const MBBPage = () => {
               Track your progress towards your financial goals and analyze your earning patterns.
             </p>
           </div>
+
+          {/* Goals Header Strip */}
+          <GoalsHeaderStrip
+            goals={goals.filter((g) => g.status === 'active')}
+            activeGoalId={activeGoalFilter}
+            onGoalClick={handleGoalClick}
+            className="mb-6"
+          />
 
           {/* Action Buttons Row */}
           <div className="flex items-center gap-3 mb-8">

@@ -256,11 +256,11 @@ export const useKanban = (): UseKanbanReturn => {
         throw new Error(result.error || 'Failed to move task')
       }
 
-      // Schedule background refetch after a delay to ensure DB has propagated
-      // This prevents race conditions where fetchTasks returns stale data
+      // Schedule background refetch after a delay to ensure DB has fully propagated
+      // The optimistic UI update will remain visible until the refetch completes with correct data
       setTimeout(() => {
         fetchTasks()
-      }, 500)
+      }, 1000)
       
       return result.data
     } catch (err) {

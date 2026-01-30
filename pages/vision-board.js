@@ -6,6 +6,8 @@ import ThumbnailGallery from '../components/vision-board/ThumbnailGallery'
 import VisionBoardGalleryModal from '../components/vision-board/VisionBoardGalleryModal'
 import { ImageUploader } from '../components/vision-board/ImageUploader'
 import AIGenerator from '../components/vision-board/AIGenerator'
+import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import { useGoalsStore } from '../src/stores/goals.store'
 
 const VisionBoardPage = () => {
   const router = useRouter()
@@ -17,6 +19,9 @@ const VisionBoardPage = () => {
   const [aiProvider, setAiProvider] = useState('nano_banana')
   const [galleryModalOpen, setGalleryModalOpen] = useState(false)
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0)
+
+  // Goals store for header strip
+  const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   // Load vision board images
   const loadVisionBoardImages = useCallback(async (userId) => {
@@ -71,6 +76,22 @@ const VisionBoardPage = () => {
 
     getUser()
   }, [router, loadVisionBoardImages, loadUserProfile])
+
+  // Fetch goals on mount
+  useEffect(() => {
+    if (goals.length === 0) {
+      fetchGoals()
+    }
+  }, [goals.length, fetchGoals])
+
+  const handleGoalClick = (goalId) => {
+    // Toggle goal filter
+    if (activeGoalFilter === goalId) {
+      setActiveGoalFilter(null)
+    } else {
+      setActiveGoalFilter(goalId)
+    }
+  }
 
   // Handle image selection in gallery
   const handleImageSelect = useCallback((imageId) => {
@@ -257,6 +278,14 @@ const VisionBoardPage = () => {
               Upload and manage your vision board images. Toggle images active/inactive to control which ones appear in the carousel header.
             </p>
           </div>
+
+          {/* Goals Header Strip */}
+          <GoalsHeaderStrip
+            goals={goals.filter((g) => g.status === 'active')}
+            activeGoalId={activeGoalFilter}
+            onGoalClick={handleGoalClick}
+            className="mb-6"
+          />
           
           {/* Upload Success Message */}
           {uploadSuccess && (
