@@ -1,6 +1,7 @@
 import React from 'react';
 import { GoalWithRelations } from '../../types/goals';
 import { parseLocalDate } from '../../../lib/utils/date-helpers';
+import ColorDot from './ColorDot';
 
 interface GoalCardProps {
   goal: GoalWithRelations;
@@ -131,7 +132,8 @@ export default function GoalCard({
       {/* Content */}
       <div className="p-4">
         {/* Title */}
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 flex items-center gap-2">
+          <ColorDot dueDate={goal.target_date} size="sm" />
           {goal.title}
         </h3>
 

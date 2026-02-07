@@ -19,10 +19,26 @@ interface Task {
   }
 }
 
+interface Goal {
+  id: string
+  title: string
+  description?: string | null
+  target_date: string | null
+  status: 'active' | 'completed' | 'archived'
+  icon?: string | null
+  color?: string | null
+  category?: {
+    id?: string
+    name: string
+    color: string
+  } | null
+}
+
 interface CalendarViewProps {
   userId?: string
   className?: string
   onTaskSelect?: (task: Task) => void
+  goals?: Goal[] // Goals to display on calendar
 }
 
 interface CalendarDay {
@@ -30,6 +46,7 @@ interface CalendarDay {
   isCurrentMonth: boolean
   isToday: boolean
   tasks: Task[]
+  goals: Goal[] // Goals for this date
   weather?: any // Weather data for this date
 }
 
@@ -56,7 +73,8 @@ const STATUS_COLORS = {
 const CalendarView: React.FC<CalendarViewProps> = ({
   userId,
   className = '',
-  onTaskSelect
+  onTaskSelect,
+  goals = []
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [tasks, setTasks] = useState<Task[]>([])
@@ -64,6 +82,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showTaskModal, setShowTaskModal] = useState(false)
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null)
+  const [showGoalModal, setShowGoalModal] = useState(false)
 
   // Weather data integration
   const { startDate, endDate } = getCurrentMonthDateRange(currentDate)
@@ -108,10 +128,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const dayTasks = tasks.filter(task => {
         if (!task.due_date) return false
         // Use parseLocalDate to avoid timezone shifts
-        const { parseLocalDate } = require('../../lib/utils/date-helpers')
         const taskDate = parseLocalDate(task.due_date)
         taskDate.setHours(0, 0, 0, 0)
         return taskDate.getTime() === date.getTime()
+      })
+
+      // Find goals for this date (only active goals with target_date)
+      const dayGoals = goals.filter(goal => {
+        if (!goal.target_date || goal.status !== 'active') return false
+        // Use parseLocalDate to avoid timezone shifts
+        const goalDate = parseLocalDate(goal.target_date)
+        goalDate.setHours(0, 0, 0, 0)
+        return goalDate.getTime() === date.getTime()
       })
 
       // Find weather data for this date
@@ -123,12 +151,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         isCurrentMonth,
         isToday,
         tasks: dayTasks,
+        goals: dayGoals,
         weather: dayWeather
       })
     }
     
     return days
-  }, [currentDate, tasks])
+  }, [currentDate, tasks, goals])
 
   // Load tasks from API endpoint
   const loadTasks = useCallback(async () => {
@@ -182,6 +211,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (onTaskSelect) {
       onTaskSelect(task)
     }
+  }
+
+  // Goal interaction
+  const handleGoalClick = (goal: Goal) => {
+    setSelectedGoal(goal)
+    setShowGoalModal(true)
   }
 
   // Effects
@@ -317,9 +352,49 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   </div>
                 )}
 
+                {/* Goals Section */}
+                <div className="space-y-1 mb-1">
+                  {day.goals.map(goal => {
+                    const goalColor = goal.color || goal.category?.color || '#8B5CF6'
+                    const goalIcon = goal.icon || '🎯'
+                    
+                    // Convert hex color to rgba for background with opacity
+                    const hexToRgba = (hex: string, alpha: number) => {
+                      const r = parseInt(hex.slice(1, 3), 16)
+                      const g = parseInt(hex.slice(3, 5), 16)
+                      const b = parseInt(hex.slice(5, 7), 16)
+                      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+                    }
+                    
+                    return (
+                      <div
+                        key={`goal-${goal.id}`}
+                        onClick={() => handleGoalClick(goal)}
+                        className="text-xs p-1 rounded border-l-4 cursor-pointer hover:shadow-sm transition-shadow backdrop-blur-sm"
+                        style={{
+                          borderLeftColor: goalColor,
+                          backgroundColor: hexToRgba(goalColor, 0.2),
+                          color: '#E9D5FF', // Light purple text
+                        }}
+                        title={`Goal: ${goal.title}${goal.category ? ` (${goal.category.name})` : ''}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs">{goalIcon}</span>
+                          <div className="truncate font-medium flex-1">{goal.title}</div>
+                        </div>
+                        {goal.category && (
+                          <div className="truncate opacity-80 text-[10px]">
+                            {goal.category.name}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
                 {/* Tasks Section */}
                 <div className="space-y-1">
-                  {day.tasks.slice(0, day.weather ? 2 : 3).map(task => {
+                  {day.tasks.slice(0, day.weather ? (day.goals.length > 0 ? 1 : 2) : (day.goals.length > 0 ? 2 : 3)).map(task => {
                     const taskClassName = `text-xs p-1 rounded border-l-2 cursor-pointer hover:shadow-sm transition-shadow backdrop-blur-sm ${
                       PRIORITY_COLORS[task.priority]
                     } ${STATUS_COLORS[task.status]}`
@@ -343,9 +418,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     )
                   })}
                   
-                  {day.tasks.length > (day.weather ? 2 : 3) && (
+                  {day.tasks.length > (day.weather ? (day.goals.length > 0 ? 1 : 2) : (day.goals.length > 0 ? 2 : 3)) && (
                     <div className="text-xs text-white/50 text-center">
-                      +{day.tasks.length - (day.weather ? 2 : 3)} more
+                      +{day.tasks.length - (day.weather ? (day.goals.length > 0 ? 1 : 2) : (day.goals.length > 0 ? 2 : 3))} more tasks
                     </div>
                   )}
                 </div>
@@ -414,6 +489,79 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">Category</label>
                   <p className="text-sm text-white/70">{selectedTask.category.name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGoalModal && selectedGoal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-white/20 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2 flex-1">
+                {selectedGoal.icon && (
+                  <span className="text-2xl">{selectedGoal.icon}</span>
+                )}
+                <h3 className="text-lg font-bold text-white">{selectedGoal.title}</h3>
+              </div>
+              <button
+                onClick={() => setShowGoalModal(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {selectedGoal.description && (
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Description</label>
+                  <p className="text-sm text-white/70">{selectedGoal.description}</p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Status</label>
+                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                    selectedGoal.status === 'active' 
+                      ? 'bg-green-500/20 text-green-300 border-green-400/30'
+                      : selectedGoal.status === 'completed'
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-400/30'
+                      : 'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                  }`}>
+                    {selectedGoal.status.charAt(0).toUpperCase() + selectedGoal.status.slice(1)}
+                  </span>
+                </div>
+                
+                {selectedGoal.category && (
+                  <div>
+                    <label className="block text-sm font-medium text-white/90 mb-1">Category</label>
+                    <span 
+                      className="inline-block px-2 py-1 text-xs font-medium rounded text-white"
+                      style={{ backgroundColor: selectedGoal.category.color || '#8B5CF6' }}
+                    >
+                      {selectedGoal.category.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {selectedGoal.target_date && (
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Target Date</label>
+                  <p className="text-sm text-white/70">
+                    {parseLocalDate(selectedGoal.target_date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
                 </div>
               )}
             </div>

@@ -64,10 +64,18 @@ jest.mock('../../hooks/useCategories', () => ({
   useCategories: () => ({
     categories: [],
     loading: false,
-    getCategoryById: jest.fn(() => null),
+    error: null,
+    submitting: false,
+    loadCategories: jest.fn().mockResolvedValue(undefined),
     createCategory: jest.fn(),
     updateCategory: jest.fn(),
     deleteCategory: jest.fn(),
+    bulkUpload: jest.fn(),
+    getCategoryById: jest.fn(() => null),
+    getCategoriesByIds: jest.fn(),
+    getActiveCategories: jest.fn(),
+    searchCategories: jest.fn(),
+    validateCategoryName: jest.fn(),
   }),
 }))
 

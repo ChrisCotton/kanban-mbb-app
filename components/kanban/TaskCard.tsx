@@ -6,6 +6,7 @@ import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
 import { formatCurrency } from '../../lib/utils/currency-formatter'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
+import ColorDot from '../../src/components/goals/ColorDot'
 
 interface TaskCardProps {
   task: TaskWithCategory
@@ -124,6 +125,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   </svg>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Color Dot - top-right corner */}
+          {(task.due_date || task.goal_target_date) && (
+            <div className="absolute top-2 right-2 z-10">
+              <ColorDot 
+                dueDate={task.due_date || task.goal_target_date} 
+                size="sm"
+                tooltip={task.goal_target_date && !task.due_date ? `Linked to goal - ${task.due_date || task.goal_target_date ? 'Due date' : 'No due date'}` : undefined}
+              />
             </div>
           )}
 

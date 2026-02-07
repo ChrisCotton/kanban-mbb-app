@@ -49,6 +49,11 @@ const DarkNavigation: React.FC<DarkNavigationProps> = ({ className = '' }) => {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/layout/DarkNavigation.tsx:49',message:'Link clicked',data:{href:item.href,currentPath:router.pathname},timestamp:Date.now(),runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+                    // #endregion
+                  }}
                   className={`
                     px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
                     flex items-center space-x-2
@@ -94,7 +99,12 @@ const DarkNavigation: React.FC<DarkNavigationProps> = ({ className = '' }) => {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={() => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/layout/DarkNavigation.tsx:94',message:'Mobile link clicked',data:{href:item.href,currentPath:router.pathname},timestamp:Date.now(),runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+                    // #endregion
+                    setIsMobileMenuOpen(false)
+                  }}
                   className={`
                     block px-3 py-2 rounded-lg text-base font-medium transition-colors duration-200
                     flex items-center space-x-3

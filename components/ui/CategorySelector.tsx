@@ -50,27 +50,29 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 
   const selectedCategory = normalizedCategories.find(cat => cat.id === value) || null
 
-  // Explicitly load categories when component mounts or when not loading and categories are empty
+  // Force load categories if hook hasn't loaded them yet
+  // The useCategories hook should auto-load, but we ensure it happens
   useEffect(() => {
-    if (!loading && categories.length === 0 && !loadError) {
-      console.log('[CategorySelector] Explicitly loading categories...')
+    // If we have no categories and we're not currently loading and no error, trigger load
+    if (categories.length === 0 && !loading && !loadError) {
+      console.log('[CategorySelector] No categories found, triggering load...')
       loadCategories().catch((error) => {
         console.error('[CategorySelector] Failed to load categories:', error)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, categories.length, loadError])
+  }, []) // Only run on mount
 
   // Debug logging (remove in production)
   useEffect(() => {
     if (loading) {
-      console.log('[CategorySelector] Loading categories...')
+      console.log('[CategorySelector] Loading categories...', { categoriesCount: categories.length })
     } else if (loadError) {
       console.error('[CategorySelector] Error loading categories:', loadError)
     } else {
       console.log('[CategorySelector] Categories loaded:', normalizedCategories.length)
     }
-  }, [loading, loadError, normalizedCategories.length])
+  }, [loading, loadError, normalizedCategories.length, categories.length])
 
   // Handle clicks outside to close
   useEffect(() => {

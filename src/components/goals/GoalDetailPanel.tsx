@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { GoalWithRelations, GoalMilestone } from '../../types/goals';
+import ColorDot from './ColorDot';
 import { useGoalsStore } from '../../stores/goals.store';
 import GoalModal from './GoalModal';
+import MilestoneModal from './MilestoneModal';
 import { parseLocalDate } from '../../../lib/utils/date-helpers';
 
 interface GoalDetailPanelProps {
@@ -17,11 +20,23 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
   onClose,
   onEdit,
 }) => {
-  const { completeGoal, deleteGoal, updateGoal } = useGoalsStore();
+  const {
+    completeGoal,
+    deleteGoal,
+    updateGoal,
+    createMilestone,
+    updateMilestone,
+    deleteMilestone,
+    toggleMilestone,
+    reorderMilestones,
+  } = useGoalsStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<GoalMilestone | undefined>(undefined);
+  const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return '';
@@ -90,27 +105,52 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
     const milestone = goal.milestones.find((m) => m.id === milestoneId);
     if (!milestone) return;
 
-    // Update milestone completion status
-    // Note: This would ideally call a milestone API endpoint
-    // For now, we'll update the goal's progress if milestone-based
-    if (goal.progress_type === 'milestone_based') {
-      const updatedMilestones = goal.milestones.map((m) =>
-        m.id === milestoneId
-          ? { ...m, is_complete: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null }
-          : m
-      );
+    try {
+      await toggleMilestone(goal.id, milestoneId, !currentStatus);
+      // Store action handles optimistic update and refresh
+    } catch (error) {
+      console.error('Error toggling milestone:', error);
+    }
+  };
 
-      const completedCount = updatedMilestones.filter((m) => m.is_complete).length;
-      const totalCount = updatedMilestones.length;
-      const newProgress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const handleCreateMilestone = async (title: string) => {
+    await createMilestone(goal.id, title);
+  };
 
-      try {
-        await updateGoal(goal.id, {
-          progress_value: newProgress,
-        });
-      } catch (error) {
-        console.error('Error updating milestone:', error);
-      }
+  const handleEditMilestone = async (title: string) => {
+    if (!editingMilestone) return;
+    await updateMilestone(goal.id, editingMilestone.id, { title });
+    setEditingMilestone(undefined);
+  };
+
+  const handleDeleteMilestone = async () => {
+    if (!deletingMilestoneId) return;
+    try {
+      await deleteMilestone(goal.id, deletingMilestoneId);
+      setDeletingMilestoneId(null);
+    } catch (error) {
+      console.error('Error deleting milestone:', error);
+    }
+  };
+
+  const handleMilestoneDragEnd = async (result: DropResult) => {
+    if (!result.destination || !goal.milestones) return;
+
+    // If dropped in the same position, do nothing
+    if (result.destination.index === result.source.index) return;
+
+    const sortedMilestones = [...goal.milestones].sort((a, b) => a.display_order - b.display_order);
+    const reorderedMilestones = Array.from(sortedMilestones);
+    const [movedMilestone] = reorderedMilestones.splice(result.source.index, 1);
+    reorderedMilestones.splice(result.destination.index, 0, movedMilestone);
+
+    // Extract milestone IDs in new order
+    const milestoneIds = reorderedMilestones.map((m) => m.id);
+
+    try {
+      await reorderMilestones(goal.id, milestoneIds);
+    } catch (error) {
+      console.error('Error reordering milestones:', error);
     }
   };
 
@@ -174,6 +214,7 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-3xl">{displayIcon}</span>
+                <ColorDot dueDate={goal.target_date} size="md" />
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{goal.title}</h1>
               </div>
               {goal.category && (
@@ -266,37 +307,148 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
             </div>
 
             {/* Milestones Section */}
-            {goal.milestones && goal.milestones.length > 0 && (
+            {goal.progress_type === 'milestone_based' && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  Milestones
-                </h3>
-                <div className="space-y-2">
-                  {goal.milestones
-                    .sort((a, b) => a.display_order - b.display_order)
-                    .map((milestone: GoalMilestone) => (
-                      <label
-                        key={milestone.id}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={milestone.is_complete}
-                          onChange={() => handleMilestoneToggle(milestone.id, milestone.is_complete)}
-                          className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <span
-                          className={`flex-1 text-sm ${
-                            milestone.is_complete
-                              ? 'line-through text-gray-500 dark:text-gray-400'
-                              : 'text-gray-900 dark:text-white'
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Milestones
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setEditingMilestone(undefined);
+                      setShowMilestoneModal(true);
+                    }}
+                    className="text-xs px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+                  >
+                    + Add Milestone
+                  </button>
+                </div>
+                {goal.milestones && goal.milestones.length > 0 ? (
+                  <DragDropContext onDragEnd={handleMilestoneDragEnd}>
+                    <Droppable droppableId="milestones">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`space-y-2 ${
+                            snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2' : ''
                           }`}
                         >
-                          {milestone.title}
-                        </span>
-                      </label>
-                    ))}
-                </div>
+                          {goal.milestones
+                            .sort((a, b) => a.display_order - b.display_order)
+                            .map((milestone: GoalMilestone, index: number) => (
+                              <Draggable
+                                key={milestone.id}
+                                draggableId={milestone.id}
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`group flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                                      snapshot.isDragging
+                                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 shadow-lg'
+                                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
+                                  >
+                                    {/* Drag Handle */}
+                                    <div
+                                      {...provided.dragHandleProps}
+                                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                                      title="Drag to reorder"
+                                    >
+                                      <svg
+                                        className="w-4 h-4 text-gray-400 dark:text-gray-500"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path d="M7 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 2zM7 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 8zM7 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 7 14zM13 2a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 2zM13 8a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 8zM13 14a2 2 0 1 1 .001 4.001A2 2 0 0 1 13 14z" />
+                                      </svg>
+                                    </div>
+
+                                    <ColorDot dueDate={goal.target_date} size="sm" />
+                                    <input
+                                      type="checkbox"
+                                      checked={milestone.is_complete}
+                                      onChange={() => handleMilestoneToggle(milestone.id, milestone.is_complete)}
+                                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <span
+                                      className={`flex-1 text-sm ${
+                                        milestone.is_complete
+                                          ? 'line-through text-gray-500 dark:text-gray-400'
+                                          : 'text-gray-900 dark:text-white'
+                                      }`}
+                                    >
+                                      {milestone.title}
+                                    </span>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingMilestone(milestone);
+                                          setShowMilestoneModal(true);
+                                        }}
+                                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                        title={`Edit milestone "${milestone.title}"`}
+                                        aria-label={`Edit milestone "${milestone.title}"`}
+                                      >
+                                        <svg
+                                          className="w-4 h-4"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                          />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeletingMilestoneId(milestone.id);
+                                        }}
+                                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                                        title={`Delete milestone "${milestone.title}"`}
+                                        aria-label={`Delete milestone "${milestone.title}"`}
+                                      >
+                                        <svg
+                                          className="w-4 h-4"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-500 italic">
+                    No milestones yet
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -349,6 +501,50 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
           onClose();
         }}
       />
+
+      {/* Milestone Modal */}
+      <MilestoneModal
+        isOpen={showMilestoneModal}
+        onClose={() => {
+          setShowMilestoneModal(false);
+          setEditingMilestone(undefined);
+        }}
+        milestone={editingMilestone}
+        onSave={editingMilestone ? handleEditMilestone : handleCreateMilestone}
+      />
+
+      {/* Delete Milestone Confirmation */}
+      {deletingMilestoneId && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm"
+          data-testid="confirmation-modal"
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Delete Milestone?
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete this milestone? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeletingMilestoneId(null)}
+                disabled={isProcessing}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMilestone}
+                disabled={isProcessing}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Complete Confirmation */}
       {showCompleteConfirm && (

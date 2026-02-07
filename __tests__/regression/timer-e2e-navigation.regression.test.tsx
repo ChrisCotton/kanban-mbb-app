@@ -77,12 +77,23 @@ jest.mock('../../hooks/useCategories', () => ({
       { id: 'cat-dev', name: 'Development', hourly_rate_usd: 150, color: '#4CAF50' },
     ],
     loading: false,
+    error: null,
+    submitting: false,
+    loadCategories: jest.fn().mockResolvedValue(undefined),
+    createCategory: jest.fn(),
+    updateCategory: jest.fn(),
+    deleteCategory: jest.fn(),
+    bulkUpload: jest.fn(),
     getCategoryById: (id: string) => {
       if (id === 'cat-dev') {
         return { id: 'cat-dev', name: 'Development', hourly_rate_usd: 150, color: '#4CAF50' }
       }
       return null
     },
+    getCategoriesByIds: jest.fn(),
+    getActiveCategories: jest.fn(),
+    searchCategories: jest.fn(),
+    validateCategoryName: jest.fn(),
   }),
 }))
 

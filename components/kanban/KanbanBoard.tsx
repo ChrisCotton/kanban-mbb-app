@@ -369,10 +369,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     setViewingTask(null)
   }
 
-  const handleModalSave = async (taskData: Partial<Task>) => {
+  const handleModalSave = async (taskData: Partial<Task>): Promise<Task | void> => {
     if (editingTask) {
       // Updating existing task
       await updateTask(editingTask.id, taskData)
+      return
     } else {
       // Creating new task
       const createdTask = await createTask(taskData)
@@ -403,6 +404,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           console.error('Error linking task to goal:', error);
         }
       }
+      
+      // Refresh tasks to reflect any changes
+      refetchTasks();
+      
+      // Return created task so TaskModal can link additional goals
+      return createdTask
     }
     
     // Refresh tasks to reflect any changes

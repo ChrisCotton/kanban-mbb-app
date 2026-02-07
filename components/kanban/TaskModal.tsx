@@ -11,11 +11,13 @@ import { useTaskTags } from '../../hooks/useTags'
 import { Tag } from '../../pages/api/tags/index'
 import { supabase } from '../../lib/supabase'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
+import { useGoalsStore } from '../../src/stores/goals.store'
+import { Goal } from '../../src/types/goals'
 
 interface TaskModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (taskData: Partial<Task>) => Promise<void>
+  onSave: (taskData: Partial<Task>) => Promise<Task | void> // Return created task if creating, void if editing
   task?: TaskWithCategory | null // If provided, we're editing; if null/undefined, we're creating
   initialStatus?: Task['status'] // For creating tasks in a specific column
 }
@@ -40,12 +42,22 @@ const TaskModal: React.FC<TaskModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [userId, setUserId] = useState<string>('')
   const [defaultCategoryId, setDefaultCategoryId] = useState<string | null>(null)
+  const [selectedGoalIds, setSelectedGoalIds] = useState<string[]>([])
+  const [isGoalDropdownOpen, setIsGoalDropdownOpen] = useState(false)
+  const [isLinkingGoals, setIsLinkingGoals] = useState(false)
   
-  // Use task tags hook for existing tasks
-  const { tags: taskTags, addTagToTask, removeTagFromTask } = useTaskTags(
+  // Goals store for goal selection
+  const { goals, fetchGoals, isLoading: goalsLoading } = useGoalsStore()
+  
+  // Use task tags hook for existing tasks only
+  // For new tasks, we use selectedTags state instead
+  const taskTagsHook = useTaskTags(
     task?.id || '', 
     userId
   )
+  const taskTags = task ? taskTagsHook.tags : []
+  const addTagToTask = taskTagsHook.addTagToTask
+  const removeTagFromTask = taskTagsHook.removeTagFromTask
 
   // Get current user ID and default category from profile
   useEffect(() => {
@@ -69,6 +81,15 @@ const TaskModal: React.FC<TaskModalProps> = ({
     getUser()
   }, [])
 
+  // Fetch goals when modal opens
+  useEffect(() => {
+    if (isOpen && goals.length === 0 && !goalsLoading) {
+      fetchGoals().catch((error) => {
+        console.error('[TaskModal] Error fetching goals:', error)
+      })
+    }
+  }, [isOpen, goals.length, goalsLoading, fetchGoals])
+
   // Reset form when modal opens/closes or task changes
   useEffect(() => {
     if (isOpen) {
@@ -82,6 +103,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
           due_date: task.due_date || '',
           category_id: task.category_id || ''
         })
+        // Reset goal selection for editing (goals are managed in TaskDetailModal)
+        setSelectedGoalIds([])
       } else {
         // Creating new task - use default category from profile if available
         setFormData({
@@ -92,8 +115,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
           due_date: '',
           category_id: defaultCategoryId || ''
         })
+        // Reset goal selection for new task
+        setSelectedGoalIds([])
       }
       setErrors({})
+      setIsGoalDropdownOpen(false)
     }
   }, [isOpen, task, initialStatus, defaultCategoryId])
 
@@ -135,6 +161,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
     }
 
     setIsLoading(true)
+    setIsLinkingGoals(true)
     try {
       const taskData: Partial<Task> = {
         ...formData,
@@ -144,15 +171,68 @@ const TaskModal: React.FC<TaskModalProps> = ({
         category_id: formData.category_id || undefined
       }
 
-      await onSave(taskData)
+      // Save task (create or update)
+      const savedTask = await onSave(taskData)
+      
+      // If creating a new task and goals are selected, link them
+      // savedTask will be a Task object when creating, undefined when editing
+      if (!task && savedTask && 'id' in savedTask && selectedGoalIds.length > 0) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.access_token) {
+            // Link each selected goal to the newly created task
+            for (const goalId of selectedGoalIds) {
+              const linkResponse = await fetch(`/api/goals/${goalId}/tasks`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  user_id: session.user.id,
+                  task_id: savedTask.id,
+                  contribution_weight: 1,
+                }),
+              })
+              
+              if (!linkResponse.ok) {
+                console.error(`Error linking task to goal ${goalId}:`, await linkResponse.text())
+              }
+            }
+          }
+        } catch (linkError) {
+          console.error('Error linking goals to task:', linkError)
+          // Don't fail the whole operation if linking fails
+        }
+      }
+      
       onClose()
     } catch (error) {
       console.error('Error saving task:', error)
       setErrors({ submit: 'Failed to save task. Please try again.' })
     } finally {
       setIsLoading(false)
+      setIsLinkingGoals(false)
     }
   }
+
+  const handleToggleGoal = (goalId: string) => {
+    setSelectedGoalIds(prev => {
+      if (prev.includes(goalId)) {
+        return prev.filter(id => id !== goalId)
+      } else {
+        return [...prev, goalId]
+      }
+    })
+  }
+
+  const handleRemoveGoal = (goalId: string) => {
+    setSelectedGoalIds(prev => prev.filter(id => id !== goalId))
+  }
+
+  // Get selected goal details
+  const selectedGoals = goals.filter(g => selectedGoalIds.includes(g.id))
+  const availableGoals = goals.filter(g => !selectedGoalIds.includes(g.id) && g.status === 'active')
 
   const handleClose = () => {
     if (!isLoading) {
@@ -348,6 +428,95 @@ const TaskModal: React.FC<TaskModalProps> = ({
               placeholder="Select due date..."
             />
           </div>
+
+          {/* Goals Field - Only show when creating new task */}
+          {!task && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Goals
+                </label>
+                {availableGoals.length > 0 && (
+                  <div className="relative" data-goal-dropdown>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsGoalDropdownOpen(!isGoalDropdownOpen)
+                      }}
+                      disabled={isLoading || isLinkingGoals}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
+                    >
+                      + Link Goal
+                    </button>
+                    {isGoalDropdownOpen && (
+                      <div 
+                        className="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {availableGoals.map((goal) => (
+                          <button
+                            key={goal.id}
+                            type="button"
+                            onClick={() => {
+                              handleToggleGoal(goal.id)
+                              setIsGoalDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg flex items-center gap-2"
+                          >
+                            <span>{goal.icon || '🎯'}</span>
+                            <span className="flex-1">{goal.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {selectedGoals.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedGoals.map((goal) => (
+                    <div
+                      key={goal.id}
+                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{goal.icon || '🎯'}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {goal.title}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGoal(goal.id)}
+                        className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        aria-label={`Remove ${goal.title}`}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  No goals linked
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Subtasks Section - Only for existing tasks */}
           {task && (

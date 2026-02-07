@@ -1,4 +1,4 @@
-import { Goal, CreateGoalInput } from '../../types/goals';
+import { Goal, CreateGoalInput, GoalMilestone } from '../../types/goals';
 
 export const TEST_USER_ID = 'test-user-uuid-12345';
 export const TEST_CATEGORY_ID = 'test-category-uuid-12345';
@@ -72,3 +72,25 @@ export const createMockGoals = (count: number): Goal[] => {
     display_order: i,
   }));
 };
+
+export const mockMilestone: GoalMilestone = {
+  id: 'milestone-uuid-1',
+  goal_id: mockGoal.id,
+  title: 'Complete MVP Design',
+  is_complete: false,
+  display_order: 0,
+  created_at: '2026-01-25T10:00:00.000Z',
+  completed_at: null,
+};
+
+export const mockMilestoneCompleted: GoalMilestone = {
+  id: 'milestone-uuid-2',
+  goal_id: mockGoal.id,
+  title: 'Launch Beta',
+  is_complete: true,
+  display_order: 1,
+  created_at: '2026-01-20T10:00:00.000Z',
+  completed_at: '2026-01-24T15:00:00.000Z',
+};
+
+export const mockMilestonesList: GoalMilestone[] = [mockMilestone, mockMilestoneCompleted];

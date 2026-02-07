@@ -196,6 +196,11 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/layout/Navigation.tsx:196',message:'Link clicked',data:{href:item.href,currentPath:router.pathname},timestamp:Date.now(),runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+                  // #endregion
+                }}
                 className={`
                   px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200
                   flex items-center space-x-2 group relative
