@@ -90,7 +90,6 @@ export function useCategories(): UseCategoriesReturn {
       // Get auth token from Supabase
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      
       if (!token) {
         throw new Error('No authentication token available')
       }
@@ -127,7 +126,9 @@ export function useCategories(): UseCategoriesReturn {
       hasLoadedRef.current = true
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // Request was cancelled, ignore
+        // Request was cancelled: clear loading so this instance never stays stuck
+        setLoading(false)
+        loadingRef.current = null
         return
       }
       

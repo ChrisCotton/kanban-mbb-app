@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import DatePicker from '../ui/DatePicker'
 import PrioritySelector from '../ui/PrioritySelector'
-import CategorySelector from '../ui/CategorySelector'
+import CategorySelector, { type CategoryOption } from '../ui/CategorySelector'
 import SubtaskList from './SubtaskList'
 import TagSelector from '../ui/TagSelector'
 import { useTaskTags } from '../../hooks/useTags'
@@ -18,8 +18,12 @@ interface TaskModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (taskData: Partial<Task>) => Promise<Task | void> // Return created task if creating, void if editing
-  task?: TaskWithCategory | null // If provided, we're editing; if null/undefined, we're creating
-  initialStatus?: Task['status'] // For creating tasks in a specific column
+  task?: TaskWithCategory | null
+  initialStatus?: Task['status']
+  categories?: CategoryOption[]
+  categoriesLoading?: boolean
+  categoriesError?: string | null
+  onLoadCategories?: () => Promise<void>
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({
@@ -27,7 +31,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
   onClose,
   onSave,
   task,
-  initialStatus = 'backlog'
+  initialStatus = 'backlog',
+  categories: categoriesProp,
+  categoriesLoading,
+  categoriesError,
+  onLoadCategories
 }) => {
   const [formData, setFormData] = useState<Partial<Task>>({
     title: '',
@@ -371,6 +379,10 @@ const TaskModal: React.FC<TaskModalProps> = ({
               disabled={isLoading}
               error={errors.category_id}
               allowNone={true}
+              categories={categoriesProp}
+              loading={categoriesLoading}
+              loadError={categoriesError}
+              onLoadCategories={onLoadCategories}
             />
             {errors.category_id && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category_id}</p>
