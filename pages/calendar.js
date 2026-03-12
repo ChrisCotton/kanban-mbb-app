@@ -77,7 +77,7 @@ const CalendarPage = () => {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">Task Calendar</h1>
             <p className="text-white/70">
-              View and manage your tasks by their due dates. Click on any date to see tasks scheduled for that day.
+              View and manage your tasks and goals by their due dates. Click on any date to see items scheduled for that day.
             </p>
           </div>
 
@@ -89,7 +89,10 @@ const CalendarPage = () => {
             className="mb-6"
           />
           
-          <CalendarView userId={user?.id} />
+          <CalendarView 
+            userId={user?.id} 
+            goals={goals.filter((g) => g.status === 'active' && g.target_date)}
+          />
         </div>
       </main>
     </Layout>

@@ -41,6 +41,8 @@ export interface TaskWithCategory extends Task {
   category?: Category
   subtask_count?: number
   subtask_completed?: number
+  goal_id?: string
+  goal_target_date?: string
 }
 
 export interface Comment {
@@ -151,11 +153,54 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
     }
   }
 
-  // Add subtask counts to each task
+  // PERFORMANCE FIX: Batch fetch goal information for all tasks
+  // Get goal_id and goal.target_date for tasks linked to goals
+  let goalInfo: Record<string, { goal_id: string; goal_target_date: string | null }> = {}
+  
+  if (fetchedTaskIds.length > 0) {
+    // Fetch goal_tasks junction table to get goal IDs for tasks
+    const { data: goalTasks, error: goalTasksError } = await supabase
+      .from('goal_tasks')
+      .select('task_id, goal_id')
+      .in('task_id', fetchedTaskIds)
+    
+    if (!goalTasksError && goalTasks && goalTasks.length > 0) {
+      // Get unique goal IDs
+      const goalIds = [...new Set(goalTasks.map((gt: any) => gt.goal_id))]
+      
+      // Fetch goals to get target_date
+      const { data: goals, error: goalsError } = await supabase
+        .from('goals')
+        .select('id, target_date')
+        .in('id', goalIds)
+      
+      if (!goalsError && goals) {
+        // Create a map of goal_id to target_date
+        const goalDateMap = new Map<string, string | null>()
+        goals.forEach((goal: any) => {
+          goalDateMap.set(goal.id, goal.target_date)
+        })
+        
+        // Map task_id to goal info (use first goal if task has multiple goals)
+        goalTasks.forEach((gt: any) => {
+          if (!goalInfo[gt.task_id]) {
+            goalInfo[gt.task_id] = {
+              goal_id: gt.goal_id,
+              goal_target_date: goalDateMap.get(gt.goal_id) || null
+            }
+          }
+        })
+      }
+    }
+  }
+
+  // Add subtask counts and goal info to each task
   const tasksWithCounts = (data || []).map(task => ({
     ...task,
     subtask_count: subtaskCounts[task.id]?.total || 0,
-    subtask_completed: subtaskCounts[task.id]?.completed || 0
+    subtask_completed: subtaskCounts[task.id]?.completed || 0,
+    goal_id: goalInfo[task.id]?.goal_id,
+    goal_target_date: goalInfo[task.id]?.goal_target_date
   }))
 
   return tasksWithCounts as TaskWithCategory[]
@@ -268,11 +313,13 @@ export async function searchTasks(params: {
     }
   }
 
-  // Add subtask counts to each task
+  // Add subtask counts and goal info to each task
   const tasksWithCounts = filteredData.map(task => ({
     ...task,
     subtask_count: subtaskCounts[task.id]?.total || 0,
-    subtask_completed: subtaskCounts[task.id]?.completed || 0
+    subtask_completed: subtaskCounts[task.id]?.completed || 0,
+    goal_id: goalInfo[task.id]?.goal_id,
+    goal_target_date: goalInfo[task.id]?.goal_target_date
   }))
 
   return tasksWithCounts as TaskWithCategory[]

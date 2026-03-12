@@ -17,6 +17,17 @@ jest.mock('../../hooks/useCategories', () => ({
   }),
 }));
 
+jest.mock('../../src/stores/goals.store', () => ({
+  useGoalsStore: () => ({
+    goals: [
+      { id: 'goal-1', title: 'Test Goal 1', status: 'active', icon: '🎯' },
+      { id: 'goal-2', title: 'Test Goal 2', status: 'active', icon: '🚀' },
+    ],
+    fetchGoals: jest.fn().mockResolvedValue(undefined),
+    isLoading: false,
+  }),
+}));
+
 jest.mock('../../hooks/useTags', () => ({
   useTags: () => ({
     tags: [
@@ -86,7 +97,7 @@ const mockTask: Task = {
 const defaultProps = {
   isOpen: true,
   onClose: jest.fn(),
-  onSubmit: jest.fn(),
+  onSave: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('TaskModal', () => {
@@ -132,7 +143,7 @@ describe('TaskModal', () => {
       await user.click(screen.getByText('Create Task'));
       
       await waitFor(() => {
-        expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+        expect(defaultProps.onSave).toHaveBeenCalledWith({
           title: 'New Task',
           description: 'New Description',
           priority: 'high',
@@ -153,7 +164,7 @@ describe('TaskModal', () => {
         expect(screen.getByText('Title is required')).toBeInTheDocument();
       });
       
-      expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+      expect(defaultProps.onSave).not.toHaveBeenCalled();
     });
 
     it('handles tag selection', async () => {
@@ -207,7 +218,7 @@ describe('TaskModal', () => {
       await user.click(screen.getByText('Update Task'));
       
       await waitFor(() => {
-        expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+        expect(defaultProps.onSave).toHaveBeenCalledWith({
           title: 'Updated Task',
           description: 'Test Description',
           priority: 'medium',
@@ -371,14 +382,14 @@ describe('TaskModal', () => {
   describe('Loading States', () => {
     it('disables submit button while submitting', async () => {
       const user = userEvent.setup();
-      const slowOnSubmit = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+      const slowOnSave = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
       
-      render(<TaskModal {...defaultProps} onSubmit={slowOnSubmit} />);
+      render(<TaskModal {...defaultProps} onSave={slowOnSave} />);
       
       await user.type(screen.getByLabelText('Title'), 'Test Task');
       await user.click(screen.getByText('Create Task'));
       
-      expect(screen.getByText('Creating...')).toBeInTheDocument();
+      expect(screen.getByText('Saving...')).toBeInTheDocument();
       expect(screen.getByText('Creating...')).toBeDisabled();
     });
   });

@@ -1,6 +1,6 @@
 import { GoalsService } from '../goals.service';
 import { mockGoal, mockGoalMinimal, mockGoalCompleted, mockCreateGoalInput, mockGoalsList, TEST_USER_ID, createMockGoals } from '../../test/fixtures/goals';
-import { Goal, CreateGoalInput, GoalFilters, GoalSortOptions } from '../../types/goals';
+import { Goal, CreateGoalInput, GoalFilters, GoalSortOptions, GoalMilestone } from '../../types/goals';
 
 // Mock Supabase
 jest.mock('@supabase/supabase-js', () => ({
@@ -31,11 +31,17 @@ describe('GoalsService', () => {
       neq: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       range: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
       single: jest.fn(() => Promise.resolve(queryResultMock())),
       then: jest.fn((onfulfilled?: (value: any) => any) => {
         return Promise.resolve(queryResultMock()).then(onfulfilled);
       }),
+      // Make the chain itself thenable
+      catch: jest.fn(),
     };
+    
+    // Make queryChain itself a thenable promise
+    (queryChain as any)[Symbol.toPrimitive] = () => queryResultMock();
 
     // Create mock Supabase client
     mockSupabase = {
@@ -403,6 +409,283 @@ describe('GoalsService', () => {
       queryResultMock.mockReturnValue({ data: null, error: null });
 
       await expect(service.completeGoal('test-id')).rejects.toThrow('Goal not found');
+    });
+  });
+
+  describe('Milestone Methods', () => {
+    const mockMilestone: GoalMilestone = {
+      id: 'milestone-1',
+      goal_id: mockGoal.id,
+      title: 'Test Milestone',
+      is_complete: false,
+      display_order: 0,
+      created_at: new Date().toISOString(),
+      completed_at: null,
+    };
+
+    describe('getGoals - milestone fetching', () => {
+      it('should fetch milestones for all goals', async () => {
+        const goals = createMockGoals(2);
+        const milestones1: GoalMilestone[] = [
+          { ...mockMilestone, id: 'm1', goal_id: goals[0].id },
+          { ...mockMilestone, id: 'm2', goal_id: goals[0].id },
+        ];
+        const milestones2: GoalMilestone[] = [
+          { ...mockMilestone, id: 'm3', goal_id: goals[1].id },
+        ];
+
+        // Mock goals query
+        queryResultMock.mockReturnValueOnce({ data: goals, error: null });
+        // Mock vision images query (empty)
+        queryResultMock.mockReturnValueOnce({ data: [], error: null });
+        // Mock milestones query
+        queryResultMock.mockReturnValueOnce({ data: [...milestones1, ...milestones2], error: null });
+
+        const result = await service.getGoals();
+
+        expect(result.goals).toHaveLength(2);
+        expect(result.goals[0].milestones).toEqual(milestones1);
+        expect(result.goals[1].milestones).toEqual(milestones2);
+      });
+
+      it('should handle goals with no milestones', async () => {
+        const goals = createMockGoals(1);
+        queryResultMock.mockReturnValueOnce({ data: goals, error: null });
+        queryResultMock.mockReturnValueOnce({ data: [], error: null });
+        queryResultMock.mockReturnValueOnce({ data: [], error: null });
+
+        const result = await service.getGoals();
+
+        expect(result.goals[0].milestones).toEqual([]);
+      });
+    });
+
+    describe('getGoalById - milestone fetching', () => {
+      it('should fetch milestones for a single goal', async () => {
+        const milestones: GoalMilestone[] = [
+          { ...mockMilestone, id: 'm1' },
+          { ...mockMilestone, id: 'm2', display_order: 1 },
+        ];
+
+        // Mock all queries in getGoalById:
+        // 1. Fetch goal
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        // 2. Fetch category (mockGoal has category_id, so this query happens)
+        queryResultMock.mockReturnValueOnce({ data: null, error: null });
+        // 3. Fetch milestones
+        queryResultMock.mockReturnValueOnce({ data: milestones, error: null });
+        // 4. Fetch vision images
+        queryResultMock.mockReturnValueOnce({ data: [], error: null });
+
+        const result = await service.getGoalById(mockGoal.id);
+
+        expect(result.milestones).toEqual(milestones);
+      });
+    });
+
+    describe('createMilestone', () => {
+      it('should create a new milestone', async () => {
+        const newMilestone = { ...mockMilestone, id: 'new-milestone' };
+        // Mock getGoalById calls (4 queries)
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        // Mock query for existing milestones (to calculate display_order) - uses .limit(1) which resolves via .then()
+        queryResultMock.mockReturnValueOnce({ data: [], error: null });
+        // Mock insert - uses .single() which resolves via .single()
+        queryResultMock.mockReturnValueOnce({ data: newMilestone, error: null });
+
+        const result = await service.createMilestone(mockGoal.id, 'New Milestone', undefined, TEST_USER_ID);
+
+        expect(mockSupabase.from).toHaveBeenCalledWith('goal_milestones');
+        expect(queryChain.insert).toHaveBeenCalled();
+        expect(result).toEqual(newMilestone);
+      });
+
+      it('should auto-calculate display_order if not provided', async () => {
+        const existingMilestones = [
+          { display_order: 1 }, // Only need display_order for this query
+        ];
+        const newMilestone = { ...mockMilestone, id: 'new-milestone', display_order: 2 };
+
+        // Mock getGoalById calls (4 queries)
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        // Mock fetch existing milestones for display_order calculation - returns highest display_order
+        queryResultMock.mockReturnValueOnce({ data: existingMilestones, error: null });
+        // Mock insert new milestone
+        queryResultMock.mockReturnValueOnce({ data: newMilestone, error: null });
+
+        await service.createMilestone(mockGoal.id, 'New Milestone', undefined, TEST_USER_ID);
+
+        expect(queryChain.insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            display_order: 2, // 1 + 1 = 2
+          })
+        );
+      });
+
+      it('should use provided display_order', async () => {
+        const newMilestone = { ...mockMilestone, id: 'new-milestone', display_order: 5 };
+        queryResultMock.mockReturnValue({ data: newMilestone, error: null });
+
+        await service.createMilestone(mockGoal.id, 'New Milestone', 5, TEST_USER_ID);
+
+        expect(queryChain.insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            display_order: 5,
+          })
+        );
+      });
+
+      it('should validate title', async () => {
+        await expect(
+          service.createMilestone(mockGoal.id, '', undefined, TEST_USER_ID)
+        ).rejects.toThrow('Title is required');
+      });
+    });
+
+    describe('updateMilestone', () => {
+      it('should update milestone title', async () => {
+        const updated = { ...mockMilestone, title: 'Updated Title' };
+        // Mock getGoalById calls
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        // Mock update
+        queryResultMock.mockReturnValueOnce({ data: updated, error: null });
+
+        const result = await service.updateMilestone(
+          mockGoal.id,
+          mockMilestone.id,
+          { title: 'Updated Title' },
+          TEST_USER_ID
+        );
+
+        expect(mockSupabase.from).toHaveBeenCalledWith('goal_milestones');
+        expect(queryChain.update).toHaveBeenCalled();
+        expect(queryChain.eq).toHaveBeenCalledWith('id', mockMilestone.id);
+        expect(result).toEqual(updated);
+      });
+
+      it('should update milestone display_order', async () => {
+        const updated = { ...mockMilestone, display_order: 5 };
+        // Mock getGoalById calls
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        // Mock update
+        queryResultMock.mockReturnValueOnce({ data: updated, error: null });
+
+        await service.updateMilestone(
+          mockGoal.id,
+          mockMilestone.id,
+          { display_order: 5 },
+          TEST_USER_ID
+        );
+
+        expect(queryChain.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            display_order: 5,
+          })
+        );
+      });
+    });
+
+    describe('deleteMilestone', () => {
+      it('should delete a milestone', async () => {
+        // Mock getGoalById calls
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        // Mock delete
+        queryResultMock.mockReturnValueOnce({ data: null, error: null });
+
+        await service.deleteMilestone(mockGoal.id, mockMilestone.id, TEST_USER_ID);
+
+        expect(mockSupabase.from).toHaveBeenCalledWith('goal_milestones');
+        expect(queryChain.delete).toHaveBeenCalled();
+        expect(queryChain.eq).toHaveBeenCalledWith('id', mockMilestone.id);
+      });
+    });
+
+    describe('toggleMilestone', () => {
+      it('should toggle milestone to complete', async () => {
+        const completed = {
+          ...mockMilestone,
+          is_complete: true,
+          completed_at: new Date().toISOString(),
+        };
+        queryResultMock.mockReturnValue({ data: completed, error: null });
+
+        const result = await service.toggleMilestone(
+          mockGoal.id,
+          mockMilestone.id,
+          true,
+          TEST_USER_ID
+        );
+
+        expect(queryChain.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            is_complete: true,
+          })
+        );
+        expect(result.is_complete).toBe(true);
+        expect(result.completed_at).toBeTruthy();
+      });
+
+      it('should toggle milestone to incomplete', async () => {
+        const incomplete = {
+          ...mockMilestone,
+          is_complete: false,
+          completed_at: null,
+        };
+        queryResultMock.mockReturnValue({ data: incomplete, error: null });
+
+        const result = await service.toggleMilestone(
+          mockGoal.id,
+          mockMilestone.id,
+          false,
+          TEST_USER_ID
+        );
+
+        expect(queryChain.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            is_complete: false,
+          })
+        );
+        expect(result.is_complete).toBe(false);
+        expect(result.completed_at).toBeNull();
+      });
+    });
+
+    describe('reorderMilestones', () => {
+      it('should reorder milestones', async () => {
+        const milestoneIds = ['m1', 'm2', 'm3'];
+        // Mock getGoalById calls
+        queryResultMock.mockReturnValueOnce({ data: mockGoal, error: null });
+        queryResultMock.mockReturnValueOnce({ data: null, error: null }); // category
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // vision images
+        queryResultMock.mockReturnValueOnce({ data: [], error: null }); // milestones
+        // Mock update calls for each milestone
+        milestoneIds.forEach(() => {
+          queryResultMock.mockReturnValueOnce({ data: null, error: null });
+        });
+
+        await service.reorderMilestones(mockGoal.id, milestoneIds, TEST_USER_ID);
+
+        expect(mockSupabase.from).toHaveBeenCalledWith('goal_milestones');
+        expect(queryChain.update).toHaveBeenCalledTimes(milestoneIds.length);
+        milestoneIds.forEach((id, index) => {
+          expect(queryChain.eq).toHaveBeenCalledWith('id', id);
+        });
+      });
     });
   });
 });

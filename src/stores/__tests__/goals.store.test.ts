@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useGoalsStore } from '../goals.store';
-import { Goal, CreateGoalInput, UpdateGoalInput, GoalFilters, GoalSortOptions } from '../../types/goals';
-import { mockGoal, mockGoalMinimal, mockGoalCompleted, mockCreateGoalInput, TEST_USER_ID } from '../../test/fixtures/goals';
+import { Goal, CreateGoalInput, UpdateGoalInput, GoalFilters, GoalSortOptions, GoalMilestone, GoalWithRelations } from '../../types/goals';
+import { mockGoal, mockGoalMinimal, mockGoalCompleted, mockCreateGoalInput, TEST_USER_ID, mockMilestone, mockMilestoneCompleted, mockMilestonesList } from '../../test/fixtures/goals';
 
 // Mock fetch
 global.fetch = jest.fn();
@@ -36,12 +36,13 @@ describe('Goals Store', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset store state
-    const { result } = renderHook(() => useGoalsStore());
     act(() => {
-      result.current.goals = [];
-      result.current.isLoading = false;
-      result.current.error = null;
-      result.current.activeGoalFilter = null;
+      useGoalsStore.setState({
+        goals: [],
+        isLoading: false,
+        error: null,
+        activeGoalFilter: null,
+      });
     });
   });
 
@@ -479,6 +480,353 @@ describe('Goals Store', () => {
       });
 
       expect(result.current.error).toBe(null);
+    });
+  });
+
+  describe('Milestone Actions', () => {
+    const mockGoalWithMilestones: GoalWithRelations = {
+      ...mockGoal,
+      milestones: [mockMilestone],
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      act(() => {
+        useGoalsStore.setState({
+          goals: [{ ...mockGoalWithMilestones }],
+          isLoading: false,
+          error: null,
+          activeGoalFilter: null,
+        });
+      });
+    });
+
+    describe('createMilestone', () => {
+      it('should create milestone and optimistically update goal', async () => {
+        const newMilestone: GoalMilestone = {
+          id: 'milestone-uuid-new',
+          goal_id: mockGoal.id,
+          title: 'New Milestone',
+          is_complete: false,
+          display_order: 2,
+          created_at: '2026-01-26T10:00:00.000Z',
+          completed_at: null,
+        };
+
+        (global.fetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: newMilestone,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { ...mockGoalWithMilestones, milestones: [mockMilestone, newMilestone] },
+            }),
+          });
+
+        const { result } = renderHook(() => useGoalsStore());
+
+        let created: GoalMilestone;
+        await act(async () => {
+          created = await result.current.createMilestone(mockGoal.id, 'New Milestone');
+        });
+
+        expect(created!).toEqual(newMilestone);
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toContainEqual(newMilestone);
+      });
+
+      it('should handle creation errors and revert optimistic update', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: 'Title is required',
+          }),
+        });
+
+        const { result } = renderHook(() => useGoalsStore());
+        const initialMilestones = (result.current.getGoalById(mockGoal.id) as GoalWithRelations)?.milestones || [];
+
+        await act(async () => {
+          try {
+            await result.current.createMilestone(mockGoal.id, '');
+          } catch (error) {
+            // Expected to throw
+          }
+        });
+
+        expect(result.current.error).toBeTruthy();
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toEqual(initialMilestones);
+      });
+    });
+
+    describe('updateMilestone', () => {
+      it('should update milestone and optimistically update goal', async () => {
+        const updatedMilestone: GoalMilestone = {
+          ...mockMilestone,
+          title: 'Updated Milestone Title',
+        };
+
+        (global.fetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: updatedMilestone,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { ...mockGoalWithMilestones, milestones: [updatedMilestone] },
+            }),
+          });
+
+        const { result } = renderHook(() => useGoalsStore());
+
+        let updated: GoalMilestone;
+        await act(async () => {
+          updated = await result.current.updateMilestone(mockGoal.id, mockMilestone.id, { title: 'Updated Milestone Title' });
+        });
+
+        expect(updated!).toEqual(updatedMilestone);
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones?.find((m) => m.id === mockMilestone.id)?.title).toBe('Updated Milestone Title');
+      });
+
+      it('should handle update errors and revert optimistic update', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: async () => ({
+            error: 'Milestone not found',
+          }),
+        });
+
+        const { result } = renderHook(() => useGoalsStore());
+        const initialMilestones = (result.current.getGoalById(mockGoal.id) as GoalWithRelations)?.milestones || [];
+
+        await act(async () => {
+          try {
+            await result.current.updateMilestone(mockGoal.id, 'fake-id', { title: 'Updated' });
+          } catch (error) {
+            // Expected to throw
+          }
+        });
+
+        expect(result.current.error).toBeTruthy();
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toEqual(initialMilestones);
+      });
+    });
+
+    describe('deleteMilestone', () => {
+      it('should delete milestone and optimistically update goal', async () => {
+        (global.fetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { ...mockGoalWithMilestones, milestones: [] },
+            }),
+          });
+
+        const { result } = renderHook(() => useGoalsStore());
+
+        await act(async () => {
+          await result.current.deleteMilestone(mockGoal.id, mockMilestone.id);
+        });
+
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones?.find((m) => m.id === mockMilestone.id)).toBeUndefined();
+      });
+
+      it('should handle delete errors and revert optimistic update', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: async () => ({
+            error: 'Milestone not found',
+          }),
+        });
+
+        const { result } = renderHook(() => useGoalsStore());
+        const initialMilestones = (result.current.getGoalById(mockGoal.id) as GoalWithRelations)?.milestones || [];
+
+        await act(async () => {
+          try {
+            await result.current.deleteMilestone(mockGoal.id, 'fake-id');
+          } catch (error) {
+            // Expected to throw
+          }
+        });
+
+        expect(result.current.error).toBeTruthy();
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toEqual(initialMilestones);
+      });
+    });
+
+    describe('toggleMilestone', () => {
+      it('should toggle milestone completion and optimistically update goal', async () => {
+        const toggledMilestone: GoalMilestone = {
+          ...mockMilestone,
+          is_complete: true,
+          completed_at: '2026-01-26T10:00:00.000Z',
+        };
+
+        (global.fetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: toggledMilestone,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { ...mockGoalWithMilestones, milestones: [toggledMilestone] },
+            }),
+          });
+
+        const { result } = renderHook(() => useGoalsStore());
+
+        let toggled: GoalMilestone;
+        await act(async () => {
+          toggled = await result.current.toggleMilestone(mockGoal.id, mockMilestone.id, true);
+        });
+
+        expect(toggled!).toEqual(toggledMilestone);
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones?.find((m) => m.id === mockMilestone.id)?.is_complete).toBe(true);
+      });
+
+      it('should handle toggle errors and revert optimistic update', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: async () => ({
+            error: 'Milestone not found',
+          }),
+        });
+
+        const { result } = renderHook(() => useGoalsStore());
+        const initialMilestones = (result.current.getGoalById(mockGoal.id) as GoalWithRelations)?.milestones || [];
+
+        await act(async () => {
+          try {
+            await result.current.toggleMilestone(mockGoal.id, 'fake-id', true);
+          } catch (error) {
+            // Expected to throw
+          }
+        });
+
+        expect(result.current.error).toBeTruthy();
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toEqual(initialMilestones);
+      });
+    });
+
+    describe('reorderMilestones', () => {
+      it('should reorder milestones and optimistically update goal', async () => {
+        const milestones = [
+          { ...mockMilestone, id: 'milestone-1', display_order: 0 },
+          { ...mockMilestoneCompleted, id: 'milestone-2', display_order: 1 },
+        ];
+        const goalWithMultipleMilestones: GoalWithRelations = {
+          ...mockGoal,
+          milestones,
+        };
+
+        act(() => {
+          useGoalsStore.setState({ goals: [goalWithMultipleMilestones] });
+        });
+
+        (global.fetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                ...goalWithMultipleMilestones,
+                milestones: [
+                  { ...milestones[1], display_order: 0 },
+                  { ...milestones[0], display_order: 1 },
+                ],
+              },
+            }),
+          });
+
+        const { result } = renderHook(() => useGoalsStore());
+
+        await act(async () => {
+          await result.current.reorderMilestones(mockGoal.id, ['milestone-2', 'milestone-1']);
+        });
+
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones?.[0].id).toBe('milestone-2');
+        expect(goal.milestones?.[1].id).toBe('milestone-1');
+      });
+
+      it('should handle reorder errors and revert optimistic update', async () => {
+        const milestones = [
+          { ...mockMilestone, id: 'milestone-1', display_order: 0 },
+          { ...mockMilestoneCompleted, id: 'milestone-2', display_order: 1 },
+        ];
+        const goalWithMultipleMilestones: GoalWithRelations = {
+          ...mockGoal,
+          milestones,
+        };
+
+        act(() => {
+          useGoalsStore.setState({ goals: [goalWithMultipleMilestones] });
+        });
+
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: 'Invalid milestone IDs',
+          }),
+        });
+
+        const { result } = renderHook(() => useGoalsStore());
+        const initialMilestones = (result.current.getGoalById(mockGoal.id) as GoalWithRelations)?.milestones || [];
+
+        await act(async () => {
+          try {
+            await result.current.reorderMilestones(mockGoal.id, ['invalid-id']);
+          } catch (error) {
+            // Expected to throw
+          }
+        });
+
+        expect(result.current.error).toBeTruthy();
+        const goal = result.current.getGoalById(mockGoal.id) as GoalWithRelations;
+        expect(goal.milestones).toEqual(initialMilestones);
+      });
     });
   });
 });

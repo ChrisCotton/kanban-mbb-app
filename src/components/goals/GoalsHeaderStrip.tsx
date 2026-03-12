@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { GoalWithRelations } from '../../types/goals';
+import ColorDot from './ColorDot';
 
 interface GoalsHeaderStripProps {
   goals: GoalWithRelations[];
@@ -188,6 +189,9 @@ const GoalsHeaderStrip: React.FC<GoalsHeaderStripProps> = ({
                   >
                     {/* Icon */}
                     <span className="text-xl flex-shrink-0">{displayIcon}</span>
+
+                    {/* Color Dot */}
+                    <ColorDot dueDate={goal.target_date} size="sm" />
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">

@@ -25,7 +25,10 @@ const TaskGoalLink: React.FC<TaskGoalLinkProps> = ({
       console.log('[TaskGoalLink] Fetching goals...')
       fetchGoals().catch((error) => {
         console.error('[TaskGoalLink] Error fetching goals:', error)
-        alert(`Failed to load goals: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        // Only show alert in browser environment (not in tests)
+        if (typeof window !== 'undefined' && window.alert) {
+          alert(`Failed to load goals: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

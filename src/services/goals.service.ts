@@ -6,7 +6,8 @@ import {
   UpdateGoalInput, 
   GoalFilters, 
   GoalSortOptions,
-  GoalTask
+  GoalTask,
+  GoalMilestone
 } from '../types/goals';
 
 export interface GetGoalsResult {
@@ -108,7 +109,7 @@ export class GoalsService {
 
     const goals = data || [];
 
-    // Fetch vision board images for all goals
+    // Fetch vision board images and milestones for all goals
     if (goals.length > 0) {
       const goalIds = goals.map(g => g.id);
       
@@ -152,6 +153,29 @@ export class GoalsService {
             }));
           });
         }
+      }
+
+      // Fetch milestones for all goals
+      const { data: milestones, error: milestonesError } = await this.supabase
+        .from('goal_milestones')
+        .select('*')
+        .in('goal_id', goalIds)
+        .order('display_order', { ascending: true });
+
+      if (!milestonesError && milestones) {
+        // Group milestones by goal_id
+        const goalMilestonesMap = new Map<string, GoalMilestone[]>();
+        milestones.forEach((milestone: GoalMilestone) => {
+          if (!goalMilestonesMap.has(milestone.goal_id)) {
+            goalMilestonesMap.set(milestone.goal_id, []);
+          }
+          goalMilestonesMap.get(milestone.goal_id)!.push(milestone);
+        });
+
+        // Add milestones to each goal
+        goals.forEach(goal => {
+          (goal as any).milestones = goalMilestonesMap.get(goal.id) || [];
+        });
       }
     }
 
@@ -202,6 +226,19 @@ export class GoalsService {
       }
     } else {
       (goal as any).category = null;
+    }
+
+    // Fetch milestones for this goal
+    const { data: milestones, error: milestonesError } = await this.supabase
+      .from('goal_milestones')
+      .select('*')
+      .eq('goal_id', id)
+      .order('display_order', { ascending: true });
+
+    if (!milestonesError && milestones) {
+      (goal as any).milestones = milestones as GoalMilestone[];
+    } else {
+      (goal as any).milestones = [];
     }
 
     // Fetch vision board images for this goal
@@ -639,5 +676,189 @@ export class GoalsService {
    */
   async unlinkTaskFromGoal(goalId: string, taskId: string, userId?: string): Promise<void> {
     return this.removeGoalTask(goalId, taskId, userId);
+  }
+
+  /**
+   * Create a new milestone for a goal
+   */
+  async createMilestone(
+    goalId: string,
+    title: string,
+    displayOrder?: number,
+    userId?: string
+  ): Promise<GoalMilestone> {
+    const currentUserId = await this.getCurrentUserId(userId);
+    
+    // Validate title
+    this.validateTitle(title);
+
+    // Verify goal exists and belongs to user
+    await this.getGoalById(goalId, currentUserId);
+
+    // Auto-calculate display_order if not provided
+    let finalDisplayOrder = displayOrder;
+    if (finalDisplayOrder === undefined) {
+      const { data: existingMilestones } = await this.supabase
+        .from('goal_milestones')
+        .select('display_order')
+        .eq('goal_id', goalId)
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      finalDisplayOrder = existingMilestones && existingMilestones.length > 0
+        ? existingMilestones[0].display_order + 1
+        : 0;
+    }
+
+    const { data, error } = await this.supabase
+      .from('goal_milestones')
+      .insert({
+        goal_id: goalId,
+        title: title.trim(),
+        is_complete: false,
+        display_order: finalDisplayOrder,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message || 'Failed to create milestone');
+    }
+
+    return data as GoalMilestone;
+  }
+
+  /**
+   * Update a milestone
+   */
+  async updateMilestone(
+    goalId: string,
+    milestoneId: string,
+    updates: Partial<GoalMilestone>,
+    userId?: string
+  ): Promise<GoalMilestone> {
+    const currentUserId = await this.getCurrentUserId(userId);
+
+    // Verify goal exists and belongs to user
+    await this.getGoalById(goalId, currentUserId);
+
+    // Validate title if provided
+    if (updates.title !== undefined) {
+      this.validateTitle(updates.title);
+    }
+
+    const updateData: any = {};
+    if (updates.title !== undefined) {
+      updateData.title = updates.title.trim();
+    }
+    if (updates.display_order !== undefined) {
+      updateData.display_order = updates.display_order;
+    }
+
+    const { data, error } = await this.supabase
+      .from('goal_milestones')
+      .update(updateData)
+      .eq('id', milestoneId)
+      .eq('goal_id', goalId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new Error('Milestone not found');
+      }
+      throw new Error(error.message || 'Failed to update milestone');
+    }
+
+    return data as GoalMilestone;
+  }
+
+  /**
+   * Delete a milestone
+   */
+  async deleteMilestone(goalId: string, milestoneId: string, userId?: string): Promise<void> {
+    const currentUserId = await this.getCurrentUserId(userId);
+
+    // Verify goal exists and belongs to user
+    await this.getGoalById(goalId, currentUserId);
+
+    const { error } = await this.supabase
+      .from('goal_milestones')
+      .delete()
+      .eq('id', milestoneId)
+      .eq('goal_id', goalId);
+
+    if (error) {
+      throw new Error(error.message || 'Failed to delete milestone');
+    }
+  }
+
+  /**
+   * Toggle milestone completion status
+   */
+  async toggleMilestone(
+    goalId: string,
+    milestoneId: string,
+    isComplete: boolean,
+    userId?: string
+  ): Promise<GoalMilestone> {
+    const currentUserId = await this.getCurrentUserId(userId);
+
+    // Verify goal exists and belongs to user
+    await this.getGoalById(goalId, currentUserId);
+
+    const updateData: any = {
+      is_complete: isComplete,
+    };
+
+    if (isComplete) {
+      updateData.completed_at = new Date().toISOString();
+    } else {
+      updateData.completed_at = null;
+    }
+
+    const { data, error } = await this.supabase
+      .from('goal_milestones')
+      .update(updateData)
+      .eq('id', milestoneId)
+      .eq('goal_id', goalId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new Error('Milestone not found');
+      }
+      throw new Error(error.message || 'Failed to toggle milestone');
+    }
+
+    return data as GoalMilestone;
+  }
+
+  /**
+   * Reorder milestones
+   */
+  async reorderMilestones(
+    goalId: string,
+    milestoneIds: string[],
+    userId?: string
+  ): Promise<void> {
+    const currentUserId = await this.getCurrentUserId(userId);
+
+    // Verify goal exists and belongs to user
+    await this.getGoalById(goalId, currentUserId);
+
+    // Update display_order for each milestone
+    for (let i = 0; i < milestoneIds.length; i++) {
+      const { error } = await this.supabase
+        .from('goal_milestones')
+        .update({ display_order: i })
+        .eq('id', milestoneIds[i])
+        .eq('goal_id', goalId);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to reorder milestones');
+      }
+    }
   }
 }

@@ -37,6 +37,7 @@ BACKGROUND_MODE=false
 STATUS_ONLY=false
 FOLLOW_MODE=false
 KILL_ONLY=false
+FULL_RESTART_MODE=false
 
 # Function to load environment variables from .env.local
 load_environment_variables() {
@@ -153,6 +154,7 @@ show_usage() {
     echo -e "${CYAN}Options:${NC}"
     echo -e "  ${YELLOW}-b, --background${NC}    Run dev server in background (script exits, server continues)"
     echo -e "  ${YELLOW}-f, --follow${NC}        Restart server and tail the server log file"
+    echo -e "  ${YELLOW}-F, --full-restart${NC}  Kill ALL servers, restart in background, and tail logs in foreground"
     echo -e "  ${YELLOW}-k, --kill${NC}          Kill running server processes and exit"
     echo -e "  ${YELLOW}-s, --status${NC}        Show running server processes without restarting"
     echo -e "  ${YELLOW}-h, --help${NC}          Show this help message"
@@ -177,6 +179,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--follow)
             FOLLOW_MODE=true
+            shift
+            ;;
+        -F|--full-restart)
+            FULL_RESTART_MODE=true
             shift
             ;;
         -k|--kill)
@@ -255,9 +261,13 @@ if [ "$BACKGROUND_MODE" = true ]; then
         echo -e "${RED}❌ Failed to start dev server in background${NC}"
         exit 1
     fi
-elif [ "$FOLLOW_MODE" = true ]; then
-    # Follow mode
-    echo -e "${BLUE}🔄 Restarting Kanban Dev Server (Follow Mode)...${NC}"
+elif [ "$FOLLOW_MODE" = true ] || [ "$FULL_RESTART_MODE" = true ]; then
+    # Follow mode or Full Restart
+    if [ "$FULL_RESTART_MODE" = true ]; then
+        echo -e "${BLUE}🔄 Restarting Kanban Dev Server (Full Restart Mode)...${NC}"
+    else
+        echo -e "${BLUE}🔄 Restarting Kanban Dev Server (Follow Mode)...${NC}"
+    fi
     echo -e "${CYAN}ℹ️  Server will run in background, logs will be tailed here.${NC}"
     
     nohup npm run dev > dev-server.log 2>&1 &

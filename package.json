@@ -37,7 +37,8 @@
     "db:validate": "node scripts/db-validate.js",
     "db:cleanup": "node scripts/db-cleanup.js",
     "db:performance": "node scripts/db-performance.js",
-    "db:integrity": "npm run db:validate && npm run db:cleanup && npm run db:performance"
+    "db:integrity": "npm run db:validate && npm run db:cleanup && npm run db:performance",
+    "verify:earnings": "node scripts/verify-earnings-fix.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",

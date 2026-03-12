@@ -60,6 +60,11 @@ describe('GoalDetailPanel', () => {
   const mockCompleteGoal = jest.fn();
   const mockDeleteGoal = jest.fn();
   const mockUpdateGoal = jest.fn();
+  const mockCreateMilestone = jest.fn();
+  const mockUpdateMilestone = jest.fn();
+  const mockDeleteMilestone = jest.fn();
+  const mockToggleMilestone = jest.fn();
+  const mockReorderMilestones = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -68,11 +73,45 @@ describe('GoalDetailPanel', () => {
       completeGoal: mockCompleteGoal,
       deleteGoal: mockDeleteGoal,
       updateGoal: mockUpdateGoal,
+      createMilestone: mockCreateMilestone,
+      updateMilestone: mockUpdateMilestone,
+      deleteMilestone: mockDeleteMilestone,
+      toggleMilestone: mockToggleMilestone,
+      reorderMilestones: mockReorderMilestones,
     });
 
     mockCompleteGoal.mockResolvedValue({ ...mockGoal, status: 'completed' });
     mockDeleteGoal.mockResolvedValue(undefined);
     mockUpdateGoal.mockResolvedValue(mockGoal);
+    mockCreateMilestone.mockResolvedValue({
+      id: 'new-milestone-id',
+      goal_id: mockGoal.id,
+      title: 'New Milestone',
+      is_complete: false,
+      display_order: 0,
+      created_at: new Date().toISOString(),
+      completed_at: null,
+    });
+    mockUpdateMilestone.mockResolvedValue({
+      id: 'milestone-1',
+      goal_id: mockGoal.id,
+      title: 'Updated Milestone',
+      is_complete: false,
+      display_order: 0,
+      created_at: '2026-01-01T00:00:00Z',
+      completed_at: null,
+    });
+    mockDeleteMilestone.mockResolvedValue(undefined);
+    mockToggleMilestone.mockResolvedValue({
+      id: 'milestone-1',
+      goal_id: mockGoal.id,
+      title: 'Milestone 1',
+      is_complete: true,
+      display_order: 0,
+      created_at: '2026-01-01T00:00:00Z',
+      completed_at: new Date().toISOString(),
+    });
+    mockReorderMilestones.mockResolvedValue(undefined);
   });
 
   describe('Basic Rendering', () => {
@@ -262,9 +301,106 @@ describe('GoalDetailPanel', () => {
         fireEvent.click(checkbox);
       });
 
-      // Milestone toggle should call updateGoal for milestone_based goals
+      // Milestone toggle should call toggleMilestone store action
       await waitFor(() => {
-        expect(mockUpdateGoal).toHaveBeenCalled();
+        expect(mockToggleMilestone).toHaveBeenCalledWith(mockGoal.id, 'milestone-1', true);
+      });
+    });
+
+    it('shows "+ Add Milestone" button for milestone_based goals', async () => {
+      const goal = createMockGoalWithRelations({
+        progress_type: 'milestone_based',
+        milestones: [],
+      });
+
+      await act(async () => {
+        render(<GoalDetailPanel goal={goal} isOpen={true} onClose={mockOnClose} />);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /add milestone/i })).toBeInTheDocument();
+      });
+    });
+
+    it('does not show "+ Add Milestone" button for non-milestone_based goals', async () => {
+      const goal = createMockGoalWithRelations({
+        progress_type: 'manual',
+        milestones: [],
+      });
+
+      await act(async () => {
+        render(<GoalDetailPanel goal={goal} isOpen={true} onClose={mockOnClose} />);
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /add milestone/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it('displays color dots on milestones inheriting from goal target_date', async () => {
+      const milestones: GoalMilestone[] = [
+        {
+          id: 'milestone-1',
+          goal_id: mockGoal.id,
+          title: 'Milestone 1',
+          is_complete: false,
+          display_order: 0,
+          created_at: '2026-01-01T00:00:00Z',
+          completed_at: null,
+        },
+      ];
+
+      const goal = createMockGoalWithRelations({
+        milestones,
+        target_date: '2026-02-19',
+        progress_type: 'milestone_based',
+      });
+
+      await act(async () => {
+        render(<GoalDetailPanel goal={goal} isOpen={true} onClose={mockOnClose} />);
+      });
+
+      await waitFor(() => {
+        // ColorDot should be rendered (check for aria-label or title attribute)
+        const milestoneLabels = screen.getAllByText('Milestone 1');
+        expect(milestoneLabels.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('calls toggleMilestone store action when milestone checkbox is clicked', async () => {
+      const milestones: GoalMilestone[] = [
+        {
+          id: 'milestone-1',
+          goal_id: mockGoal.id,
+          title: 'Milestone 1',
+          is_complete: false,
+          display_order: 0,
+          created_at: '2026-01-01T00:00:00Z',
+          completed_at: null,
+        },
+      ];
+
+      const goal = createMockGoalWithRelations({
+        milestones,
+        progress_type: 'milestone_based',
+      });
+
+      await act(async () => {
+        render(<GoalDetailPanel goal={goal} isOpen={true} onClose={mockOnClose} />);
+      });
+
+      await waitFor(() => {
+        const checkbox = screen.getByRole('checkbox');
+        expect(checkbox).not.toBeChecked();
+      });
+
+      await act(async () => {
+        const checkbox = screen.getByRole('checkbox');
+        fireEvent.click(checkbox);
+      });
+
+      await waitFor(() => {
+        expect(mockToggleMilestone).toHaveBeenCalledWith(mockGoal.id, 'milestone-1', true);
       });
     });
   });

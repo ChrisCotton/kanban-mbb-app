@@ -17,11 +17,20 @@ jest.mock('../../hooks/useCategories', () => ({
     loading: false,
     error: null,
     submitting: false,
+    loadCategories: jest.fn().mockResolvedValue(undefined),
+    createCategory: jest.fn(),
+    updateCategory: jest.fn(),
+    deleteCategory: jest.fn(),
+    bulkUpload: jest.fn(),
     getCategoryById: (id: string) => (
       id === 'cat-mbb'
         ? { id: 'cat-mbb', name: 'MBB DEVELOPMENT', hourly_rate_usd: 150, hourly_rate: 150, color: '#0ea5e9', is_active: true }
         : undefined
     ),
+    getCategoriesByIds: jest.fn(),
+    getActiveCategories: jest.fn(),
+    searchCategories: jest.fn(),
+    validateCategoryName: jest.fn(),
   }),
 }))
 

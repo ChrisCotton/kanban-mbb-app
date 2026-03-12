@@ -13,7 +13,7 @@ import { useTaskGoals } from '../../hooks/useTaskGoals'
 import PrioritySelector from '../ui/PrioritySelector'
 import DatePicker from '../ui/DatePicker'
 import PositionalMoveDropdown from './PositionalMoveDropdown'
-import CategorySelector from '../ui/CategorySelector'
+import CategorySelector, { type CategoryOption } from '../ui/CategorySelector'
 import { formatDistanceToNow, format } from 'date-fns'
 
 interface TaskDetailModalProps {
@@ -23,7 +23,12 @@ interface TaskDetailModalProps {
   onUpdate?: (taskId: string, updates: Partial<Task>) => Promise<void>
   onMove?: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => Promise<void>
   allTasks?: Record<Task['status'], Task[]>
-  onStartTiming?: (task: Task) => void // New prop for starting timer
+  onStartTiming?: (task: Task) => void
+  /** Shared categories from board so dropdown shows immediately without waiting for modal's own fetch */
+  categories?: CategoryOption[]
+  categoriesLoading?: boolean
+  categoriesError?: string | null
+  onLoadCategories?: () => Promise<void>
 }
 
 interface ConfirmationModalProps {
@@ -74,7 +79,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUpdate,
   onMove,
   allTasks,
-  onStartTiming
+  onStartTiming,
+  categories: categoriesProp,
+  categoriesLoading,
+  categoriesError,
+  onLoadCategories
 }) => {
   const [isClosing, setIsClosing] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -671,6 +680,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     variant="compact"
                     disabled={!isEditing}
                     allowNone={true}
+                    categories={categoriesProp}
+                    loading={categoriesLoading}
+                    loadError={categoriesError}
+                    onLoadCategories={onLoadCategories}
                   />
                 </div>
 

@@ -18,6 +18,7 @@ import { useTaskSearch } from '../../hooks/useTaskSearch'
 import { useGoalsStore } from '../../src/stores/goals.store'
 import { supabase } from '../../lib/supabase'
 import SearchAndFilter, { SearchFilters } from './SearchAndFilter'
+import { useCategories } from '../../hooks/useCategories'
 
 interface KanbanBoardProps {
   className?: string
@@ -50,6 +51,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     refetchTasks,
     fetchTasks
   } = useKanban()
+
+  // Shared categories so Task Detail modal shows list immediately (no per-modal fetch delay)
+  const {
+    categories: boardCategories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    loadCategories: loadBoardCategories
+  } = useCategories()
 
   // Search functionality
   const {
@@ -369,10 +378,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
     setViewingTask(null)
   }
 
-  const handleModalSave = async (taskData: Partial<Task>) => {
+  const handleModalSave = async (taskData: Partial<Task>): Promise<Task | void> => {
     if (editingTask) {
       // Updating existing task
       await updateTask(editingTask.id, taskData)
+      return
     } else {
       // Creating new task
       const createdTask = await createTask(taskData)
@@ -403,6 +413,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           console.error('Error linking task to goal:', error);
         }
       }
+      
+      // Refresh tasks to reflect any changes
+      refetchTasks();
+      
+      // Return created task so TaskModal can link additional goals
+      return createdTask
     }
     
     // Refresh tasks to reflect any changes
@@ -780,6 +796,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           onSave={handleModalSave}
           task={editingTask}
           initialStatus={modalInitialStatus}
+          categories={boardCategories}
+          categoriesLoading={categoriesLoading}
+          categoriesError={categoriesError}
+          onLoadCategories={loadBoardCategories}
         />
 
         {/* Task Detail Modal */}
@@ -791,6 +811,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
           onMove={handleTaskMove}
           allTasks={displayTasksForRender}
           onStartTiming={onStartTiming}
+          categories={boardCategories}
+          categoriesLoading={categoriesLoading}
+          categoriesError={categoriesError}
+          onLoadCategories={loadBoardCategories}
         />
 
         {/* Bulk Actions Toolbar */}

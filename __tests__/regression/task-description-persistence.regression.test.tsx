@@ -57,8 +57,19 @@ jest.mock('../../hooks/useSubtasks', () => ({
 jest.mock('../../hooks/useCategories', () => ({
   useCategories: () => ({
     categories: [],
-    isLoading: false,
+    loading: false,
     error: null,
+    submitting: false,
+    loadCategories: jest.fn().mockResolvedValue(undefined),
+    createCategory: jest.fn(),
+    updateCategory: jest.fn(),
+    deleteCategory: jest.fn(),
+    bulkUpload: jest.fn(),
+    getCategoryById: jest.fn(),
+    getCategoriesByIds: jest.fn(),
+    getActiveCategories: jest.fn(),
+    searchCategories: jest.fn(),
+    validateCategoryName: jest.fn(),
   }),
 }));
 

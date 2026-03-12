@@ -18,25 +18,53 @@ const CategoriesPage = () => {
   const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:20',message:'useEffect started',data:{routerPathname:router.pathname,routerAsPath:router.asPath,loading},timestamp:Date.now(),runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      
-      setUser(user)
-      
-      // Get active vision board images for carousel
-      const { data: images } = await supabase
-        .from('vision_board_images')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:22',message:'getUser called',data:{},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:24',message:'getUser result',data:{hasUser:!!user,userId:user?.id,authError:authError?.message},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        if (!user) {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:26',message:'No user, redirecting',data:{},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          router.push('/auth/login')
+          setLoading(false)
+          return
+        }
         
-      setVisionBoardImages(images || [])
-      setLoading(false)
+        setUser(user)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:32',message:'Fetching vision board images',data:{userId:user.id},timestamp:Date.now(),runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        // Get active vision board images for carousel
+        const { data: images, error: imagesError } = await supabase
+          .from('vision_board_images')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:40',message:'Vision board images fetched',data:{imagesCount:images?.length||0,imagesError:imagesError?.message},timestamp:Date.now(),runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        
+        setVisionBoardImages(images || [])
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:43',message:'Setting loading to false',data:{},timestamp:Date.now(),runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        setLoading(false)
+      } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:46',message:'getUser error',data:{error:error?.message,stack:error?.stack},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        setLoading(false)
+      }
     }
 
     getUser()
@@ -63,6 +91,12 @@ const CategoriesPage = () => {
     setShowCSVUpload(false)
     // CategoryManager will automatically refresh its data
   }
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/9600b6eb-feac-4179-91f9-fecc0082b44b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/categories.js:67',message:'Render check',data:{loading,hasUser:!!user,routerPathname:router.pathname},timestamp:Date.now(),runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+  });
+  // #endregion
 
   if (loading) {
     return (

@@ -1,21 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { getApiSupabaseClient } from '../../../lib/supabase-api'
 
-// Lazy-load supabase client to ensure env vars are available
-let supabase: SupabaseClient | null = null
-
-function getSupabase(): SupabaseClient {
-  if (!supabase) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    
-    if (!url || !key) {
-      throw new Error('Missing Supabase environment variables')
-    }
-    
-    supabase = createClient(url, key)
-  }
-  return supabase
+function getSupabase() {
+  return getApiSupabaseClient()
 }
 
 export interface UserProfile {

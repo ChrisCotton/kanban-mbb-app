@@ -57,17 +57,24 @@ export interface UseCategoriesReturn {
 
 export function useCategories(): UseCategoriesReturn {
   const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start as true to indicate initial load needed
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   
   // Keep track of active requests to prevent race conditions
   const loadingRef = useRef<AbortController | null>(null)
+  const hasLoadedRef = useRef<boolean>(false)
   
   /**
    * Load categories from API
    */
   const loadCategories = useCallback(async () => {
+    // Prevent duplicate loads (but allow if previous load was aborted)
+    if (loadingRef.current && !loadingRef.current.signal.aborted) {
+      console.log('[useCategories] Load already in progress, skipping...')
+      return
+    }
+    
     // Cancel any existing request
     if (loadingRef.current) {
       loadingRef.current.abort()
@@ -83,13 +90,13 @@ export function useCategories(): UseCategoriesReturn {
       // Get auth token from Supabase
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
+      if (!token) {
+        throw new Error('No authentication token available')
+      }
       
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-      }
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
+        'Authorization': `Bearer ${token}`
       }
       
       const response = await fetch('/api/categories', {
@@ -98,7 +105,8 @@ export function useCategories(): UseCategoriesReturn {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text().catch(() => 'Unknown error')
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
       }
       
       const result = await response.json()
@@ -115,14 +123,19 @@ export function useCategories(): UseCategoriesReturn {
       }))
       
       setCategories(normalizedCategories)
+      hasLoadedRef.current = true
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // Request was cancelled, ignore
+        // Request was cancelled: clear loading so this instance never stays stuck
+        setLoading(false)
+        loadingRef.current = null
         return
       }
       
-      console.error('Error loading categories:', err)
+      console.error('[useCategories] Error loading categories:', err)
       setError(err instanceof Error ? err.message : 'Failed to load categories')
+      // Even on error, mark as attempted so we don't retry infinitely
+      hasLoadedRef.current = true
     } finally {
       setLoading(false)
       loadingRef.current = null
@@ -455,9 +468,13 @@ export function useCategories(): UseCategoriesReturn {
     await loadCategories()
   }, [loadCategories])
 
-  // Load categories on mount
+  // Auto-load categories on mount (only if not already loaded)
   useEffect(() => {
-    loadCategories()
+    // Always load on mount if we haven't loaded yet
+    // Don't check loading state - it starts as true anyway
+    if (!hasLoadedRef.current) {
+      loadCategories()
+    }
   }, [loadCategories])
 
   // Cleanup on unmount

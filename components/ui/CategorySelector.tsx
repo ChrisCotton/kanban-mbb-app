@@ -11,6 +11,14 @@ interface Category {
   updated_at: string
 }
 
+export interface CategoryOption {
+  id: string
+  name: string
+  hourly_rate_usd?: number
+  created_at?: string
+  updated_at?: string
+}
+
 interface CategorySelectorProps {
   value?: string // category ID
   onChange: (categoryId: string | null) => void
@@ -19,6 +27,11 @@ interface CategorySelectorProps {
   className?: string
   variant?: 'default' | 'compact'
   allowNone?: boolean
+  /** When provided, use these instead of useCategories() so modal shows categories immediately (e.g. from board). */
+  categories?: CategoryOption[]
+  loading?: boolean
+  loadError?: string | null
+  onLoadCategories?: () => Promise<void>
 }
 
 const CategorySelector: React.FC<CategorySelectorProps> = ({
@@ -28,49 +41,54 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   error,
   className = '',
   variant = 'default',
-  allowNone = true
+  allowNone = true,
+  categories: categoriesProp,
+  loading: loadingProp,
+  loadError: loadErrorProp,
+  onLoadCategories
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // ✅ FIX: Use the useCategories hook (includes auth token automatically)
-  const { 
-    categories, 
-    loading, 
-    error: loadError,
-    loadCategories
-  } = useCategories()
+  const hook = useCategories()
+  // Use shared categories from parent when provided (e.g. from KanbanBoard) so modal shows list immediately
+  const categories = categoriesProp !== undefined ? categoriesProp : hook.categories
+  const loading = loadingProp !== undefined ? loadingProp : hook.loading
+  const loadError = loadErrorProp !== undefined ? loadErrorProp : hook.error
+  const loadCategories = onLoadCategories ?? hook.loadCategories
 
   // Normalize categories to ensure hourly_rate_usd is available
   // The hook may return hourly_rate, but we need hourly_rate_usd
-  const normalizedCategories = categories.map(cat => ({
+  const normalizedCategories = categories.map((cat: CategoryOption & { hourly_rate?: number }) => ({
     ...cat,
-    hourly_rate_usd: cat.hourly_rate_usd ?? (cat as any).hourly_rate ?? 0
+    hourly_rate_usd: cat.hourly_rate_usd ?? (cat as { hourly_rate?: number }).hourly_rate ?? 0
   }))
 
   const selectedCategory = normalizedCategories.find(cat => cat.id === value) || null
 
-  // Explicitly load categories when component mounts or when not loading and categories are empty
+  // Force load categories if hook hasn't loaded them yet
+  // The useCategories hook should auto-load, but we ensure it happens
   useEffect(() => {
-    if (!loading && categories.length === 0 && !loadError) {
-      console.log('[CategorySelector] Explicitly loading categories...')
+    // If we have no categories and no error, trigger load (safety net when hook load was aborted or not started)
+    if (categories.length === 0 && !loadError) {
+      console.log('[CategorySelector] No categories found, triggering load...')
       loadCategories().catch((error) => {
         console.error('[CategorySelector] Failed to load categories:', error)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, categories.length, loadError])
+  }, []) // Only run on mount
 
   // Debug logging (remove in production)
   useEffect(() => {
     if (loading) {
-      console.log('[CategorySelector] Loading categories...')
+      console.log('[CategorySelector] Loading categories...', { categoriesCount: categories.length })
     } else if (loadError) {
       console.error('[CategorySelector] Error loading categories:', loadError)
     } else {
       console.log('[CategorySelector] Categories loaded:', normalizedCategories.length)
     }
-  }, [loading, loadError, normalizedCategories.length])
+  }, [loading, loadError, normalizedCategories.length, categories.length])
 
   // Handle clicks outside to close
   useEffect(() => {
