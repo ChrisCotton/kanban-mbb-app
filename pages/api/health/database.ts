@@ -158,7 +158,7 @@ async function checkCategoriesTable(): Promise<HealthCheck> {
     } else {
       // Check for expected columns
       const expectedColumns = ['id', 'name', 'hourly_rate', 'color', 'is_active']
-      const issues = []
+      const issues: string[] = []
       
       for (const column of expectedColumns) {
         try {

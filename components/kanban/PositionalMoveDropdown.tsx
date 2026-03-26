@@ -58,8 +58,8 @@ const PositionalMoveDropdown: React.FC<PositionalMoveDropdownProps> = ({
     // For current status, show all positions except current one
     // For other statuses, show all positions plus "end" position
     const maxPositions = isCurrentStatus ? tasksInStatus.length : tasksInStatus.length + 1
-    
-    const options = []
+
+    const options: React.ReactElement[] = []
     
     for (let i = 0; i < maxPositions; i++) {
       // Skip current position in current status

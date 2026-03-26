@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import Image from 'next/image'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
 import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
@@ -21,7 +22,7 @@ interface NavItem {
 
 const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<User | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const router = useRouter()
   const { enabled: carouselEnabled, toggle: toggleCarousel } = useCarouselPreference()

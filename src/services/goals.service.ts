@@ -121,7 +121,9 @@ export class GoalsService {
 
       if (!linksError && visionLinks && visionLinks.length > 0) {
         // Get unique vision image IDs
-        const visionImageIds = [...new Set(visionLinks.map(link => link.vision_image_id))];
+        const visionImageIds = Array.from(
+          new Set(visionLinks.map((link) => link.vision_image_id))
+        );
         
         // Fetch vision board images
         const { data: visionImages, error: imagesError } = await this.supabase

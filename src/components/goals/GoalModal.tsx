@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Goal, CreateGoalInput, UpdateGoalInput, GoalProgressType } from '../../types/goals';
+import {
+  Goal,
+  GoalWithRelations,
+  CreateGoalInput,
+  UpdateGoalInput,
+  GoalProgressType,
+} from '../../types/goals';
 import { useGoalsStore } from '../../stores/goals.store';
 import CategorySelector from '../../../components/ui/CategorySelector';
 import DatePicker from '../../../components/ui/DatePicker';
@@ -14,7 +20,7 @@ interface VisionBoardImage {
 interface GoalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  goal?: Goal; // If provided, we're editing; if undefined, we're creating
+  goal?: GoalWithRelations; // If provided, we're editing; if undefined, we're creating
   onSuccess?: (goal: Goal) => void;
 }
 

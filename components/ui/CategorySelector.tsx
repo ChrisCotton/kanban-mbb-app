@@ -212,7 +212,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                   </div>
                 </button>
               )}
-              {categories.map((category) => (
+              {normalizedCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={(e) => {
@@ -359,7 +359,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                 </button>
               )}
               
-              {categories.map((category) => (
+              {normalizedCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={(e) => {

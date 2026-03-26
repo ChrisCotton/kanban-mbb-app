@@ -97,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .map(cat => cat.name)
 
     // Generate warnings
-    const warnings = []
+    const warnings: string[] = []
     if (existingDuplicates.length > 0) {
       warnings.push(`${existingDuplicates.length} categories already exist and will be skipped`)
     }

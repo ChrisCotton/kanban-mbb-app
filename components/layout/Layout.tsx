@@ -18,10 +18,12 @@ interface LayoutProps {
   activeTask?: {
     id: string
     title: string
+    category_id?: string | null
     category?: {
       id: string
       name: string
-      hourly_rate: number
+      hourly_rate_usd: number
+      hourly_rate?: number
       color?: string
     }
   } | null
