@@ -16,8 +16,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   }
 
-  console.log(`Weather API called for date: ${date} with method:`, req.method)
-  
   try {
     switch (req.method) {
       case 'GET':
@@ -78,11 +76,12 @@ async function getWeatherForDate(req: NextApiRequest, res: NextApiResponse, date
       })
     }
 
+    // Return 200 with null when no data (weather UI removed; avoid 404 floods from any cached callers)
     if (!weatherData) {
-      return res.status(404).json({
-        success: false,
-        error: 'No weather data found for this date',
-        date
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: 'No weather data for this date'
       })
     }
 
