@@ -12,7 +12,11 @@ export interface DragDropState {
 export interface UseDragAndDropProps {
   tasks: Record<Task['status'], Task[]>
   onTaskMove: (taskId: string, newStatus: Task['status'], newOrderIndex: number) => Promise<void>
-  onOptimisticUpdate?: (tasks: Record<Task['status'], Task[]>) => void
+  onOptimisticUpdate?: (
+    tasks: Record<Task['status'], Task[]>,
+    movedTaskId?: string,
+    newStatus?: Task['status']
+  ) => void
 }
 
 export interface UseDragAndDropReturn {

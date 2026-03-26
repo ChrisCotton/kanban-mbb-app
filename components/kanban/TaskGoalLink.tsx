@@ -26,7 +26,7 @@ const TaskGoalLink: React.FC<TaskGoalLinkProps> = ({
       fetchGoals().catch((error) => {
         console.error('[TaskGoalLink] Error fetching goals:', error)
         // Only show alert in browser environment (not in tests)
-        if (typeof window !== 'undefined' && window.alert) {
+        if (typeof window !== 'undefined') {
           alert(`Failed to load goals: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
       })

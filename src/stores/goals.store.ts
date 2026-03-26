@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Goal, CreateGoalInput, UpdateGoalInput, GoalFilters, GoalSortOptions, GoalMilestone } from '../types/goals';
+import {
+  Goal,
+  GoalWithRelations,
+  CreateGoalInput,
+  UpdateGoalInput,
+  GoalFilters,
+  GoalSortOptions,
+  GoalMilestone,
+} from '../types/goals';
 import { supabase } from '../../lib/supabase';
 
 interface GoalsState {
@@ -17,6 +25,19 @@ interface GoalsState {
   completeGoal: (id: string) => Promise<Goal>;
   setActiveGoalFilter: (goalId: string | null) => void;
   reorderGoals: (goalIds: string[]) => Promise<void>;
+  createMilestone: (goalId: string, title: string) => Promise<GoalMilestone>;
+  updateMilestone: (
+    goalId: string,
+    milestoneId: string,
+    updates: Partial<GoalMilestone>
+  ) => Promise<GoalMilestone>;
+  deleteMilestone: (goalId: string, milestoneId: string) => Promise<void>;
+  toggleMilestone: (
+    goalId: string,
+    milestoneId: string,
+    isComplete: boolean
+  ) => Promise<GoalMilestone>;
+  reorderMilestones: (goalId: string, milestoneIds: string[]) => Promise<void>;
   clearError: () => void;
 
   // Selectors

@@ -568,7 +568,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
           <div className="absolute top-32 left-1/2 -translate-x-1/2 z-10 max-w-4xl w-full mx-4">
             <div className="bg-black/70 backdrop-blur-md rounded-xl px-6 py-4 border-2 border-white/30 shadow-2xl">
               <p className="text-2xl md:text-3xl font-bold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] text-center">
-                {cleanGoalText(currentImage.goal)}
+                {cleanGoalText(currentImage.goal ?? '')}
                 {currentImage.due_date ? (() => {
                   const interval = getClosestInterval(currentImage.due_date)
                   const option = INTERVAL_OPTIONS.find(opt => opt.value === interval)

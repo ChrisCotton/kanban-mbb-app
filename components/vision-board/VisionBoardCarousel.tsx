@@ -414,7 +414,7 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
                 {goalTextEnabled && hasGoal(image) && (
                   <div className="mb-4 bg-black/70 backdrop-blur-md rounded-xl px-6 py-4 border-2 border-white/30 shadow-2xl">
                     <p className="text-2xl md:text-3xl font-bold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                      {cleanGoalText(image.goal)}
+                      {cleanGoalText(image.goal ?? '')}
                       {image.due_date ? (() => {
                         const interval = getClosestInterval(image.due_date)
                         const option = INTERVAL_OPTIONS.find(opt => opt.value === interval)

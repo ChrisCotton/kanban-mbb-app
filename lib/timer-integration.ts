@@ -8,7 +8,7 @@ import {
 
 // Timer Session Types
 export interface TimerSession {
-  taskId: string
+  taskId?: string
   duration: number
   earnings: number
   startTime: Date

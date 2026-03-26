@@ -166,7 +166,7 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
     
     if (!goalTasksError && goalTasks && goalTasks.length > 0) {
       // Get unique goal IDs
-      const goalIds = [...new Set(goalTasks.map((gt: any) => gt.goal_id))]
+      const goalIds = Array.from(new Set(goalTasks.map((gt: any) => gt.goal_id)))
       
       // Fetch goals to get target_date
       const { data: goals, error: goalsError } = await supabase
@@ -310,6 +310,37 @@ export async function searchTasks(params: {
           completed: taskSubtasks.filter(s => s.completed).length
         }
       })
+    }
+  }
+
+  let goalInfo: Record<string, { goal_id: string; goal_target_date: string | null }> = {}
+  if (fetchedTaskIds.length > 0) {
+    const { data: goalTasks, error: goalTasksError } = await supabase
+      .from('goal_tasks')
+      .select('task_id, goal_id')
+      .in('task_id', fetchedTaskIds)
+
+    if (!goalTasksError && goalTasks && goalTasks.length > 0) {
+      const goalIds = Array.from(new Set(goalTasks.map((gt: { goal_id: string }) => gt.goal_id)))
+      const { data: goals, error: goalsError } = await supabase
+        .from('goals')
+        .select('id, target_date')
+        .in('id', goalIds)
+
+      if (!goalsError && goals) {
+        const goalDateMap = new Map<string, string | null>()
+        goals.forEach((goal: { id: string; target_date: string | null }) => {
+          goalDateMap.set(goal.id, goal.target_date)
+        })
+        goalTasks.forEach((gt: { task_id: string; goal_id: string }) => {
+          if (!goalInfo[gt.task_id]) {
+            goalInfo[gt.task_id] = {
+              goal_id: gt.goal_id,
+              goal_target_date: goalDateMap.get(gt.goal_id) || null
+            }
+          }
+        })
+      }
     }
   }
 

@@ -110,8 +110,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     )
 
     // Import new categories
-    const importedCategories = []
-    const importErrors = []
+    const importedCategories: any[] = []
+    const importErrors: { name: string; error: string }[] = []
 
     for (const category of newCategories) {
       try {

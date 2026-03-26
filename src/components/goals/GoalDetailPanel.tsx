@@ -334,7 +334,7 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
                             snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2' : ''
                           }`}
                         >
-                          {goal.milestones
+                          {(goal.milestones ?? [])
                             .sort((a, b) => a.display_order - b.display_order)
                             .map((milestone: GoalMilestone, index: number) => (
                               <Draggable
