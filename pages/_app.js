@@ -3,9 +3,22 @@ import { Toaster } from 'react-hot-toast'
 import { TimerContextProvider } from '../contexts/TimerContext'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
 
 export default function App({ Component, pageProps }) {
   const router = useRouter()
+
+  // Stale sessions (e.g. after admin password reset) leave invalid refresh tokens in storage.
+  // Clear them so login page does not spam AuthApiError / 400 on token refresh.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ error }) => {
+      if (!error) return
+      const msg = (error.message || '').toLowerCase()
+      if (msg.includes('refresh') || msg.includes('invalid')) {
+        supabase.auth.signOut({ scope: 'local' })
+      }
+    })
+  }, [])
   
   useEffect(() => {
     const handleRouteChangeStart = (url) => {}

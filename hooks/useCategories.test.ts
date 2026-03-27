@@ -1,6 +1,29 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useCategories } from './useCategories'
 
+jest.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(() =>
+        Promise.resolve({
+          data: { session: { access_token: 'test-token' } },
+          error: null,
+        })
+      ),
+      getUser: jest.fn(() =>
+        Promise.resolve({
+          data: { user: { id: 'user1' } },
+          error: null,
+        })
+      ),
+      // Real client invokes this immediately; we do not, to avoid duplicate loadCategories + flaky tests
+      onAuthStateChange: jest.fn(() => ({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      })),
+    },
+  },
+}))
+
 // Mock fetch globally
 global.fetch = jest.fn()
 
@@ -9,6 +32,7 @@ const mockCategories = [
     id: '1',
     name: 'Development',
     hourly_rate: 85,
+    hourly_rate_usd: 85,
     color: '#3B82F6',
     is_active: true,
     created_at: '2023-01-01T00:00:00Z',
@@ -21,6 +45,7 @@ const mockCategories = [
     id: '2',
     name: 'Design',
     hourly_rate: 75,
+    hourly_rate_usd: 75,
     color: '#10B981',
     is_active: true,
     created_at: '2023-01-01T00:00:00Z',
@@ -33,6 +58,7 @@ const mockCategories = [
     id: '3',
     name: 'Research',
     hourly_rate: 65,
+    hourly_rate_usd: 65,
     color: '#F59E0B',
     is_active: false,
     created_at: '2023-01-01T00:00:00Z',
@@ -68,7 +94,15 @@ describe('useCategories Hook', () => {
 
     expect(result.current.categories).toEqual(mockCategories)
     expect(result.current.error).toBe(null)
-    expect(fetch).toHaveBeenCalledWith('/api/categories', { signal: expect.any(AbortSignal) })
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/categories',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+        }),
+      })
+    )
   })
 
   it('should handle loading error', async () => {

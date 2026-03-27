@@ -91,7 +91,10 @@ export function useCategories(): UseCategoriesReturn {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       if (!token) {
-        throw new Error('No authentication token available')
+        // Public routes (e.g. /auth/login): no session yet — skip fetch, no error
+        setCategories([])
+        setError(null)
+        return
       }
       
       const headers: HeadersInit = {
@@ -475,6 +478,23 @@ export function useCategories(): UseCategoriesReturn {
     if (!hasLoadedRef.current) {
       loadCategories()
     }
+  }, [loadCategories])
+
+  // After sign-in, fetch categories (TimerContext mounts before login completes)
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.access_token) {
+        loadCategories()
+      }
+      if (event === 'SIGNED_OUT') {
+        setCategories([])
+        setError(null)
+        hasLoadedRef.current = false
+      }
+    })
+    return () => subscription.unsubscribe()
   }, [loadCategories])
 
   // Cleanup on unmount
