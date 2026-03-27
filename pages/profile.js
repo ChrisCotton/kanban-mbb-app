@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
+import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/layout/Layout'
 import ProfilePictureUpload from '../components/profile/ProfilePictureUpload'
@@ -12,6 +13,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [categories, setCategories] = useState([])
   
   // List of API key fields for reference
@@ -236,6 +238,21 @@ const ProfilePage = () => {
     saveProfile(updates)
   }
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      toast.success('Signed out')
+      router.replace('/auth/login')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not sign out'
+      toast.error(msg)
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   if (loading) {
     return (
       <Layout>
@@ -315,9 +332,19 @@ const ProfilePage = () => {
             <span className={styles.infoLabel}>Email</span>
             <span className={styles.infoValue}>{user?.email}</span>
           </div>
-          <div className={styles.infoRow}>
+          <div className={`${styles.infoRow} ${styles.infoRowLast}`}>
             <span className={styles.infoLabel}>User ID</span>
             <span className={styles.infoValue}>{user?.id}</span>
+          </div>
+          <div className={styles.logoutRow}>
+            <button
+              type="button"
+              className={styles.logoutButton}
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? 'Signing out…' : 'Sign out'}
+            </button>
           </div>
         </div>
       </div>
