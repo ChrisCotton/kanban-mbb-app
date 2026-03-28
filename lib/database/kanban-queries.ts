@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getApiSupabaseClient } from '../supabase-api'
 
 // Types for our database entities
 export interface Task {
@@ -37,12 +38,23 @@ export interface Category {
   updated_by?: string
 }
 
+/** Goals linked via goal_tasks (many-to-many); used by Kanban, calendar, etc. */
+export interface LinkedGoalSummary {
+  id: string
+  title: string
+  icon?: string | null
+  color?: string | null
+  target_date?: string | null
+}
+
 export interface TaskWithCategory extends Task {
   category?: Category
   subtask_count?: number
   subtask_completed?: number
   goal_id?: string
   goal_target_date?: string
+  /** All goals linked to this task through goal_tasks */
+  linked_goals?: LinkedGoalSummary[]
 }
 
 export interface Comment {
@@ -75,6 +87,104 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+/**
+ * Server-side enrichment must use the service-role client: `goal_tasks` RLS requires
+ * auth.uid(), which is unset when API routes use the anon key without a user JWT.
+ * Filter goals by task.user_id so we never attach another user's goals.
+ */
+function getClientForGoalLinkEnrichment() {
+  try {
+    return getApiSupabaseClient()
+  } catch {
+    return supabase
+  }
+}
+
+type GoalRowForLink = {
+  id: string
+  title: string
+  icon?: string | null
+  color?: string | null
+  target_date?: string | null
+  user_id: string
+}
+
+/**
+ * Attach all goals linked via goal_tasks. Sets goal_id / goal_target_date from the first linked goal (backward compatible).
+ */
+async function enrichTasksWithGoalLinks<T extends { id: string; user_id: string }>(
+  tasks: T[]
+): Promise<
+  Array<
+    T & {
+      goal_id?: string
+      goal_target_date?: string | null
+      linked_goals: LinkedGoalSummary[]
+    }
+  >
+> {
+  const fetchedTaskIds = tasks.map((t) => t.id)
+  if (fetchedTaskIds.length === 0) {
+    return []
+  }
+
+  const db = getClientForGoalLinkEnrichment()
+
+  const { data: goalTasks, error: goalTasksError } = await db
+    .from('goal_tasks')
+    .select('task_id, goal_id')
+    .in('task_id', fetchedTaskIds)
+
+  if (goalTasksError || !goalTasks?.length) {
+    return tasks.map((t) => ({ ...t, linked_goals: [] as LinkedGoalSummary[] }))
+  }
+
+  const goalIds = Array.from(new Set(goalTasks.map((gt: { goal_id: string }) => gt.goal_id)))
+  const { data: goals, error: goalsError } = await db
+    .from('goals')
+    .select('id, title, icon, color, target_date, user_id')
+    .in('id', goalIds)
+
+  if (goalsError || !goals?.length) {
+    return tasks.map((t) => ({ ...t, linked_goals: [] as LinkedGoalSummary[] }))
+  }
+
+  const goalById = new Map<string, GoalRowForLink>()
+  goals.forEach((g: GoalRowForLink) => {
+    goalById.set(g.id, g)
+  })
+
+  const taskToGoalIds = new Map<string, string[]>()
+  goalTasks.forEach((gt: { task_id: string; goal_id: string }) => {
+    const list = taskToGoalIds.get(gt.task_id) || []
+    if (!list.includes(gt.goal_id)) list.push(gt.goal_id)
+    taskToGoalIds.set(gt.task_id, list)
+  })
+
+  return tasks.map((task) => {
+    const gids = taskToGoalIds.get(task.id) || []
+    const linked_goals: LinkedGoalSummary[] = []
+    for (const gid of gids) {
+      const row = goalById.get(gid)
+      if (!row || row.user_id !== task.user_id) continue
+      linked_goals.push({
+        id: row.id,
+        title: row.title,
+        icon: row.icon,
+        color: row.color,
+        target_date: row.target_date ?? null,
+      })
+    }
+    const first = linked_goals[0]
+    return {
+      ...task,
+      linked_goals,
+      goal_id: first?.id,
+      goal_target_date: first?.target_date ?? null,
+    }
+  })
+}
 
 // ============================================================================
 // TASK QUERIES
@@ -153,57 +263,14 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
     }
   }
 
-  // PERFORMANCE FIX: Batch fetch goal information for all tasks
-  // Get goal_id and goal.target_date for tasks linked to goals
-  let goalInfo: Record<string, { goal_id: string; goal_target_date: string | null }> = {}
-  
-  if (fetchedTaskIds.length > 0) {
-    // Fetch goal_tasks junction table to get goal IDs for tasks
-    const { data: goalTasks, error: goalTasksError } = await supabase
-      .from('goal_tasks')
-      .select('task_id, goal_id')
-      .in('task_id', fetchedTaskIds)
-    
-    if (!goalTasksError && goalTasks && goalTasks.length > 0) {
-      // Get unique goal IDs
-      const goalIds = Array.from(new Set(goalTasks.map((gt: any) => gt.goal_id)))
-      
-      // Fetch goals to get target_date
-      const { data: goals, error: goalsError } = await supabase
-        .from('goals')
-        .select('id, target_date')
-        .in('id', goalIds)
-      
-      if (!goalsError && goals) {
-        // Create a map of goal_id to target_date
-        const goalDateMap = new Map<string, string | null>()
-        goals.forEach((goal: any) => {
-          goalDateMap.set(goal.id, goal.target_date)
-        })
-        
-        // Map task_id to goal info (use first goal if task has multiple goals)
-        goalTasks.forEach((gt: any) => {
-          if (!goalInfo[gt.task_id]) {
-            goalInfo[gt.task_id] = {
-              goal_id: gt.goal_id,
-              goal_target_date: goalDateMap.get(gt.goal_id) || null
-            }
-          }
-        })
-      }
-    }
-  }
-
-  // Add subtask counts and goal info to each task
-  const tasksWithCounts = (data || []).map(task => ({
+  // Add subtask counts; goals attached via enrichTasksWithGoalLinks (all linked_goals)
+  const tasksWithCounts = (data || []).map((task) => ({
     ...task,
     subtask_count: subtaskCounts[task.id]?.total || 0,
     subtask_completed: subtaskCounts[task.id]?.completed || 0,
-    goal_id: goalInfo[task.id]?.goal_id,
-    goal_target_date: goalInfo[task.id]?.goal_target_date
   }))
 
-  return tasksWithCounts as TaskWithCategory[]
+  return enrichTasksWithGoalLinks(tasksWithCounts)
 }
 
 /**
@@ -313,47 +380,13 @@ export async function searchTasks(params: {
     }
   }
 
-  let goalInfo: Record<string, { goal_id: string; goal_target_date: string | null }> = {}
-  if (fetchedTaskIds.length > 0) {
-    const { data: goalTasks, error: goalTasksError } = await supabase
-      .from('goal_tasks')
-      .select('task_id, goal_id')
-      .in('task_id', fetchedTaskIds)
-
-    if (!goalTasksError && goalTasks && goalTasks.length > 0) {
-      const goalIds = Array.from(new Set(goalTasks.map((gt: { goal_id: string }) => gt.goal_id)))
-      const { data: goals, error: goalsError } = await supabase
-        .from('goals')
-        .select('id, target_date')
-        .in('id', goalIds)
-
-      if (!goalsError && goals) {
-        const goalDateMap = new Map<string, string | null>()
-        goals.forEach((goal: { id: string; target_date: string | null }) => {
-          goalDateMap.set(goal.id, goal.target_date)
-        })
-        goalTasks.forEach((gt: { task_id: string; goal_id: string }) => {
-          if (!goalInfo[gt.task_id]) {
-            goalInfo[gt.task_id] = {
-              goal_id: gt.goal_id,
-              goal_target_date: goalDateMap.get(gt.goal_id) || null
-            }
-          }
-        })
-      }
-    }
-  }
-
-  // Add subtask counts and goal info to each task
-  const tasksWithCounts = filteredData.map(task => ({
+  const tasksWithCounts = filteredData.map((task) => ({
     ...task,
     subtask_count: subtaskCounts[task.id]?.total || 0,
     subtask_completed: subtaskCounts[task.id]?.completed || 0,
-    goal_id: goalInfo[task.id]?.goal_id,
-    goal_target_date: goalInfo[task.id]?.goal_target_date
   }))
 
-  return tasksWithCounts as TaskWithCategory[]
+  return enrichTasksWithGoalLinks(tasksWithCounts)
 }
 
 /**

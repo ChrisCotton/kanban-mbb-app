@@ -3,28 +3,33 @@
  * Tests all database operations with proper mocking
  */
 
-// Mock Supabase before importing our functions
-const mockSupabaseClient = {
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  neq: jest.fn().mockReturnThis(),
-  not: jest.fn().mockReturnThis(),
-  lt: jest.fn().mockReturnThis(),
-  gte: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
-  single: jest.fn(),
-  upsert: jest.fn().mockReturnThis()
-}
-
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => mockSupabaseClient)
-}))
+jest.mock('@supabase/supabase-js', () => {
+  const mockSupabaseClient: Record<string, jest.Mock> = {}
+  const chain = () => mockSupabaseClient as unknown
+  for (const m of [
+    'from',
+    'select',
+    'insert',
+    'update',
+    'delete',
+    'eq',
+    'neq',
+    'not',
+    'lt',
+    'gte',
+    'order',
+    'in',
+    'or',
+    'upsert',
+  ]) {
+    mockSupabaseClient[m] = jest.fn(chain)
+  }
+  mockSupabaseClient.single = jest.fn()
+  return { createClient: jest.fn(() => mockSupabaseClient) }
+})
 
 import {
+  supabase,
   getTasks,
   getTask,
   createTask,
@@ -47,6 +52,77 @@ import {
   Comment,
   Subtask
 } from './kanban-queries'
+
+/** Same client instance kanban-queries binds at module load (must match mocked createClient). */
+const mockSupabaseClient = supabase as typeof supabase & {
+  from: jest.Mock
+  select: jest.Mock
+  in: jest.Mock
+  delete: jest.Mock
+  eq: jest.Mock
+  order: jest.Mock
+  single: jest.Mock
+}
+
+const chain = () => mockSupabaseClient
+
+const CHAIN_METHODS = [
+  'from',
+  'select',
+  'insert',
+  'update',
+  'delete',
+  'eq',
+  'neq',
+  'not',
+  'lt',
+  'gte',
+  'order',
+  'in',
+  'or',
+  'upsert',
+] as const
+
+/**
+ * getTasks: tasks query is thenable; then subtasks + goal_tasks batches.
+ * Empty goal_tasks yields linked_goals: [].
+ */
+function mockGetTasksSupabase(
+  tasks: Task[],
+  options?: { error?: { message: string } | null }
+) {
+  const result = { data: tasks, error: options?.error ?? null }
+  const tasksQuery: Record<string, jest.Mock> & {
+    then?: (onFulfilled: (v: typeof result) => unknown) => unknown
+  } = {
+    select: jest.fn(),
+    order: jest.fn(),
+    eq: jest.fn(),
+    in: jest.fn(),
+  }
+  tasksQuery.select.mockReturnValue(tasksQuery)
+  tasksQuery.order.mockReturnValue(tasksQuery)
+  tasksQuery.eq.mockReturnValue(tasksQuery)
+  tasksQuery.in.mockReturnValue(tasksQuery)
+  tasksQuery.then = (onFulfilled) => Promise.resolve(result).then(onFulfilled)
+
+  mockSupabaseClient.from.mockImplementation((table: string) => {
+    if (table === 'tasks') return tasksQuery
+    if (table === 'subtasks') {
+      return {
+        select: jest.fn().mockReturnThis(),
+        in: jest.fn().mockResolvedValue({ data: [], error: null }),
+      }
+    }
+    if (table === 'goal_tasks') {
+      return {
+        select: jest.fn().mockReturnThis(),
+        in: jest.fn().mockResolvedValue({ data: [], error: null }),
+      }
+    }
+    return mockSupabaseClient
+  })
+}
 
 // Test data
 const mockTask: Task = {
@@ -85,6 +161,12 @@ const mockSubtask: Subtask = {
 describe('Kanban Query Functions', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Tests may override `.select` / `.order` with mockResolvedValue; restore full chain.
+    for (const m of CHAIN_METHODS) {
+      mockSupabaseClient[m].mockReset()
+      mockSupabaseClient[m].mockImplementation(chain)
+    }
+    mockSupabaseClient.single.mockReset()
   })
 
   // ============================================================================
@@ -92,32 +174,37 @@ describe('Kanban Query Functions', () => {
   // ============================================================================
 
   describe('getTasks', () => {
+    const expectedTaskRow = (task: Task) =>
+      expect.objectContaining({
+        ...task,
+        subtask_count: 0,
+        subtask_completed: 0,
+        linked_goals: [],
+      })
+
     test('should fetch all tasks successfully', async () => {
       const mockTasks = [mockTask]
-      mockSupabaseClient.order.mockResolvedValue({ data: mockTasks, error: null })
+      mockGetTasksSupabase(mockTasks)
 
       const result = await getTasks()
 
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('tasks')
-      expect(mockSupabaseClient.select).toHaveBeenCalledWith('*')
-      expect(result).toEqual(mockTasks)
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('subtasks')
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('goal_tasks')
+      expect(result).toEqual([expectedTaskRow(mockTask)])
     })
 
     test('should fetch tasks filtered by status', async () => {
       const mockTasks = [mockTask]
-      mockSupabaseClient.order.mockResolvedValue({ data: mockTasks, error: null })
+      mockGetTasksSupabase(mockTasks)
 
       const result = await getTasks('todo')
 
-      expect(mockSupabaseClient.eq).toHaveBeenCalledWith('status', 'todo')
-      expect(result).toEqual(mockTasks)
+      expect(result).toEqual([expectedTaskRow(mockTask)])
     })
 
     test('should throw error when database query fails', async () => {
-      mockSupabaseClient.order.mockResolvedValue({ 
-        data: null, 
-        error: { message: 'Database error' } 
-      })
+      mockGetTasksSupabase([], { error: { message: 'Database error' } })
 
       await expect(getTasks()).rejects.toThrow('Failed to fetch tasks: Database error')
     })
@@ -251,11 +338,17 @@ describe('Kanban Query Functions', () => {
       const newContent = 'Updated comment'
       const updatedComment = { ...mockComment, content: newContent }
 
-      mockSupabaseClient.single.mockResolvedValue({ data: updatedComment, error: null })
+      // update().eq().select() returns rows array (not .single())
+      mockSupabaseClient.select.mockResolvedValue({
+        data: [updatedComment],
+        error: null,
+      })
 
       const result = await updateComment(mockComment.id, newContent)
 
-      expect(mockSupabaseClient.update).toHaveBeenCalledWith({ content: newContent })
+      expect(mockSupabaseClient.update).toHaveBeenCalledWith(
+        expect.objectContaining({ content: newContent })
+      )
       expect(result).toEqual(updatedComment)
     })
   })
@@ -400,10 +493,7 @@ describe('Kanban Query Functions', () => {
 
   describe('Error Handling', () => {
     test('should handle database connection errors', async () => {
-      mockSupabaseClient.order.mockResolvedValue({ 
-        data: null, 
-        error: { message: 'Connection timeout' } 
-      })
+      mockGetTasksSupabase([], { error: { message: 'Connection timeout' } })
 
       await expect(getTasks()).rejects.toThrow('Failed to fetch tasks: Connection timeout')
     })

@@ -3,6 +3,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
 
+interface LinkedGoalSummary {
+  id: string
+  title: string
+  icon?: string | null
+  color?: string | null
+}
+
 interface Task {
   id: string
   title: string
@@ -15,6 +22,8 @@ interface Task {
     name: string
     hourly_rate_usd: number
   }
+  /** From /api/kanban/tasks via goal_tasks */
+  linked_goals?: LinkedGoalSummary[]
 }
 
 interface Goal {
@@ -65,6 +74,14 @@ const STATUS_COLORS = {
   todo: 'border-l-blue-400',
   doing: 'border-l-yellow-400',
   done: 'border-l-green-400'
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const safe = hex?.startsWith('#') ? hex : '#8B5CF6'
+  const r = parseInt(safe.slice(1, 3), 16)
+  const g = parseInt(safe.slice(3, 5), 16)
+  const b = parseInt(safe.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -303,15 +320,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   {day.goals.map(goal => {
                     const goalColor = goal.color || goal.category?.color || '#8B5CF6'
                     const goalIcon = goal.icon || '🎯'
-                    
-                    // Convert hex color to rgba for background with opacity
-                    const hexToRgba = (hex: string, alpha: number) => {
-                      const r = parseInt(hex.slice(1, 3), 16)
-                      const g = parseInt(hex.slice(3, 5), 16)
-                      const b = parseInt(hex.slice(5, 7), 16)
-                      return `rgba(${r}, ${g}, ${b}, ${alpha})`
-                    }
-                    
+
                     return (
                       <div
                         key={`goal-${goal.id}`}
@@ -358,6 +367,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         {task.category && (
                           <div className="truncate opacity-80">
                             {task.category.name}
+                          </div>
+                        )}
+                        {task.linked_goals && task.linked_goals.length > 0 && (
+                          <div className="mt-0.5 flex flex-wrap gap-0.5">
+                            {task.linked_goals.slice(0, 2).map((lg) => {
+                              const gColor = lg.color || '#a855f7'
+                              return (
+                                <span
+                                  key={lg.id}
+                                  className="inline-flex max-w-full items-center gap-0.5 rounded px-1 py-0.5 text-[10px] leading-tight border-l-2"
+                                  style={{
+                                    borderLeftColor: gColor,
+                                    backgroundColor: hexToRgba(gColor, 0.15),
+                                    color: '#e9d5ff',
+                                  }}
+                                  title={lg.title}
+                                >
+                                  {lg.icon ? <span className="shrink-0">{lg.icon}</span> : null}
+                                  <span className="truncate">{lg.title}</span>
+                                </span>
+                              )
+                            })}
+                            {task.linked_goals.length > 2 && (
+                              <span className="text-[10px] text-white/45">+{task.linked_goals.length - 2}</span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -435,6 +469,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">Category</label>
                   <p className="text-sm text-white/70">{selectedTask.category.name}</p>
+                </div>
+              )}
+
+              {selectedTask.linked_goals && selectedTask.linked_goals.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Goals</label>
+                  <ul className="space-y-2">
+                    {selectedTask.linked_goals.map((lg) => {
+                      const gColor = lg.color || '#a855f7'
+                      return (
+                        <li
+                          key={lg.id}
+                          className="flex items-start gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm"
+                          style={{
+                            borderLeftWidth: 4,
+                            borderLeftColor: gColor,
+                            backgroundColor: hexToRgba(gColor, 0.12),
+                          }}
+                        >
+                          {lg.icon && <span className="shrink-0 text-base leading-none">{lg.icon}</span>}
+                          <span className="text-white/90">{lg.title}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
               )}
             </div>
