@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { parseUuidOrNull } from '../../../../lib/utils/uuid-normalize';
 import { GoalsService } from '../../../../src/services/goals.service';
 
 // Lazy-load supabase client
@@ -75,19 +76,19 @@ async function completeGoal(req: NextApiRequest, res: NextApiResponse) {
     return res.status(authResult.error.status).json({ error: authResult.error.message });
   }
 
+  const sessionUserId = parseUuidOrNull(authResult.userId);
+  if (!sessionUserId) {
+    return res.status(401).json({ error: 'Invalid session user' });
+  }
+
   const { id } = req.query;
-  const { user_id } = req.body;
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Goal ID is required' });
   }
 
-  if (!user_id || typeof user_id !== 'string') {
-    return res.status(400).json({ error: 'user_id is required' });
-  }
-
   const service = new GoalsService(getSupabase());
-  const goal = await service.completeGoal(id, user_id);
+  const goal = await service.completeGoal(id, sessionUserId);
 
   return res.status(200).json({
     success: true,

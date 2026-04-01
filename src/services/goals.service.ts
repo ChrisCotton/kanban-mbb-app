@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { parseUuidOrNull, parseUuidArray } from '../../lib/utils/uuid-normalize';
 import { 
   Goal, 
   GoalWithRelations,
@@ -23,8 +24,12 @@ export class GoalsService {
    * If providedUserId is provided, use it; otherwise try to get from auth
    */
   private async getCurrentUserId(providedUserId?: string): Promise<string> {
-    if (providedUserId) {
-      return providedUserId;
+    if (providedUserId !== undefined && providedUserId !== null) {
+      const t = String(providedUserId).trim();
+      if (t !== '' && t.toLowerCase() !== 'null' && t.toLowerCase() !== 'undefined') {
+        const uuid = parseUuidOrNull(t);
+        return uuid ?? t;
+      }
     }
     const { data: { user }, error } = await this.supabase.auth.getUser();
     if (error || !user) {
@@ -128,7 +133,7 @@ export class GoalsService {
         // Fetch vision board images
         const { data: visionImages, error: imagesError } = await this.supabase
           .from('vision_board_images')
-          .select('id, file_path')
+          .select('id, file_path, media_type')
           .in('id', visionImageIds);
 
         if (!imagesError && visionImages) {
@@ -152,6 +157,7 @@ export class GoalsService {
               id: img.id,
               url: img.file_path,
               thumbnail_url: img.file_path, // Use same URL for thumbnail
+              media_type: img.media_type as 'image' | 'video' | undefined,
             }));
           });
         }
@@ -254,7 +260,7 @@ export class GoalsService {
       
       const { data: visionImages, error: imagesError } = await this.supabase
         .from('vision_board_images')
-        .select('id, file_path')
+        .select('id, file_path, media_type')
         .in('id', visionImageIds);
 
       if (!imagesError && visionImages) {
@@ -262,6 +268,7 @@ export class GoalsService {
           id: img.id,
           url: img.file_path,
           thumbnail_url: img.file_path, // Use same URL for thumbnail
+          media_type: img.media_type as 'image' | 'video' | undefined,
         }));
       } else {
         (goal as any).vision_images = [];
@@ -283,6 +290,9 @@ export class GoalsService {
     this.validateTitle(input.title);
     this.validateProgress(input.progress_value);
 
+    const categoryId = parseUuidOrNull(input.category_id);
+    const visionIds = parseUuidArray(input.vision_image_ids);
+
     // Prepare goal data
     const goalData = {
       user_id: currentUserId,
@@ -292,7 +302,7 @@ export class GoalsService {
       progress_type: input.progress_type || 'manual',
       progress_value: input.progress_value ?? 0,
       target_date: input.target_date || null,
-      category_id: input.category_id || null,
+      category_id: categoryId,
       color: input.color || null,
       icon: input.icon || null,
       display_order: 0, // Will be set based on existing goals count
@@ -311,8 +321,8 @@ export class GoalsService {
     const newGoal = data as Goal;
 
     // Create vision image links if provided
-    if (input.vision_image_ids && input.vision_image_ids.length > 0) {
-      const visionImageLinks = input.vision_image_ids.map(imageId => ({
+    if (visionIds.length > 0) {
+      const visionImageLinks = visionIds.map((imageId) => ({
         goal_id: newGoal.id,
         vision_image_id: imageId,
       }));
@@ -350,7 +360,9 @@ export class GoalsService {
     if (input.progress_type !== undefined) updateData.progress_type = input.progress_type;
     if (input.progress_value !== undefined) updateData.progress_value = input.progress_value;
     if (input.target_date !== undefined) updateData.target_date = input.target_date;
-    if (input.category_id !== undefined) updateData.category_id = input.category_id;
+    if (input.category_id !== undefined) {
+      updateData.category_id = parseUuidOrNull(input.category_id);
+    }
     if (input.color !== undefined) updateData.color = input.color;
     if (input.icon !== undefined) updateData.icon = input.icon;
     if (input.display_order !== undefined) updateData.display_order = input.display_order;
@@ -395,6 +407,8 @@ export class GoalsService {
 
     // Handle vision image links if provided
     if (input.vision_image_ids !== undefined) {
+      const visionIds = parseUuidArray(input.vision_image_ids);
+
       // Delete existing links
       const { error: deleteError } = await this.supabase
         .from('goal_vision_images')
@@ -406,8 +420,8 @@ export class GoalsService {
       }
 
       // Create new links if any provided
-      if (input.vision_image_ids.length > 0) {
-        const visionImageLinks = input.vision_image_ids.map(imageId => ({
+      if (visionIds.length > 0) {
+        const visionImageLinks = visionIds.map((imageId) => ({
           goal_id: id,
           vision_image_id: imageId,
         }));
@@ -422,14 +436,15 @@ export class GoalsService {
           // Fetch the vision images to include in response
           const { data: visionImages, error: imagesError } = await this.supabase
             .from('vision_board_images')
-            .select('id, file_path')
-            .in('id', input.vision_image_ids);
+            .select('id, file_path, media_type')
+            .in('id', visionIds);
 
           if (!imagesError && visionImages) {
             (updatedGoal as any).vision_images = visionImages.map(img => ({
               id: img.id,
               url: img.file_path,
               thumbnail_url: img.file_path,
+              media_type: img.media_type as 'image' | 'video' | undefined,
             }));
           } else {
             (updatedGoal as any).vision_images = [];
@@ -450,7 +465,7 @@ export class GoalsService {
         
         const { data: visionImages, error: imagesError } = await this.supabase
           .from('vision_board_images')
-          .select('id, file_path')
+          .select('id, file_path, media_type')
           .in('id', visionImageIds);
 
         if (!imagesError && visionImages) {
@@ -458,6 +473,7 @@ export class GoalsService {
             id: img.id,
             url: img.file_path,
             thumbnail_url: img.file_path,
+            media_type: img.media_type as 'image' | 'video' | undefined,
           }));
         } else {
           (updatedGoal as any).vision_images = [];

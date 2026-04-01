@@ -22,7 +22,12 @@ export interface Goal {
 export interface GoalWithRelations extends Goal {
   category?: { id: string; name: string; color: string } | null;
   linked_tasks_count?: number;
-  vision_images?: { id: string; url: string; thumbnail_url: string }[];
+  vision_images?: {
+    id: string;
+    url: string;
+    thumbnail_url: string;
+    media_type?: 'image' | 'video';
+  }[];
   milestones?: GoalMilestone[];
 }
 

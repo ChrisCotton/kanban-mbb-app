@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useCallback } from 'react'
-import Image from 'next/image'
 import DatePicker from 'react-datepicker'
+import VisionBoardMediaThumb from '@/components/vision-board/VisionBoardMediaThumb'
 import 'react-datepicker/dist/react-datepicker.css'
 import { 
   DueDateInterval, 
@@ -274,17 +274,17 @@ const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({
             >
               {/* Image Container */}
               <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                <Image
+                <VisionBoardMediaThumb
                   src={image.file_path}
+                  mediaType={image.media_type}
                   alt={image.alt_text || image.title || 'Vision board image'}
                   fill
                   className="object-cover transition-transform duration-200 group-hover:scale-105"
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   unoptimized={image.file_path?.startsWith('/api/placeholder')}
-                  onError={(e) => {
+                  onImageError={(e) => {
                     // Prevent infinite retry loops - only set placeholder once
                     if (!e.currentTarget.src.includes('data:image')) {
-                      // Use data URL placeholder instead of API call
                       const placeholderSvg = `data:image/svg+xml,${encodeURIComponent(`
                         <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
                           <defs>

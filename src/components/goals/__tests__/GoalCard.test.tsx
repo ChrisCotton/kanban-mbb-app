@@ -142,7 +142,7 @@ describe('GoalCard', () => {
       });
       render(<GoalCard goal={goal} onClick={mockOnClick} />);
 
-      const image = screen.getByRole('img');
+      const image = screen.getByAltText('Launch MVP with First 20 Customers');
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute('src', 'https://example.com/thumb.jpg');
     });

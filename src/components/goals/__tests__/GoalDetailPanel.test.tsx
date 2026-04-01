@@ -251,6 +251,7 @@ describe('GoalDetailPanel', () => {
       ];
 
       const goal = createMockGoalWithRelations({
+        progress_type: 'milestone_based',
         milestones,
       });
 

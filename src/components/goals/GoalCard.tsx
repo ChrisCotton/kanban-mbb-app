@@ -2,6 +2,7 @@ import React from 'react';
 import { GoalWithRelations } from '../../types/goals';
 import { parseLocalDate } from '../../../lib/utils/date-helpers';
 import ColorDot from './ColorDot';
+import VisionBoardMediaThumb from '../../../components/vision-board/VisionBoardMediaThumb';
 
 interface GoalCardProps {
   goal: GoalWithRelations;
@@ -78,11 +79,11 @@ export default function GoalCard({
       {/* Header with Image/Icon */}
       <div className="relative h-32 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-t-lg overflow-hidden">
         {hasVisionImage ? (
-          <img
+          <VisionBoardMediaThumb
             src={goal.vision_images![0].thumbnail_url}
+            mediaType={goal.vision_images![0].media_type}
             alt={goal.title}
             className="w-full h-full object-cover"
-            role="img"
           />
         ) : (
           <div className="flex items-center justify-center h-full">

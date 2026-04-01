@@ -1,4 +1,7 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Goal,
   GoalWithRelations,
@@ -11,10 +14,18 @@ import CategorySelector from '../../../components/ui/CategorySelector';
 import DatePicker from '../../../components/ui/DatePicker';
 import IconSelector from '../../../components/ui/IconSelector';
 import { supabase } from '../../../lib/supabase';
+import { parseUuidOrNull } from '../../../lib/utils/uuid-normalize';
+import VisionBoardMediaThumb from '../../../components/vision-board/VisionBoardMediaThumb';
+
+function getModalPortalContainer(): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  return document.getElementById('modal-root') ?? document.body;
+}
 
 interface VisionBoardImage {
   id: string;
   file_path: string;
+  media_type?: 'image' | 'video' | null;
 }
 
 interface GoalModalProps {
@@ -65,7 +76,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
 
           const { data: images, error } = await supabase
             .from('vision_board_images')
-            .select('id, file_path')
+            .select('id, file_path, media_type')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .order('display_order', { ascending: true });
@@ -145,10 +156,21 @@ const GoalModal: React.FC<GoalModalProps> = ({
 
     try {
       const today = new Date().toISOString().split('T')[0];
+      let category_id: string | null | undefined;
+      if (goal) {
+        if (formData.category_id === null) {
+          category_id = null;
+        } else {
+          category_id = parseUuidOrNull(formData.category_id) ?? undefined;
+        }
+      } else {
+        category_id = parseUuidOrNull(formData.category_id) ?? undefined;
+      }
+
       const inputData: CreateGoalInput | UpdateGoalInput = {
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
-        category_id: formData.category_id || undefined,
+        category_id,
         target_date: formData.target_date || undefined,
         progress_type: formData.progress_type,
         color: formData.color || undefined,
@@ -209,19 +231,29 @@ const GoalModal: React.FC<GoalModalProps> = ({
 
   const today = new Date().toISOString().split('T')[0];
 
-  return (
+  // Portal to document.body so the overlay is not trapped under ancestors with
+  // backdrop-filter / transform (e.g. Vision Board upload card); those break
+  // fixed positioning and let the gallery paint above the modal.
+  const modalUi = (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm"
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm isolate"
       onClick={handleBackdropClick}
       onKeyDown={handleKeyDown}
+      role="presentation"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="relative z-[1] bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goal-modal-title"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h2
+            id="goal-modal-title"
+            className="text-xl font-semibold text-gray-900 dark:text-white"
+          >
             {goal ? 'Edit Goal' : 'Create New Goal'}
           </h2>
           <button
@@ -392,27 +424,29 @@ const GoalModal: React.FC<GoalModalProps> = ({
             </div>
           </div>
 
-          {/* Vision Board Images */}
+          {/* Vision Board Images — fixed-height 3-column thumbnails (prevents intrinsic image size blowing layout) */}
           {visionImages.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Vision Board Images
               </label>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-2.5 max-h-[min(40vh,280px)] overflow-y-auto overscroll-contain pr-1">
                 {visionImages.map((image) => (
                   <div
                     key={image.id}
-                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative h-14 w-full sm:h-16 shrink-0 cursor-pointer rounded-md overflow-hidden border-2 transition-all ${
                       selectedVisionImageIds.includes(image.id)
-                        ? 'border-blue-500 ring-2 ring-blue-200'
+                        ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                     onClick={() => toggleVisionImage(image.id)}
                   >
-                    <img
+                    <VisionBoardMediaThumb
                       src={image.file_path}
-                      alt="Vision board"
-                      className="w-full h-20 object-cover"
+                      mediaType={image.media_type}
+                      alt=""
+                      fill
+                      className="object-cover max-h-full"
                     />
                     {selectedVisionImageIds.includes(image.id) && (
                       <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-1">
@@ -508,6 +542,13 @@ const GoalModal: React.FC<GoalModalProps> = ({
       </div>
     </div>
   );
+
+  const container = getModalPortalContainer();
+  if (!container) {
+    return null;
+  }
+
+  return createPortal(modalUi, container);
 };
 
 export default GoalModal;

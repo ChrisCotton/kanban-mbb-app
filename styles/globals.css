@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Next.js renders #__next first, then #modal-root (see pages/_document.js).
+ * Without an explicit z-index, some browsers still interleave paints with
+ * composited layers inside #__next (e.g. cards, images), so modals can look
+ * “under” page content. Pin the portal host above the entire app.
+ */
+#modal-root {
+  position: relative;
+  z-index: 999999;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+#modal-root > * {
+  pointer-events: auto;
+}
+
 /* Custom Animations */
 .animation-delay-2000 {
   animation-delay: 2s;

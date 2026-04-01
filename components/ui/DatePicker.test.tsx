@@ -11,14 +11,24 @@ const defaultProps = {
   onChange: jest.fn(),
 };
 
+const openCalendarButton = () => screen.getByRole('button', { name: /open calendar/i });
+
+const setupUser = () =>
+  userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
 describe('DatePicker', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2025-01-15T12:00:00.000Z')); // Set a fixed date for consistency
     jest.clearAllMocks();
+    jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers(); // Restore real timers after each test
   });
 
@@ -27,7 +37,7 @@ describe('DatePicker', () => {
       render(<DatePicker {...defaultProps} />);
       
       expect(screen.getByText('Select date...')).toBeInTheDocument();
-      expect(screen.getByRole('button')).toBeInTheDocument();
+      expect(openCalendarButton()).toBeInTheDocument();
     });
 
     it('renders with custom placeholder', () => {
@@ -51,7 +61,7 @@ describe('DatePicker', () => {
     it('shows clear button when value is provided', () => {
       render(<DatePicker {...defaultProps} value="2025-01-20" />);
       
-      const clearButton = screen.getByRole('button', { name: /clear/i });
+      const clearButton = screen.getByRole('button', { name: /clear date/i });
       expect(clearButton).toBeInTheDocument();
     });
 
@@ -72,10 +82,10 @@ describe('DatePicker', () => {
     });
 
     it('does not open dropdown when disabled', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} disabled />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.queryByText('Quick Select')).not.toBeInTheDocument();
     });
@@ -83,7 +93,7 @@ describe('DatePicker', () => {
     it('disables clear button when disabled', () => {
       render(<DatePicker {...defaultProps} value="2025-01-20" disabled />);
       
-      const clearButton = screen.getByRole('button', { name: /clear/i });
+      const clearButton = screen.getByRole('button', { name: /clear date/i });
       expect(clearButton).toBeDisabled();
     });
   });
@@ -112,16 +122,16 @@ describe('DatePicker', () => {
 
   describe('Dropdown Functionality', () => {
     it('opens dropdown when clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.getByText('Quick Select')).toBeInTheDocument();
     });
 
     it('closes dropdown when clicking outside', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(
         <div>
           <DatePicker {...defaultProps} />
@@ -129,7 +139,7 @@ describe('DatePicker', () => {
         </div>
       );
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       expect(screen.getByText('Quick Select')).toBeInTheDocument();
       
       await user.click(screen.getByTestId('outside'));
@@ -140,10 +150,10 @@ describe('DatePicker', () => {
     });
 
     it('renders date input in dropdown', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
       expect(dateInput).toBeInTheDocument();
@@ -151,30 +161,30 @@ describe('DatePicker', () => {
     });
 
     it('sets minimum date to today by default', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
       expect(dateInput).toHaveAttribute('min', '2025-01-15');
     });
 
     it('respects custom minDate', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} minDate="2025-01-10" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
       expect(dateInput).toHaveAttribute('min', '2025-01-10');
     });
 
     it('respects custom maxDate', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} maxDate="2025-12-31" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
       expect(dateInput).toHaveAttribute('max', '2025-12-31');
@@ -183,37 +193,39 @@ describe('DatePicker', () => {
 
   describe('Date Selection', () => {
     it('calls onChange when date is selected via input', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
-      await user.type(dateInput, '2025-01-20');
-      
+      fireEvent.change(dateInput, { target: { value: '2025-01-20' } });
+      fireEvent.blur(dateInput, { relatedTarget: document.body });
+
       expect(onChange).toHaveBeenCalledWith('2025-01-20');
     });
 
     it('closes dropdown after date selection', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('');
-      await user.type(dateInput, '2025-01-20');
-      
+      fireEvent.change(dateInput, { target: { value: '2025-01-20' } });
+      fireEvent.blur(dateInput, { relatedTarget: document.body });
+
       await waitFor(() => {
         expect(screen.queryByText('Quick Select')).not.toBeInTheDocument();
       });
     });
 
     it('pre-fills date input with current value', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} value="2025-01-20" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('2025-01-20');
       expect(dateInput).toBeInTheDocument();
@@ -222,10 +234,10 @@ describe('DatePicker', () => {
 
   describe('Date Shortcuts', () => {
     it('renders all date shortcuts', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.getByText('Today')).toBeInTheDocument();
       expect(screen.getByText('Tomorrow')).toBeInTheDocument();
@@ -234,73 +246,73 @@ describe('DatePicker', () => {
     });
 
     it('selects today when Today shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Today'));
       
       expect(onChange).toHaveBeenCalledWith('2025-01-15');
     });
 
     it('selects tomorrow when Tomorrow shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Tomorrow'));
       
       expect(onChange).toHaveBeenCalledWith('2025-01-16');
     });
 
     it('selects next week when Next Week shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Next Week'));
       
       expect(onChange).toHaveBeenCalledWith('2025-01-22');
     });
 
     it('selects next month when Next Month shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Next Month'));
       
       expect(onChange).toHaveBeenCalledWith('2025-02-15');
     });
 
     it('hides shortcuts when showShortcuts is false', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} showShortcuts={false} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.queryByText('Today')).not.toBeInTheDocument();
       expect(screen.queryByText('Quick Select')).not.toBeInTheDocument();
     });
 
     it('shows Clear Date button when value is present', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} value="2025-01-20" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.getByText('Clear Date')).toBeInTheDocument();
     });
 
     it('does not show Clear Date button when value is empty', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       expect(screen.queryByText('Clear Date')).not.toBeInTheDocument();
     });
@@ -308,32 +320,32 @@ describe('DatePicker', () => {
 
   describe('Clear Functionality', () => {
     it('clears date when clear button is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} value="2025-01-20" onChange={onChange} />);
       
-      const clearButton = screen.getByRole('button', { name: /clear/i });
+      const clearButton = screen.getByRole('button', { name: /clear date/i });
       await user.click(clearButton);
       
       expect(onChange).toHaveBeenCalledWith('');
     });
 
     it('clears date when Clear Date shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} value="2025-01-20" onChange={onChange} />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Clear Date'));
       
       expect(onChange).toHaveBeenCalledWith('');
     });
 
     it('closes dropdown when Clear Date shortcut is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} value="2025-01-20" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       await user.click(screen.getByText('Clear Date'));
       
       await waitFor(() => {
@@ -342,12 +354,12 @@ describe('DatePicker', () => {
     });
 
     it('prevents event propagation when clear button is clicked', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} value="2025-01-20" onChange={onChange} />);
       
       // Click the clear button - this should not open the dropdown
-      const clearButton = screen.getByRole('button', { name: /clear/i });
+      const clearButton = screen.getByRole('button', { name: /clear date/i });
       await user.click(clearButton);
       
       expect(onChange).toHaveBeenCalledWith('');
@@ -359,25 +371,25 @@ describe('DatePicker', () => {
     it('has proper ARIA attributes', () => {
       render(<DatePicker {...defaultProps} />);
       
-      const button = screen.getByRole('button');
+      const button = openCalendarButton();
       expect(button).toBeInTheDocument();
     });
 
     it('supports keyboard navigation', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      const button = screen.getByRole('button');
+      const button = openCalendarButton();
       await user.tab();
       
       expect(button).toHaveFocus();
     });
 
     it('opens dropdown with Enter key', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      const button = screen.getByRole('button');
+      const button = openCalendarButton();
       await user.tab();
       await user.keyboard('{Enter}');
       
@@ -385,10 +397,10 @@ describe('DatePicker', () => {
     });
 
     it('opens dropdown with Space key', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} />);
       
-      const button = screen.getByRole('button');
+      const button = openCalendarButton();
       await user.tab();
       await user.keyboard(' ');
       
@@ -437,10 +449,10 @@ describe('DatePicker', () => {
     });
 
     it('formats input date correctly', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       render(<DatePicker {...defaultProps} value="2025-01-01" />);
       
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
       
       const dateInput = screen.getByDisplayValue('2025-01-01');
       expect(dateInput).toBeInTheDocument();
@@ -482,20 +494,17 @@ describe('DatePicker', () => {
 
   describe('Date Selection', () => {
     it('does not call onChange when a past date is manually entered and minDate is not met', async () => {
-      const user = userEvent.setup();
+      const user = setupUser();
       const onChange = jest.fn();
       render(<DatePicker {...defaultProps} onChange={onChange} minDate="2025-01-15" />);
 
-      await user.click(screen.getByRole('button'));
+      await user.click(openCalendarButton());
 
       const dateInput = screen.getByDisplayValue('');
-      // Attempt to type a past date
-      await user.type(dateInput, '2025-01-14');
+      fireEvent.change(dateInput, { target: { value: '2025-01-14' } });
+      fireEvent.blur(dateInput, { relatedTarget: document.body });
 
-      // The onChange should not be called with an invalid past date
       expect(onChange).not.toHaveBeenCalled();
-      // Optionally, check if an error message is displayed or the input remains unchanged
-      // This depends on the component's internal logic for invalid dates
     });
   });
 });

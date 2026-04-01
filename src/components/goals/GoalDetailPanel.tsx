@@ -6,6 +6,7 @@ import { useGoalsStore } from '../../stores/goals.store';
 import GoalModal from './GoalModal';
 import MilestoneModal from './MilestoneModal';
 import { parseLocalDate } from '../../../lib/utils/date-helpers';
+import VisionBoardMediaThumb from '../../../components/vision-board/VisionBoardMediaThumb';
 
 interface GoalDetailPanelProps {
   goal: GoalWithRelations;
@@ -202,10 +203,12 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
             {/* Image Section */}
             {hasVisionImage && goal.vision_images && goal.vision_images.length > 0 && (
               <div className="relative w-full h-48 rounded-lg overflow-hidden">
-                <img
+                <VisionBoardMediaThumb
                   src={goal.vision_images[0].url}
+                  mediaType={goal.vision_images[0].media_type}
                   alt="Goal vision"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                 />
               </div>
             )}

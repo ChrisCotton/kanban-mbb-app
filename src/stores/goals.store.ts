@@ -163,8 +163,9 @@ export const useGoalsStore = create<GoalsState>()(
             method: 'POST',
             headers,
             body: JSON.stringify({
-              user_id: user.id,
               ...input,
+              // Must come after spread so a stray `user_id` on input cannot override the session user
+              user_id: user.id,
             }),
           });
 
@@ -210,8 +211,8 @@ export const useGoalsStore = create<GoalsState>()(
             method: 'PATCH',
             headers,
             body: JSON.stringify({
-              user_id: user.id,
               ...input,
+              user_id: user.id,
             }),
           });
 

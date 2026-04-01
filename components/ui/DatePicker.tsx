@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 interface DatePickerProps {
   value?: string
@@ -27,8 +27,13 @@ const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
+  /** Local value for native date input while popover is open — avoids committing/closing on every browser `change` (e.g. partial year). */
+  const [draftDate, setDraftDate] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownPanelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const draftDateRef = useRef('')
+  draftDateRef.current = draftDate
 
   // Format date for display - handles YYYY-MM-DD format correctly (avoids UTC conversion)
   const formatDisplayDate = (dateString: string) => {
@@ -48,6 +53,9 @@ const DatePicker: React.FC<DatePickerProps> = ({
     
     // For other formats, parse normally
     const date = new Date(dateString)
+    if (Number.isNaN(date.getTime())) {
+      return ''
+    }
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -73,6 +81,9 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
     // Otherwise parse and format using local timezone
     const date = new Date(dateString)
+    if (Number.isNaN(date.getTime())) {
+      return ''
+    }
     return getLocalDateString(date)
   }
 
@@ -81,10 +92,54 @@ const DatePicker: React.FC<DatePickerProps> = ({
     setInputValue(formatDisplayDate(value))
   }, [value])
 
-  // Handle clicks outside to close
+  const today = getLocalDateString(new Date())
+
+  const commitDraft = useCallback(() => {
+    const d = draftDateRef.current.trim()
+    const previous = formatInputDate(value)
+
+    if (!d) {
+      if (previous !== '') onChange('')
+      setDraftDate('')
+      return true
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      setDraftDate(previous)
+      return false
+    }
+
+    const min = minDate || today
+    if (d < min) {
+      setDraftDate(previous)
+      return false
+    }
+    if (maxDate && d > maxDate) {
+      setDraftDate(previous)
+      return false
+    }
+
+    if (d !== previous) {
+      onChange(d)
+    }
+    return true
+  }, [value, minDate, maxDate, today, onChange])
+
+  const commitDraftRef = useRef(commitDraft)
+  commitDraftRef.current = commitDraft
+
+  // When opening the popover, seed draft from the committed value
+  useEffect(() => {
+    if (isOpen) {
+      setDraftDate(formatInputDate(value))
+    }
+  }, [isOpen, value])
+
+  // Handle clicks outside: commit then close (blur may not fire first in all browsers)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        commitDraftRef.current()
         setIsOpen(false)
       }
     }
@@ -98,8 +153,17 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
   }, [isOpen])
 
-  // Get today's date in YYYY-MM-DD format using local timezone
-  const today = getLocalDateString(new Date())
+  const handleNativeDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const next = e.relatedTarget as Node | null
+    // Focus stays inside the popover (e.g. Quick Select) — don't commit yet
+    if (next && dropdownPanelRef.current?.contains(next)) {
+      return
+    }
+    requestAnimationFrame(() => {
+      commitDraftRef.current()
+      setIsOpen(false)
+    })
+  }
 
   // Get date shortcuts using local timezone (fixes timezone issues)
   const getDateShortcuts = () => {
@@ -141,13 +205,27 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
   }
 
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setIsOpen((o) => !o)
+    }
+  }
+
   const shortcuts = getDateShortcuts()
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Input Field */}
       <div 
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label="Open calendar"
         onClick={handleInputClick}
+        onKeyDown={handleTriggerKeyDown}
         className={`flex items-center justify-between w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer transition-colors ${
           error 
             ? 'border-red-500 focus-within:ring-red-500' 
@@ -169,6 +247,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
         
         {value && (
           <button
+            type="button"
+            aria-label="Clear date"
             onClick={(e) => {
               e.stopPropagation()
               handleClear()
@@ -194,15 +274,19 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+        <div
+          ref={dropdownPanelRef}
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+        >
           <div className="p-3">
             {/* Calendar Input */}
             <div className="mb-3">
               <input
                 ref={inputRef}
                 type="date"
-                value={formatInputDate(value)}
-                onChange={(e) => handleDateChange(e.target.value)}
+                value={draftDate}
+                onChange={(e) => setDraftDate(e.target.value)}
+                onBlur={handleNativeDateBlur}
                 min={minDate || today}
                 max={maxDate}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -215,6 +299,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Quick Select</p>
                 {shortcuts.map((shortcut) => (
                   <button
+                    type="button"
                     key={shortcut.label}
                     onClick={() => handleShortcutClick(shortcut.date)}
                     className="w-full text-left px-2 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -225,6 +310,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 
                 {value && (
                   <button
+                    type="button"
                     onClick={handleClear}
                     className="w-full text-left px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                   >

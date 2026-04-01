@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { parseUuidOrNull, parseUuidArray } from '../../../lib/utils/uuid-normalize';
 import { GoalsService } from '../../../src/services/goals.service';
 import { UpdateGoalInput } from '../../../src/types/goals';
 
@@ -108,15 +109,16 @@ async function updateGoal(req: NextApiRequest, res: NextApiResponse) {
     return res.status(authResult.error.status).json({ error: authResult.error.message });
   }
 
+  const sessionUserId = parseUuidOrNull(authResult.userId);
+  if (!sessionUserId) {
+    return res.status(401).json({ error: 'Invalid session user' });
+  }
+
   const { id } = req.query;
-  const { user_id, ...updateData } = req.body;
+  const updateData = req.body ?? {};
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Goal ID is required' });
-  }
-
-  if (!user_id || typeof user_id !== 'string') {
-    return res.status(400).json({ error: 'user_id is required' });
   }
 
   // Validate progress value if provided
@@ -141,14 +143,18 @@ async function updateGoal(req: NextApiRequest, res: NextApiResponse) {
     progress_type: updateData.progress_type,
     progress_value: updateData.progress_value,
     target_date: updateData.target_date,
-    category_id: updateData.category_id,
+    ...(updateData.category_id !== undefined
+      ? { category_id: parseUuidOrNull(updateData.category_id) }
+      : {}),
     color: updateData.color,
     icon: updateData.icon,
     display_order: updateData.display_order,
-    vision_image_ids: updateData.vision_image_ids,
+    ...(updateData.vision_image_ids !== undefined
+      ? { vision_image_ids: parseUuidArray(updateData.vision_image_ids) }
+      : {}),
   };
 
-  const goal = await service.updateGoal(id, input, user_id);
+  const goal = await service.updateGoal(id, input, sessionUserId);
 
   return res.status(200).json({
     success: true,
@@ -164,19 +170,19 @@ async function deleteGoal(req: NextApiRequest, res: NextApiResponse) {
     return res.status(authResult.error.status).json({ error: authResult.error.message });
   }
 
+  const sessionUserId = parseUuidOrNull(authResult.userId);
+  if (!sessionUserId) {
+    return res.status(401).json({ error: 'Invalid session user' });
+  }
+
   const { id } = req.query;
-  const { user_id } = req.body;
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Goal ID is required' });
   }
 
-  if (!user_id || typeof user_id !== 'string') {
-    return res.status(400).json({ error: 'user_id is required' });
-  }
-
   const service = new GoalsService(getSupabase());
-  const goal = await service.deleteGoal(id, user_id);
+  const goal = await service.deleteGoal(id, sessionUserId);
 
   return res.status(200).json({
     success: true,

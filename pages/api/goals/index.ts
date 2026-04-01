@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { parseUuidOrNull, parseUuidArray } from '../../../lib/utils/uuid-normalize';
 import { GoalsService } from '../../../src/services/goals.service';
 import { CreateGoalInput, GoalFilters, GoalSortOptions } from '../../../src/types/goals';
 
@@ -92,7 +93,8 @@ async function getGoals(req: NextApiRequest, res: NextApiResponse) {
     filters.status = statusArray.length > 1 ? statusArray as any[] : status as any;
   }
   if (category_id && typeof category_id === 'string') {
-    filters.category_id = category_id;
+    const cid = parseUuidOrNull(category_id);
+    if (cid) filters.category_id = cid;
   }
   if (has_target_date !== undefined) {
     filters.has_target_date = has_target_date === 'true';
@@ -127,11 +129,12 @@ async function createGoal(req: NextApiRequest, res: NextApiResponse) {
     return res.status(authResult.error.status).json({ error: authResult.error.message });
   }
 
-  const { user_id, ...goalData } = req.body;
-
-  if (!user_id || typeof user_id !== 'string') {
-    return res.status(400).json({ error: 'user_id is required' });
+  const sessionUserId = parseUuidOrNull(authResult.userId);
+  if (!sessionUserId) {
+    return res.status(401).json({ error: 'Invalid session user' });
   }
+
+  const goalData = req.body ?? {};
 
   if (!goalData.title || typeof goalData.title !== 'string') {
     return res.status(400).json({ error: 'Title is required' });
@@ -150,6 +153,9 @@ async function createGoal(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
+  const categoryUuid = parseUuidOrNull(goalData.category_id);
+  const visionIds = parseUuidArray(goalData.vision_image_ids);
+
   const service = new GoalsService(getSupabase());
   const input: CreateGoalInput = {
     title: goalData.title,
@@ -158,13 +164,13 @@ async function createGoal(req: NextApiRequest, res: NextApiResponse) {
     progress_type: goalData.progress_type,
     progress_value: goalData.progress_value !== undefined ? Number(goalData.progress_value) : undefined,
     target_date: goalData.target_date,
-    category_id: goalData.category_id,
+    ...(categoryUuid !== null ? { category_id: categoryUuid } : {}),
     color: goalData.color,
     icon: goalData.icon,
-    vision_image_ids: goalData.vision_image_ids,
+    ...(visionIds.length > 0 ? { vision_image_ids: visionIds } : {}),
   };
 
-  const goal = await service.createGoal(input, user_id);
+  const goal = await service.createGoal(input, sessionUserId);
 
   return res.status(201).json({
     success: true,

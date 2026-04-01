@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +11,92 @@ import {
   formatDueDateISO
 } from '@/lib/utils/due-date-intervals';
 import GoalSelector from '../goals/GoalSelector';
+
+const SAVE_METADATA_PATHS = ['/api/vision-board', '/api/vision-board/upload'] as const
+const STORAGE_UPLOAD_MS = 180_000
+const SAVE_METADATA_MS = 60_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+      ms
+    )
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId!))
+}
+
+function normalizeNetworkError(message: string, name?: string): string {
+  if (name === 'AbortError' || /aborted|The user aborted/i.test(message)) {
+    return 'Request timed out. Check your connection and try again.'
+  }
+  if (
+    message === 'Failed to fetch' ||
+    message.includes('NetworkError') ||
+    message.includes('ERR_CONNECTION_REFUSED') ||
+    message.includes('Load failed')
+  ) {
+    return 'Could not reach the app server. If the dev server was restarting or stopped, start it and try again.'
+  }
+  return message
+}
+
+async function postVisionBoardMetadata(
+  body: Record<string, unknown>,
+  signal: AbortSignal
+): Promise<{ ok: boolean; status: number; result: { success?: boolean; error?: string; data?: { id: string } } }> {
+  let lastStatus = 0
+  let lastText = ''
+  let lastNetworkError: Error | null = null
+
+  for (let i = 0; i < SAVE_METADATA_PATHS.length; i++) {
+    const path = SAVE_METADATA_PATHS[i]
+    const isLast = i === SAVE_METADATA_PATHS.length - 1
+
+    try {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      })
+      lastStatus = response.status
+      lastText = await response.text()
+
+      let parsed: { success?: boolean; error?: string; data?: { id: string } } = {}
+      if (lastText) {
+        try {
+          parsed = JSON.parse(lastText) as typeof parsed
+        } catch {
+          parsed = { error: lastText.slice(0, 200) }
+        }
+      }
+
+      if (response.status === 404 && !isLast) {
+        continue
+      }
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        result: parsed,
+      }
+    } catch (err) {
+      lastNetworkError = err instanceof Error ? err : new Error(String(err))
+      if (!isLast) {
+        continue
+      }
+      throw lastNetworkError
+    }
+  }
+
+  return {
+    ok: false,
+    status: lastStatus,
+    result: { error: lastText ? lastText.slice(0, 200) : 'No response from server' },
+  }
+}
 
 interface MediaFile {
   file: File;
@@ -94,6 +181,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   }, []);
 
   const uploadMedia = useCallback(async (mediaFile: MediaFile) => {
+    if (goalText.trim().length > 500) {
+      const msg = 'Goal text must be 500 characters or less';
+      setGoalError(msg);
+      setMediaFiles(prev =>
+        prev.map(file =>
+          file.id === mediaFile.id ? { ...file, error: msg } : file
+        )
+      );
+      onUploadError?.(msg);
+      return;
+    }
+
     // Validate goal and due date before upload
     if ((!selectedGoalId && !goalText.trim()) || (selectedInterval === 'custom' && !customDate)) {
       setMediaFiles(prev => prev.map(file => 
@@ -116,9 +215,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       const fileExt = mediaFile.file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('vision-board')
-        .upload(fileName, mediaFile.file);
+      const { data: uploadData, error: uploadError } = await withTimeout(
+        supabase.storage.from('vision-board').upload(fileName, mediaFile.file),
+        STORAGE_UPLOAD_MS,
+        'Storage upload'
+      );
 
       if (uploadError) throw uploadError;
 
@@ -129,42 +230,48 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
       // Save to database via API
       const dueDateISO = formatDueDateISO(dueDate);
-      // Use goal text from selected goal or fallback to text input
       const goalTextValue = selectedGoalId 
-        ? '' // Will be fetched from goal if needed, but we'll use goal_id
+        ? ''
         : goalText.trim();
       
-      const response = await fetch('/api/vision-board', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          file_name: fileName,
-          file_path: publicUrl,
-          title: mediaFile.file.name.split('.')[0],
-          description: '',
-          is_active: true,
-          goal: goalTextValue, // Keep for backward compatibility
-          goal_id: selectedGoalId, // New field for goal linking
-          due_date: dueDateISO,
-          media_type: mediaFile.mediaType
-        })
-      });
+      const controller = new AbortController();
+      const saveTimeoutId = setTimeout(() => controller.abort(), SAVE_METADATA_MS);
 
-      const result = await response.json();
+      let saveResult: Awaited<ReturnType<typeof postVisionBoardMetadata>>;
+      try {
+        saveResult = await postVisionBoardMetadata(
+          {
+            user_id: userId,
+            file_name: fileName,
+            file_path: publicUrl,
+            title: mediaFile.file.name.split('.')[0],
+            description: '',
+            is_active: true,
+            goal: goalTextValue,
+            goal_id: selectedGoalId,
+            due_date: dueDateISO,
+            media_type: mediaFile.mediaType,
+          },
+          controller.signal
+        );
+      } finally {
+        clearTimeout(saveTimeoutId);
+      }
 
-      if (!response.ok || !result.success) {
+      const { ok, result } = saveResult;
+      if (!ok || !result.success) {
         throw new Error(result.error || `Failed to save ${mediaFile.mediaType}`);
       }
 
       // Update local state
       setMediaFiles(prev => prev.filter(file => file.id !== mediaFile.id));
       
-      onUploadComplete?.(result.data.id, publicUrl);
+      onUploadComplete?.(result.data!.id, publicUrl);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      const errorMessage =
+        error instanceof Error
+          ? normalizeNetworkError(error.message, error.name)
+          : 'Upload failed';
       setMediaFiles(prev => prev.map(file => 
         file.id === mediaFile.id ? { ...file, uploading: false, error: errorMessage } : file
       ));
@@ -203,9 +310,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       });
     });
 
-    setMediaFiles(prev => [...prev, ...newMediaFiles]);
-    
-    // Auto-upload all valid files (will validate goal/due_date in uploadMedia)
+    flushSync(() => {
+      setMediaFiles(prev => [...prev, ...newMediaFiles]);
+    });
     newMediaFiles.forEach(uploadMedia);
   }, [mediaFiles.length, maxFiles, validateFile, onUploadError, uploadMedia]);
 
@@ -312,12 +419,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
         {/* Due Date Selection */}
         <div>
-          <label className="block text-sm font-medium text-white mb-2">
+          <label htmlFor="upload-due-interval" className="block text-sm font-medium text-white mb-2">
             Due Date <span className="text-red-400">*</span>
           </label>
           
           {/* Interval Dropdown */}
           <select
+            id="upload-due-interval"
             value={selectedInterval}
             onChange={(e) => {
               setSelectedInterval(e.target.value as DueDateInterval);

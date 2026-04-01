@@ -321,6 +321,8 @@ describe('GoalModal', () => {
       const goalToEdit: Goal = {
         ...mockGoal,
         title: 'Existing Goal',
+        // Must be on/after DatePicker min (today) or native <input type="date"> blocks submit
+        target_date: '2099-06-01',
       };
 
       await act(async () => {
