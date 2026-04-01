@@ -14,24 +14,28 @@ export default function Dashboard() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      
-      setUser(user)
-      
-      // Get active vision board images for carousel
-      const { data: images } = await supabase
-        .from('vision_board_images')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/auth/login')
+          return
+        }
         
-      setVisionBoardImages(images || [])
-      setLoading(false)
+        setUser(user)
+        
+        const { data: images } = await supabase
+          .from('vision_board_images')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+          
+        setVisionBoardImages(images || [])
+      } catch (err) {
+        console.error('[Dashboard] Failed to load user or images:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getUser()
