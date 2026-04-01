@@ -94,7 +94,7 @@ const DarkNavigation: React.FC<DarkNavigationProps> = ({ className = '' }) => {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={`
                     block px-3 py-2 rounded-lg text-base font-medium transition-colors duration-200
                     flex items-center space-x-3
