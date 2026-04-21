@@ -82,12 +82,16 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
     if (existingTimer) return
 
     const resolvedCategory = activeTask.category || (activeTask.category_id ? resolveCategoryById(activeTask.category_id) : undefined)
-    startTimer({
-      ...activeTask,
-      category: resolvedCategory || activeTask.category,
-    })
+    if (!userId) return
+    void startTimer(
+      {
+        ...activeTask,
+        category: resolvedCategory || activeTask.category,
+      },
+      userId
+    )
     lastAutoStartTaskIdRef.current = activeTask.id
-  }, [activeTask, resolveCategoryById, startTimer, timers])
+  }, [activeTask, resolveCategoryById, startTimer, timers, userId])
 
   // Format time display
   const formatTime = (seconds: number): string => {
@@ -243,7 +247,7 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
                 <TimerControls
                   isRunning={timer.isRunning}
                   isPaused={timer.isPaused}
-                  onStart={() => startTimer(timer.task)}
+                  onStart={() => startTimer(timer.task, userId)}
                   onPause={() => pauseTimer(timer.taskId)}
                   onResume={() => resumeTimer(timer.taskId)}
                   onStop={() => stopTimer(timer.taskId)}

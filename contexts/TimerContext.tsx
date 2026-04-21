@@ -34,7 +34,8 @@ interface TimerContextValue {
   timers: MultiTimerEntry[]
   totalEarnings: number
   totalActiveTimers: number
-  startTimer: (task: MultiTimerTask) => Promise<void>
+  /** Optional userIdOverride avoids a race where MBBTimerSection sets context userId in a separate effect */
+  startTimer: (task: MultiTimerTask, userIdOverride?: string) => Promise<void>
   pauseTimer: (taskId: string) => void
   resumeTimer: (taskId: string) => void
   stopTimer: (taskId: string) => Promise<void>
@@ -74,7 +75,12 @@ function isValidTimer(timer: any): timer is MultiTimerEntry {
 
 export function TimerContextProvider({ children }: { children: React.ReactNode }) {
   const [timers, setTimers] = useState<MultiTimerEntry[]>([])
-  const [userId, setUserId] = useState<string | undefined>(undefined)
+  const userIdRef = useRef<string | undefined>(undefined)
+  const [userId, setUserIdState] = useState<string | undefined>(undefined)
+  const setUserId = useCallback((id: string | undefined) => {
+    userIdRef.current = id
+    setUserIdState(id)
+  }, [])
   const [isInitialized, setIsInitialized] = useState(false)
   const timersRef = useRef(timers)
   
@@ -198,7 +204,7 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
   }, [getHourlyRate, hasRunningTimers])
 
   // Start a timer for a task
-  const startTimer = useCallback(async (task: MultiTimerTask) => {
+  const startTimer = useCallback(async (task: MultiTimerTask, userIdOverride?: string) => {
     if (!task) return
 
     const resolvedCategory = getResolvedCategory(task)
@@ -241,10 +247,11 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
       ]
     })
 
-    // Start backend session
-    if (userId) {
+    // Start backend session (prefer explicit override — fixes effect-order race with MBBTimerSection)
+    const effectiveUserId = userIdOverride ?? userIdRef.current
+    if (effectiveUserId) {
       try {
-        const session = await startTimerSession(task.id, userId, getHourlyRate(normalizedTask))
+        const session = await startTimerSession(task.id, effectiveUserId, getHourlyRate(normalizedTask))
         setTimers(prevTimers =>
           prevTimers.map(timer =>
             timer.taskId === task.id ? { ...timer, sessionId: session.id } : timer
@@ -254,7 +261,7 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
         console.error('Failed to start timer session:', error)
       }
     }
-  }, [getHourlyRate, getResolvedCategory, userId])
+  }, [getHourlyRate, getResolvedCategory])
 
   // Pause a single timer
   const pauseTimer = useCallback((taskId: string) => {
@@ -293,18 +300,19 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
       )
     )
 
-    if (userId && timer?.sessionId) {
+    const uid = userIdRef.current
+    if (uid && timer?.sessionId) {
       try {
         await timerService.endSession({
           session_id: timer.sessionId,
-          user_id: userId,
+          user_id: uid,
           action: 'stop',
         })
       } catch (error) {
         console.error('Failed to stop timer session:', error)
       }
     }
-  }, [userId])
+  }, [])
 
   // Stop all timers
   const stopAllTimers = useCallback(async () => {
@@ -367,18 +375,19 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
 
     setTimers(prevTimers => prevTimers.filter(entry => entry.taskId !== taskId))
 
-    if (userId && timer?.sessionId) {
+    const uid = userIdRef.current
+    if (uid && timer?.sessionId) {
       try {
         await timerService.endSession({
           session_id: timer.sessionId,
-          user_id: userId,
+          user_id: uid,
           action: 'stop',
         })
       } catch (error) {
         console.error('Failed to delete timer session:', error)
       }
     }
-  }, [userId])
+  }, [])
 
   // Delete all timers
   const deleteAllTimers = useCallback(async () => {
@@ -388,13 +397,14 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
 
     setTimers([])
 
-    if (userId && sessions.length > 0) {
+    const uid = userIdRef.current
+    if (uid && sessions.length > 0) {
       try {
         await Promise.all(
           sessions.map(sessionId =>
             timerService.endSession({
               session_id: sessionId,
-              user_id: userId,
+              user_id: uid,
               action: 'stop',
             })
           )
@@ -403,7 +413,7 @@ export function TimerContextProvider({ children }: { children: React.ReactNode }
         console.error('Failed to delete all timer sessions:', error)
       }
     }
-  }, [userId])
+  }, [])
 
   // Calculate totals
   const totalEarnings = useMemo(

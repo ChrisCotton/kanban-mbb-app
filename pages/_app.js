@@ -11,13 +11,18 @@ export default function App({ Component, pageProps }) {
   // Stale sessions (e.g. after admin password reset) leave invalid refresh tokens in storage.
   // Clear them so login page does not spam AuthApiError / 400 on token refresh.
   useEffect(() => {
-    supabase.auth.getSession().then(({ error }) => {
-      if (!error) return
-      const msg = (error.message || '').toLowerCase()
-      if (msg.includes('refresh') || msg.includes('invalid')) {
-        supabase.auth.signOut({ scope: 'local' })
-      }
-    })
+    supabase.auth
+      .getSession()
+      .then(({ error }) => {
+        if (!error) return
+        const msg = (error.message || '').toLowerCase()
+        if (msg.includes('refresh') || msg.includes('invalid')) {
+          supabase.auth.signOut({ scope: 'local' })
+        }
+      })
+      .catch(() => {
+        // Avoid uncaught rejections on slow networks / cold auth during boot
+      })
   }, [])
   
   useEffect(() => {

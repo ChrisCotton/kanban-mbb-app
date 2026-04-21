@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { isAbortLikeError } from '../lib/is-abort-error'
 
 export interface Category {
   id: string
@@ -128,7 +129,7 @@ export function useCategories(): UseCategoriesReturn {
       setCategories(normalizedCategories)
       hasLoadedRef.current = true
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (isAbortLikeError(err)) {
         // Request was cancelled: clear loading so this instance never stays stuck
         setLoading(false)
         loadingRef.current = null

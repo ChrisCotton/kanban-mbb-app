@@ -247,8 +247,19 @@ export class TimerIntegrationService {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to start timer session')
+      let message = 'Failed to start timer session'
+      try {
+        const errBody = await response.json()
+        const detail = errBody.details ? `: ${errBody.details}` : ''
+        message = `${errBody.error || message}${detail}`
+      } catch {
+        try {
+          message = (await response.text()) || message
+        } catch {
+          /* keep default */
+        }
+      }
+      throw new Error(message)
     }
 
     const { data } = await response.json()

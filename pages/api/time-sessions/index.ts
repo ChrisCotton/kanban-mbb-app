@@ -3,6 +3,53 @@ import { getApiSupabaseClient } from '../../../lib/supabase-api'
 
 const supabase = getApiSupabaseClient()
 
+const TIME_SESSION_SELECT_FULL = `
+        id,
+        task_id,
+        category_id,
+        started_at,
+        ended_at,
+        duration_seconds,
+        hourly_rate_usd,
+        earnings_usd,
+        is_active,
+        session_notes,
+        created_at,
+        updated_at,
+        tasks:task_id (
+          id,
+          title,
+          status,
+          priority
+        ),
+        categories:category_id (
+          id,
+          name,
+          color
+        )
+      `
+
+const TIME_SESSION_SELECT_NO_CATEGORY = `
+        id,
+        task_id,
+        category_id,
+        started_at,
+        ended_at,
+        duration_seconds,
+        hourly_rate_usd,
+        earnings_usd,
+        is_active,
+        session_notes,
+        created_at,
+        updated_at,
+        tasks:task_id (
+          id,
+          title,
+          status,
+          priority
+        )
+      `
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req
 
@@ -359,28 +406,55 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
       })
     }
 
-    // Use the database function to start the session
-    // Pass user_id explicitly since we're using service role key (auth.uid() returns NULL)
-    const { data: sessionId, error } = await supabase
-      .rpc('start_time_session', {
-        p_task_id: task_id,
-        p_user_id: user_id,
-        p_hourly_rate_usd: hourly_rate_usd || null
-      })
+    // --- Direct queries instead of RPC (avoids PostgREST function-overload ambiguity) ---
 
-    if (error) {
-      console.error('Error starting time session:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        fullError: error
+    // 1. End any currently active sessions for this user
+    await supabase
+      .from('time_sessions')
+      .update({
+        ended_at: new Date().toISOString(),
+        is_active: false,
+        updated_at: new Date().toISOString(),
       })
-      return res.status(500).json({ 
+      .eq('user_id', user_id)
+      .eq('is_active', true)
+      .is('ended_at', null)
+
+    // 2. Resolve hourly rate from category if not provided
+    let effectiveRate: number | null = hourly_rate_usd ?? null
+    if (effectiveRate == null && task.category_id) {
+      const { data: cat } = await supabase
+        .from('categories')
+        .select('hourly_rate_usd')
+        .eq('id', task.category_id)
+        .maybeSingle()
+      if (cat?.hourly_rate_usd != null) {
+        effectiveRate = Number(cat.hourly_rate_usd)
+      }
+    }
+
+    // 3. Insert new session
+    const { data: newRow, error: insertError } = await supabase
+      .from('time_sessions')
+      .insert({
+        task_id,
+        user_id,
+        category_id: task.category_id ?? null,
+        hourly_rate_usd: effectiveRate,
+        is_active: true,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !newRow) {
+      console.error('Error inserting time session:', insertError)
+      return res.status(500).json({
         error: 'Failed to start time session',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? insertError?.message : undefined,
       })
     }
+
+    const sessionId = newRow.id as string
 
     // Add session notes if provided
     if (session_notes && sessionId) {
@@ -391,43 +465,33 @@ async function startTimeSession(req: NextApiRequest, res: NextApiResponse) {
         .eq('user_id', user_id)
     }
 
-    // Fetch the created session with details
-    const { data: newSession } = await supabase
+    // Fetch the created session with details (fallback if category embed fails on schema drift)
+    let newSession: Record<string, unknown> | null = null
+    const { data: sessionFull, error: sessionErr } = await supabase
       .from('time_sessions')
-      .select(`
-        id,
-        task_id,
-        category_id,
-        started_at,
-        ended_at,
-        duration_seconds,
-        hourly_rate_usd,
-        earnings_usd,
-        is_active,
-        session_notes,
-        created_at,
-        updated_at,
-        tasks:task_id (
-          id,
-          title,
-          status,
-          priority
-        ),
-        categories:category_id (
-          id,
-          name,
-          color
-        )
-      `)
+      .select(TIME_SESSION_SELECT_FULL)
       .eq('id', sessionId)
       .single()
 
-    // Update task status to 'in_progress' if it's not already
-    if (task.status !== 'in_progress') {
+    if (sessionErr) {
+      const { data: sessionFallback, error: fbErr } = await supabase
+        .from('time_sessions')
+        .select(TIME_SESSION_SELECT_NO_CATEGORY)
+        .eq('id', sessionId)
+        .single()
+      if (!fbErr && sessionFallback) {
+        newSession = sessionFallback as Record<string, unknown>
+      }
+    } else {
+      newSession = sessionFull as Record<string, unknown>
+    }
+
+    // task_status enum is backlog | todo | doing | done — never 'in_progress'
+    if (task.status !== 'doing') {
       await supabase
         .from('tasks')
         .update({ 
-          status: 'in_progress',
+          status: 'doing',
           updated_at: new Date().toISOString()
         })
         .eq('id', task_id)

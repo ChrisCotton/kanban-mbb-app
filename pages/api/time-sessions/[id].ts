@@ -363,26 +363,51 @@ async function resumeTimeSession(
       .eq('id', sessionId)
       .single()
 
-    // Start a new session using the database function
-    const { data: newSessionId, error } = await supabase
-      .rpc('start_time_session', {
-        p_task_id: existingSession.task_id,
-        p_hourly_rate_usd: prevSession?.hourly_rate_usd || null
+    // End any active sessions, then insert a new one (avoids RPC overload ambiguity)
+    await supabase
+      .from('time_sessions')
+      .update({
+        ended_at: new Date().toISOString(),
+        is_active: false,
+        updated_at: new Date().toISOString(),
       })
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .is('ended_at', null)
 
-    if (error) {
-      console.error('Error resuming time session:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        fullError: error
+    let effectiveRate: number | null = prevSession?.hourly_rate_usd ?? null
+    if (effectiveRate == null && task.category_id) {
+      const { data: cat } = await supabase
+        .from('categories')
+        .select('hourly_rate_usd')
+        .eq('id', task.category_id)
+        .maybeSingle()
+      if (cat?.hourly_rate_usd != null) {
+        effectiveRate = Number(cat.hourly_rate_usd)
+      }
+    }
+
+    const { data: newRow, error } = await supabase
+      .from('time_sessions')
+      .insert({
+        task_id: existingSession.task_id,
+        user_id: userId,
+        category_id: task.category_id ?? null,
+        hourly_rate_usd: effectiveRate,
+        is_active: true,
       })
+      .select('id')
+      .single()
+
+    if (error || !newRow) {
+      console.error('Error resuming time session:', error)
       return res.status(500).json({ 
         error: 'Failed to resume time session',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       })
     }
+
+    const newSessionId = newRow.id
 
     // Get the new session details
     const { data: newSession } = await supabase

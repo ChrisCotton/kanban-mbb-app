@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { fetchWithColdStartRetry } from '../lib/fetch-with-cold-start-retry'
 import Layout from '../components/layout/Layout'
 import { useRealtimeAnalytics } from '../hooks/useRealtimeAnalytics'
 import { useTimerContext } from '../contexts/TimerContext'
@@ -42,7 +43,7 @@ const MBBPage = () => {
   // Fetch default target revenue from user profile
   const loadDefaultTargetFromProfile = async (userId) => {
     try {
-      const response = await fetch(`/api/profile?user_id=${userId}`)
+      const response = await fetchWithColdStartRetry(`/api/profile?user_id=${userId}`)
       const result = await response.json()
       if (result.success && result.data?.default_target_revenue) {
         setDefaultTargetRevenue(result.data.default_target_revenue)
@@ -88,7 +89,7 @@ const MBBPage = () => {
     }
     
     try {
-      const response = await fetch(`/api/mbb/analytics?user_id=${userId}`)
+      const response = await fetchWithColdStartRetry(`/api/mbb/analytics?user_id=${userId}`)
       if (!response.ok) throw new Error('Failed to load MBB data')
       
       const result = await response.json()
@@ -139,7 +140,7 @@ const MBBPage = () => {
       // Fetch a larger batch to ensure we have enough data for grouping
       // We'll paginate the grouped tasks client-side
       const fetchLimit = Math.max(perPage * 10, 100) // Fetch at least 10 pages worth or 100 sessions
-      const response = await fetch(`/api/time-sessions?user_id=${userId}&limit=${fetchLimit}&offset=0`)
+      const response = await fetchWithColdStartRetry(`/api/time-sessions?user_id=${userId}&limit=${fetchLimit}&offset=0`)
       if (!response.ok) throw new Error('Failed to load time sessions')
       
       const result = await response.json()
@@ -173,35 +174,55 @@ const MBBPage = () => {
   })
 
   useEffect(() => {
+    let cancelled = false
+
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (cancelled) return
+        if (authError) throw authError
+        if (!user) {
+          await router.replace('/auth/login')
+          return
+        }
+
+        setUser(user)
+
+        const { data: images, error: imagesError } = await supabase
+          .from('vision_board_images')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+
+        if (imagesError) {
+          console.error('Vision board images query failed:', imagesError)
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || [])
+        }
+
+        // allSettled: never block the page on one slow/failed API after auth succeeds
+        await Promise.allSettled([
+          loadMBBData(user.id),
+          loadTimeSessions(user.id, 1, 5),
+          loadDefaultTargetFromProfile(user.id)
+        ])
+      } catch (e) {
+        if (!cancelled) {
+          console.error('MBB page bootstrap failed:', e)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-      
-      setUser(user)
-      
-      // Get active vision board images for carousel
-      const { data: images } = await supabase
-        .from('vision_board_images')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        
-      setVisionBoardImages(images || [])
-      
-      // Load MBB data, time sessions, and default target from profile
-      await Promise.all([
-        loadMBBData(user.id), 
-        loadTimeSessions(user.id, 1, 5), // Start with page 1, 5 per page
-        loadDefaultTargetFromProfile(user.id)
-      ])
-      setLoading(false)
     }
 
     getUser()
+    return () => {
+      cancelled = true
+    }
   }, [router, loadMBBData, loadTimeSessions])
 
   // Reload time sessions when page or perPage changes
