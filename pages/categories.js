@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import Layout from '../components/layout/Layout'
 import CategoryManager from '../components/ui/CategoryManager'
 import CategoryBulkUpload from '../components/ui/CategoryBulkUpload'
@@ -18,32 +19,47 @@ const CategoriesPage = () => {
   const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
+    let cancelled = false
+
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getClientAuthUserForPageLoad()
+        if (cancelled) return
         if (!user) {
-          router.push('/auth/login')
+          await router.replace('/auth/login')
           return
         }
-        
+
         setUser(user)
 
-        const { data: images } = await supabase
+        const { data: images, error: imagesError } = await supabase
           .from('vision_board_images')
           .select('*')
           .eq('user_id', user.id)
           .eq('is_active', true)
           .order('display_order', { ascending: true })
-        
-        setVisionBoardImages(images || [])
+
+        if (imagesError) {
+          console.error('[Categories] Vision board query failed:', imagesError)
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || [])
+        }
       } catch (error) {
-        console.error('[Categories] Failed to load user or images:', error)
+        if (!cancelled) {
+          console.error('[Categories] Failed to load user or images:', error)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     getUser()
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   // Fetch goals on mount

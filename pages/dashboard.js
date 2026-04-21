@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import { KanbanProvider } from '../lib/hooks/useKanban'
 import KanbanBoard from '../components/kanban/KanbanBoard'
 import Layout from '../components/layout/Layout'
@@ -13,32 +14,47 @@ export default function Dashboard() {
   const [activeTask, setActiveTask] = useState(null)
 
   useEffect(() => {
+    let cancelled = false
+
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getClientAuthUserForPageLoad()
+        if (cancelled) return
         if (!user) {
-          router.push('/auth/login')
+          await router.replace('/auth/login')
           return
         }
-        
+
         setUser(user)
-        
-        const { data: images } = await supabase
+
+        const { data: images, error: imagesError } = await supabase
           .from('vision_board_images')
           .select('*')
           .eq('user_id', user.id)
           .eq('is_active', true)
           .order('display_order', { ascending: true })
-          
-        setVisionBoardImages(images || [])
+
+        if (imagesError) {
+          console.error('[Dashboard] Vision board query failed:', imagesError)
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || [])
+        }
       } catch (err) {
-        console.error('[Dashboard] Failed to load user or images:', err)
+        if (!cancelled) {
+          console.error('[Dashboard] Failed to load user or images:', err)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     getUser()
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   if (loading) {

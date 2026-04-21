@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { fetchWithColdStartRetry } from '../lib/fetch-with-cold-start-retry'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import Layout from '../components/layout/Layout'
 import { useRealtimeAnalytics } from '../hooks/useRealtimeAnalytics'
 import { useTimerContext } from '../contexts/TimerContext'
@@ -178,9 +179,8 @@ const MBBPage = () => {
 
     const getUser = async () => {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const user = await getClientAuthUserForPageLoad()
         if (cancelled) return
-        if (authError) throw authError
         if (!user) {
           await router.replace('/auth/login')
           return

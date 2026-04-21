@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { supabase } from '../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import { motion } from 'framer-motion'
 
 export default function Home() {
@@ -8,7 +8,7 @@ export default function Home() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getClientAuthUserForPageLoad()
       if (user) {
         router.push('/dashboard')
       }

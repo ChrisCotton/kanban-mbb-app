@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import Layout from '../components/layout/Layout'
 import ThumbnailGallery from '../components/vision-board/ThumbnailGallery'
 import VisionBoardGalleryModal from '../components/vision-board/VisionBoardGalleryModal'
@@ -59,22 +60,37 @@ const VisionBoardPage = () => {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
+      try {
+        const user = await getClientAuthUserForPageLoad()
+        if (cancelled) return
+        if (!user) {
+          await router.replace('/auth/login')
+          return
+        }
+
+        setUser(user)
+        await Promise.all([
+          loadVisionBoardImages(user.id),
+          loadUserProfile(user.id)
+        ])
+      } catch (e) {
+        if (!cancelled) {
+          console.error('[VisionBoard] Failed to load user:', e)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-      
-      setUser(user)
-      await Promise.all([
-        loadVisionBoardImages(user.id),
-        loadUserProfile(user.id)
-      ])
-      setLoading(false)
     }
 
     getUser()
+    return () => {
+      cancelled = true
+    }
   }, [router, loadVisionBoardImages, loadUserProfile])
 
   // Fetch goals on mount

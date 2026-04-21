@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user';
 import Layout from '../components/layout/Layout';
 import GoalCard from '../src/components/goals/GoalCard';
 import GoalModal from '../src/components/goals/GoalModal';
@@ -38,28 +39,47 @@ const GoalsPage = () => {
   } = useGoalsStore();
 
   useEffect(() => {
+    let cancelled = false;
+
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/auth/login');
-        return;
+      try {
+        const user = await getClientAuthUserForPageLoad();
+        if (cancelled) return;
+        if (!user) {
+          await router.replace('/auth/login');
+          return;
+        }
+
+        setUser(user);
+
+        const { data: images, error: imagesError } = await supabase
+          .from('vision_board_images')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+
+        if (imagesError) {
+          console.error('[Goals] Vision board query failed:', imagesError);
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error('[Goals] Failed to load user or images:', e);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      setUser(user);
-
-      // Get active vision board images for carousel
-      const { data: images } = await supabase
-        .from('vision_board_images')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      setVisionBoardImages(images || []);
-      setLoading(false);
     };
 
     getUser();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {

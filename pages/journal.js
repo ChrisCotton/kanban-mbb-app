@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Layout from '@/components/layout/Layout'
 import JournalView from '@/components/journal/JournalView'
 import { supabase } from '../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../lib/get-client-auth-user'
 import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
 import { useGoalsStore } from '../src/stores/goals.store'
 
@@ -16,27 +17,46 @@ const JournalPage = () => {
   const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      setUser(user)
-      
-      // Get active vision board images for carousel
-      const { data: images } = await supabase
-        .from('vision_board_images')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
+    let cancelled = false
 
-      setVisionBoardImages(images || [])
-      setLoading(false)
+    const getUser = async () => {
+      try {
+        const user = await getClientAuthUserForPageLoad()
+        if (cancelled) return
+        if (!user) {
+          await router.replace('/auth/login')
+          return
+        }
+        setUser(user)
+
+        const { data: images, error: imagesError } = await supabase
+          .from('vision_board_images')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+
+        if (imagesError) {
+          console.error('[Journal] Vision board query failed:', imagesError)
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || [])
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error('[Journal] Failed to load user or images:', e)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
     getUser()
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   // Fetch goals on mount

@@ -6,6 +6,7 @@ import { useRouter } from 'next/router'
 import Image from 'next/image'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { getClientAuthUserForPageLoad } from '../../lib/get-client-auth-user'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
 import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
 
@@ -31,22 +32,25 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   // Load user and profile picture
   useEffect(() => {
     const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-        // Load profile picture
-        const { data: profile } = await supabase
-          .from('user_profile')
-          .select('avatar_url')
-          .eq('user_id', user.id)
-          .single()
-        
-        if (profile?.avatar_url) {
-          setAvatarUrl(profile.avatar_url)
+      try {
+        const user = await getClientAuthUserForPageLoad()
+        if (user) {
+          setUser(user)
+          const { data: profile } = await supabase
+            .from('user_profile')
+            .select('avatar_url')
+            .eq('user_id', user.id)
+            .single()
+
+          if (profile?.avatar_url) {
+            setAvatarUrl(profile.avatar_url)
+          }
         }
+      } catch {
+        /* cold-start auth races — onAuthStateChange will refill */
       }
     }
-    loadUser()
+    void loadUser()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
