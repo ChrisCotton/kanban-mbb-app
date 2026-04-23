@@ -211,11 +211,14 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
     }
   }, [])
 
-  // Navigation functions - defined before useEffect hooks that use them
+  // Navigation functions - defined before useEffect hooks that use them.
+  // NOTE: These intentionally do NOT pause the slideshow, because the
+  // auto-advance interval calls goToNext(). Pausing here would stop the
+  // slideshow after a single auto-advance. Manual entry points (buttons,
+  // keyboard arrows, swipes, thumbnail clicks) are responsible for pausing.
   const goToNext = useCallback(() => {
     if (isTransitioning || images.length === 0) return
     setIsTransitioning(true)
-    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex((prev) => (prev + 1) % images.length)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [images.length, isTransitioning])
@@ -223,7 +226,6 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const goToPrevious = useCallback(() => {
     if (isTransitioning || images.length === 0) return
     setIsTransitioning(true)
-    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [images.length, isTransitioning])
@@ -231,10 +233,25 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
   const goToImage = useCallback((index: number) => {
     if (isTransitioning || index === currentIndex || index < 0 || index >= images.length) return
     setIsTransitioning(true)
-    setIsPlaying(false) // Pause slideshow on manual navigation
     setCurrentIndex(index)
     setTimeout(() => setIsTransitioning(false), 300)
   }, [currentIndex, images.length, isTransitioning])
+
+  // Manual navigation wrappers - pause the slideshow before navigating.
+  const handleManualNext = useCallback(() => {
+    setIsPlaying(false)
+    goToNext()
+  }, [goToNext])
+
+  const handleManualPrevious = useCallback(() => {
+    setIsPlaying(false)
+    goToPrevious()
+  }, [goToPrevious])
+
+  const handleManualGoToImage = useCallback((index: number) => {
+    setIsPlaying(false)
+    goToImage(index)
+  }, [goToImage])
 
   // Auto-advance slideshow when playing
   useEffect(() => {
@@ -259,9 +276,9 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
           onClose()
         }
       } else if (e.key === 'ArrowLeft') {
-        goToPrevious()
+        handleManualPrevious()
       } else if (e.key === 'ArrowRight') {
-        goToNext()
+        handleManualNext()
       } else if (e.key === 'm' || e.key === 'M') {
         setShowMetadata(prev => !prev)
       } else if (e.key === 'g' || e.key === 'G') {
@@ -276,7 +293,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentIndex, images.length, onClose, toggleFullscreen, goToNext, goToPrevious])
+  }, [isOpen, currentIndex, images.length, onClose, toggleFullscreen, handleManualNext, handleManualPrevious])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -312,9 +329,9 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
     const isRightSwipe = distance < -minSwipeDistance
 
     if (isLeftSwipe) {
-      goToNext()
+      handleManualNext()
     } else if (isRightSwipe) {
-      goToPrevious()
+      handleManualPrevious()
     }
   }
 
@@ -478,7 +495,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
         {/* Previous Button */}
         {images.length > 1 && (
           <button
-            onClick={goToPrevious}
+            onClick={handleManualPrevious}
             disabled={isTransitioning}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-4 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Previous image"
@@ -545,7 +562,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
         {/* Next Button */}
         {images.length > 1 && (
           <button
-            onClick={goToNext}
+            onClick={handleManualNext}
             disabled={isTransitioning}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-4 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Next image"
@@ -674,7 +691,7 @@ const VisionBoardGalleryModal: React.FC<VisionBoardGalleryModalProps> = ({
               return (
                 <button
                   key={image.id}
-                  onClick={() => goToImage(index)}
+                  onClick={() => handleManualGoToImage(index)}
                   className={`relative flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden transition-all duration-200 ${
                     index === currentIndex
                       ? 'ring-2 ring-white scale-110'
