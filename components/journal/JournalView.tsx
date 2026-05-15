@@ -1,6 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
+import {
+  buildJournalAudioStoragePath,
+  isAllowedJournalAudioMimeType,
+} from '@/lib/journal-audio-storage'
 import AudioRecorder from './AudioRecorder'
 import TranscriptEditor from './TranscriptEditor'
 
@@ -158,111 +163,181 @@ const JournalView: React.FC<JournalViewProps> = ({
         throw new Error('Audio data was lost. Please try recording again.')
       }
 
-      console.log('📤 Uploading audio, blob size:', preservedBlob.size, 'type:', preservedBlob.type)
-
-      // Now upload the audio
-      const formData = new FormData()
-      
-      // Determine file extension based on blob type
-      let fileName = 'journal.webm'
       const blobType = preservedBlob.type || 'audio/webm'
-      if (blobType.includes('mp4') || blobType.includes('m4a')) {
-        fileName = 'journal.m4a'
-      } else if (blobType.includes('mp3') || blobType.includes('mpeg')) {
-        fileName = 'journal.mp3'
-      } else if (blobType.includes('ogg')) {
-        fileName = 'journal.ogg'
-      } else if (blobType.includes('wav')) {
-        fileName = 'journal.wav'
-      }
-      
-      // Create a File object from the preserved Blob with proper name and type
-      let audioFile: File
-      try {
-        audioFile = new File([preservedBlob], fileName, { type: blobType })
-        console.log('✅ File object created:', { name: audioFile.name, size: audioFile.size, type: audioFile.type })
-      } catch (fileError) {
-        console.error('❌ Failed to create File object:', fileError)
-        throw new Error('Failed to prepare audio file for upload')
-      }
-
-      // Append file to FormData - File objects only need 2 arguments (key, value)
-      // The filename is already part of the File object
-      formData.append('audio', audioFile)
-      formData.append('user_id', userId)
-      formData.append('entry_id', newEntry.id)
-      formData.append('duration', Math.round(duration).toString())
-
-      // Verify FormData was created correctly
-      console.log('📤 FormData created with entries:', {
-        hasAudio: formData.has('audio'),
-        userId: formData.get('user_id'),
-        entryId: formData.get('entry_id'),
-        duration: formData.get('duration')
-      })
-
-      let audioResponse = await fetch('/api/journal/audio', {
-        method: 'POST',
-        body: formData
-        // Don't set Content-Type header - let browser set it with boundary
-      })
-
-      console.log('📡 Audio upload response status:', audioResponse.status, 'ok:', audioResponse.ok)
+      console.log('📤 Uploading audio, blob size:', preservedBlob.size, 'type:', blobType)
 
       let audioUploadSuccess = false
-      if (!audioResponse.ok) {
-        const errorText = await audioResponse.text()
-        console.error('❌ Audio upload failed:', errorText)
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch {
-          errorData = { error: errorText || 'Audio upload failed' }
-        }
-        // Entry was created, just without audio - show warning
-        setError('Entry created but audio upload failed. ' + (errorData.error || errorData.details || ''))
+
+      if (!isAllowedJournalAudioMimeType(blobType)) {
+        setError(
+          `Entry created but audio upload was skipped: unsupported format (${blobType || 'unknown'}).`
+        )
       } else {
-        const audioResult = await audioResponse.json()
-        console.log('✅ Audio uploaded:', audioResult)
-        
-        // Update entry with audio info
-        newEntry.audio_file_path = audioResult.audio_file_path || audioResult.data?.audio_file_path
-        if (audioResult.audio_url || audioResult.data?.audio_url) {
-          setAudioUrls(prev => ({ ...prev, [newEntry.id]: audioResult.audio_url || audioResult.data?.audio_url }))
+        const { data: sessionData } = await supabase.auth.getSession()
+        const hasClientSession = !!sessionData?.session
+
+        if (hasClientSession) {
+          // Direct-to-Supabase upload avoids Vercel's ~4.5MB serverless body limit (413 FUNCTION_PAYLOAD_TOO_LARGE).
+          const storagePath = buildJournalAudioStoragePath(userId, newEntry.id, blobType)
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('journal_audio')
+            .upload(storagePath, preservedBlob, {
+              contentType: blobType,
+              upsert: true,
+            })
+
+          if (uploadError) {
+            console.error('❌ Supabase storage upload failed:', uploadError)
+            setError(
+              'Entry created but audio upload failed. ' +
+                (uploadError.message || 'Storage upload failed')
+            )
+          } else {
+            const audioPath = uploadData?.path ?? storagePath
+            const patchResponse = await fetch(`/api/journal/${newEntry.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: userId,
+                audio_file_path: audioPath,
+                audio_duration: Math.round(duration),
+                audio_file_size: preservedBlob.size,
+              }),
+            })
+            const patchBody = await patchResponse.json().catch(() => ({}))
+            if (!patchResponse.ok || !patchBody.success) {
+              const msg =
+                patchBody.error || patchBody.details || 'Failed to attach audio to journal entry'
+              console.error('❌ Journal metadata update after upload failed:', msg)
+              setError('Audio uploaded but saving entry failed. ' + msg)
+            } else {
+              newEntry.audio_file_path = audioPath
+              newEntry.audio_duration = Math.round(duration)
+              newEntry.audio_file_size = preservedBlob.size
+              const { data: signed } = await supabase.storage
+                .from('journal_audio')
+                .createSignedUrl(audioPath, 3600)
+              const fallbackPublic = supabase.storage.from('journal_audio').getPublicUrl(audioPath)
+              const playbackUrl = signed?.signedUrl || fallbackPublic?.data?.publicUrl
+              if (playbackUrl) {
+                setAudioUrls((prev) => ({ ...prev, [newEntry.id]: playbackUrl }))
+              }
+              audioUploadSuccess = true
+              console.log('✅ Audio uploaded via Supabase Storage:', audioPath)
+            }
+          }
+        } else {
+          // Tests and rare no-session cases: multipart via API (keep under Vercel body limit in production).
+          let fileName = 'journal.webm'
+          if (blobType.includes('mp4') || blobType.includes('m4a')) {
+            fileName = 'journal.m4a'
+          } else if (blobType.includes('mp3') || blobType.includes('mpeg')) {
+            fileName = 'journal.mp3'
+          } else if (blobType.includes('ogg')) {
+            fileName = 'journal.ogg'
+          } else if (blobType.includes('wav')) {
+            fileName = 'journal.wav'
+          }
+
+          let audioFile: File
+          try {
+            audioFile = new File([preservedBlob], fileName, { type: blobType })
+          } catch (fileError) {
+            console.error('❌ Failed to create File object:', fileError)
+            throw new Error('Failed to prepare audio file for upload')
+          }
+
+          const formData = new FormData()
+          formData.append('audio', audioFile)
+          formData.append('user_id', userId)
+          formData.append('entry_id', newEntry.id)
+          formData.append('duration', Math.round(duration).toString())
+
+          const audioResponse = await fetch('/api/journal/audio', {
+            method: 'POST',
+            body: formData,
+          })
+
+          console.log('📡 Audio upload response status:', audioResponse.status, 'ok:', audioResponse.ok)
+
+          if (!audioResponse.ok) {
+            const errorText = await audioResponse.text()
+            console.error('❌ Audio upload failed:', errorText)
+            let errorData: { error?: string; details?: string }
+            try {
+              errorData = JSON.parse(errorText)
+            } catch {
+              errorData = { error: errorText || 'Audio upload failed' }
+            }
+            const hint =
+              preservedBlob.size > 4_500_000
+                ? ' Long recordings must use a signed-in browser session so audio uploads directly to storage.'
+                : ''
+            setError(
+              'Entry created but audio upload failed. ' +
+                (errorData.error || errorData.details || '') +
+                hint
+            )
+          } else {
+            const audioResult = await audioResponse.json()
+            console.log('✅ Audio uploaded:', audioResult)
+            newEntry.audio_file_path =
+              audioResult.audio_file_path || audioResult.data?.audio_file_path
+            if (audioResult.audio_url || audioResult.data?.audio_url) {
+              setAudioUrls((prev) => ({
+                ...prev,
+                [newEntry.id]:
+                  audioResult.audio_url || audioResult.data?.audio_url,
+              }))
+            }
+            audioUploadSuccess = true
+          }
         }
-        audioUploadSuccess = true
       }
 
       // Validate audio file size - reject files that are too small (likely silence)
       if (preservedBlob.size < 2000) {
-        console.warn('⚠️ Audio file is very small (' + preservedBlob.size + ' bytes) - likely silence')
-        setError('Audio file is too small. The microphone may not be capturing audio. Please check your microphone settings and try again.')
-        // Still add entry but mark transcription as failed
+        console.warn(
+          '⚠️ Audio file is very small (' + preservedBlob.size + ' bytes) - likely silence'
+        )
+        setError(
+          'Audio file is too small. The microphone may not be capturing audio. Please check your microphone settings and try again.'
+        )
         newEntry.transcription_status = 'failed'
       }
-      
+
       // Add to entries list
-      setEntries(prev => [newEntry, ...prev])
+      setEntries((prev) => [newEntry, ...prev])
       console.log('✅ Entry added to list')
-      
+
       // Show the new entry
       setSelectedEntry(newEntry)
       setViewMode('view')
       console.log('✅ Recording saved successfully')
-      
+
       // Automatically trigger transcription if audio was uploaded successfully
-      if (audioUploadSuccess && preservedBlob.size >= 2000 && newEntry.audio_file_path) {
-        console.log('🎙️ Auto-triggering transcription for entry:', newEntry.id, 'file size:', preservedBlob.size)
-        // Wait a moment for the entry to be fully saved, then transcribe
+      if (
+        audioUploadSuccess &&
+        preservedBlob.size >= 2000 &&
+        newEntry.audio_file_path
+      ) {
+        console.log(
+          '🎙️ Auto-triggering transcription for entry:',
+          newEntry.id,
+          'file size:',
+          preservedBlob.size
+        )
         setTimeout(() => {
           if (handleTranscribeRef.current) {
             handleTranscribeRef.current(newEntry.id)
           }
         }, 500)
       } else if (preservedBlob.size < 2000) {
-        console.warn('⚠️ Skipping auto-transcription - audio file too small:', preservedBlob.size)
+        console.warn(
+          '⚠️ Skipping auto-transcription - audio file too small:',
+          preservedBlob.size
+        )
       }
-      
     } catch (err: any) {
       console.error('❌ Error saving recording:', err)
       setError(err.message || 'Failed to save recording')

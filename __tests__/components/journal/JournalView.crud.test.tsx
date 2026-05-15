@@ -2,15 +2,30 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import JournalView from '../../../components/journal/JournalView'
 
-// Mock fetch
-global.fetch = jest.fn()
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    },
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn(() => Promise.resolve({ data: null, error: { message: 'unused in tests' } })),
+        createSignedUrl: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      })),
+    },
+  },
+}))
 
 // Mock AudioRecorder
 jest.mock('../../../components/journal/AudioRecorder', () => {
   return function MockAudioRecorder({ onRecordingComplete, onCancel }: any) {
     return (
       <div>
-        <button onClick={() => onRecordingComplete(new Blob(['audio'], { type: 'audio/webm' }), 10)}>
+        <button
+          onClick={() =>
+            onRecordingComplete(new Blob([new Uint8Array(2500)], { type: 'audio/webm' }), 10)
+          }
+        >
           Mock Record
         </button>
         <button onClick={onCancel}>Cancel</button>
@@ -59,8 +74,9 @@ describe('JournalView CRUD Operations', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(global.fetch as jest.Mock).mockResolvedValue({
+    global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: async () => ({
         success: true,
         data: mockEntries,
@@ -79,8 +95,10 @@ describe('JournalView CRUD Operations', () => {
         )
       })
 
-      expect(screen.getByText('Entry 1')).toBeInTheDocument()
-      expect(screen.getByText('Entry 2')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Entry 1')).toBeInTheDocument()
+        expect(screen.getByText('Entry 2')).toBeInTheDocument()
+      })
     })
 
     it('should display entry details when clicked', async () => {
@@ -371,7 +389,7 @@ describe('JournalView CRUD Operations', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText(/Failed to update/i)).toBeInTheDocument()
+        expect(screen.getByText(/Update failed/i)).toBeInTheDocument()
       })
     })
 
@@ -408,7 +426,7 @@ describe('JournalView CRUD Operations', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText(/Failed to delete/i)).toBeInTheDocument()
+        expect(screen.getByText(/Delete failed/i)).toBeInTheDocument()
       })
 
       confirmSpy.mockRestore()

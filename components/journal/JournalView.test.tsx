@@ -3,12 +3,28 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import JournalView from './JournalView';
 
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    },
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn(() => Promise.resolve({ data: null, error: { message: 'should not reach in tests' } })),
+        createSignedUrl: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      })),
+    },
+  },
+}));
+
 // Mock child components
 jest.mock('./AudioRecorder', () => {
   return function MockAudioRecorder(props: any) {
+    // Non-empty blob so save flow reaches upload; size >= 2000 matches prior implicit behavior for transcription mocks
+    const mockBlob = new Blob([new Uint8Array(2500)], { type: 'audio/webm' })
     return (
       <div data-testid="audio-recorder">
-        <button onClick={() => props.onRecordingComplete(new Blob(), 60)}>
+        <button onClick={() => props.onRecordingComplete(mockBlob, 60)}>
           Complete Recording
         </button>
         <button onClick={props.onCancel}>Cancel</button>
@@ -322,8 +338,10 @@ describe('JournalView', () => {
           method: 'POST',
         })
       );
-      // Assert that a new entry with dynamic title is visible
-      expect(screen.getByText(/Journal Entry - \d{1,2}\/\d{1,2}\/\d{4}/)).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const titleInput = screen.getByTestId('transcript-editor-title') as HTMLInputElement;
+      expect(titleInput.value).toMatch(/^Journal Entry - \d{1,2}\/\d{1,2}\/\d{4}$/);
     });
   });
 
