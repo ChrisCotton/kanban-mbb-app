@@ -53,7 +53,7 @@
 ## Test Files Created
 
 ### 1. API Unit Tests
-**File:** `__tests__/api/kanban/tasks/[id].category-update.test.ts`  
+**File:** `__tests__/api/kanban/tasks/task-by-id.category-update.test.ts` (renamed from `[id].category-update…` — bracket paths break Jest’s multi-arg test regex matcher)  
 **Lines:** 380  
 **Test Groups:** 4  
 **Test Cases:** 10

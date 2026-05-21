@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { moveTask, Task } from '../../../../../lib/database/kanban-queries'
+import { tryKanbanUserDb } from '../../../../../lib/supabase-route-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
@@ -56,8 +57,11 @@ async function handleMoveTask(req: NextApiRequest, res: NextApiResponse, id: str
     })
   }
 
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
+
   try {
-    const movedTask = await moveTask(id, status as Task['status'], order_index)
+    const movedTask = await moveTask(id, status as Task['status'], order_index, db)
     
     return res.status(200).json({
       success: true,

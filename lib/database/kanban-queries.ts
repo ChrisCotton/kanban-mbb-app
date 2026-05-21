@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { getApiSupabaseClient } from '../supabase-api'
 
 // Types for our database entities
@@ -194,11 +195,15 @@ async function enrichTasksWithGoalLinks<T extends { id: string; user_id: string 
  * Get all tasks for the current user, optionally filtered by status and goal_id
  * 🔧 FIX: Include category data with hourly_rate_usd for timer calculations
  */
-export async function getTasks(status?: Task['status'], goalId?: string) {
+export async function getTasks(
+  status?: Task['status'],
+  goalId?: string,
+  client: SupabaseClient = supabase
+) {
   // If filtering by goal, first get task IDs from goal_tasks junction table
   let taskIds: string[] | undefined;
   if (goalId) {
-    const { data: goalTasks, error: goalTasksError } = await supabase
+    const { data: goalTasks, error: goalTasksError } = await client
       .from('goal_tasks')
       .select('task_id')
       .eq('goal_id', goalId);
@@ -214,7 +219,7 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
     }
   }
 
-  let query = supabase
+  let query = client
     .from('tasks')
     .select(`
       *,
@@ -246,7 +251,7 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
   
   if (fetchedTaskIds.length > 0) {
     // Fetch all subtasks for these tasks in one query
-    const { data: allSubtasks, error: subtasksError } = await supabase
+    const { data: allSubtasks, error: subtasksError } = await client
       .from('subtasks')
       .select('task_id, completed')
       .in('task_id', fetchedTaskIds)
@@ -276,7 +281,8 @@ export async function getTasks(status?: Task['status'], goalId?: string) {
 /**
  * Search and filter tasks with comprehensive filtering options
  */
-export async function searchTasks(params: {
+export async function searchTasks(
+  params: {
   query?: string
   status?: Task['status']
   priority?: Task['priority']
@@ -286,8 +292,10 @@ export async function searchTasks(params: {
   dateRange?: { start: string; end: string }
   limit?: number
   offset?: number
-}) {
-  let query = supabase
+},
+  client: SupabaseClient = supabase
+) {
+  let query = client
     .from('tasks')
     .select(`
       *
@@ -346,7 +354,7 @@ export async function searchTasks(params: {
   let filteredData = data as Task[]
   if (params.tags && params.tags.length > 0) {
     // Get tasks that have any of the specified tags
-    const { data: taskTagsData, error: taskTagsError } = await supabase
+    const { data: taskTagsData, error: taskTagsError } = await client
       .from('task_tags')
       .select('task_id')
       .in('tag_id', params.tags)
@@ -364,7 +372,7 @@ export async function searchTasks(params: {
   let subtaskCounts: Record<string, { total: number; completed: number }> = {}
   
   if (fetchedTaskIds.length > 0) {
-    const { data: allSubtasks, error: subtasksError } = await supabase
+    const { data: allSubtasks, error: subtasksError } = await client
       .from('subtasks')
       .select('task_id, completed')
       .in('task_id', fetchedTaskIds)
@@ -392,8 +400,8 @@ export async function searchTasks(params: {
 /**
  * Get a single task by ID with optional related data
  */
-export async function getTask(id: string, includeDetails = false) {
-  let query = supabase
+export async function getTask(id: string, includeDetails = false, client: SupabaseClient = supabase) {
+  let query = client
     .from('tasks')
     .select('*')
     .eq('id', id)
@@ -411,8 +419,8 @@ export async function getTask(id: string, includeDetails = false) {
 
   // Fetch related comments and subtasks
   const [comments, subtasks] = await Promise.all([
-    getTaskComments(id),
-    getTaskSubtasks(id)
+    getTaskComments(id, client),
+    getTaskSubtasks(id, client)
   ])
 
   return {
@@ -425,8 +433,11 @@ export async function getTask(id: string, includeDetails = false) {
 /**
  * Create a new task
  */
-export async function createTask(taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'>) {
-  const { data, error } = await supabase
+export async function createTask(
+  taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'>,
+  client: SupabaseClient = supabase
+) {
+  const { data, error } = await client
     .from('tasks')
     .insert([taskData])
     .select()
@@ -442,8 +453,12 @@ export async function createTask(taskData: Omit<Task, 'id' | 'created_at' | 'upd
 /**
  * Update an existing task
  */
-export async function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>) {
-  const { data, error } = await supabase
+export async function updateTask(
+  id: string,
+  updates: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>,
+  client: SupabaseClient = supabase
+) {
+  const { data, error } = await client
     .from('tasks')
     .update(updates)
     .eq('id', id)
@@ -460,8 +475,8 @@ export async function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 
 /**
  * Delete a task and all related data
  */
-export async function deleteTask(id: string) {
-  const { error } = await supabase
+export async function deleteTask(id: string, client: SupabaseClient = supabase) {
+  const { error } = await client
     .from('tasks')
     .delete()
     .eq('id', id)
@@ -476,8 +491,13 @@ export async function deleteTask(id: string) {
 /**
  * Update task status and order when moving between swim lanes
  */
-export async function moveTask(id: string, newStatus: Task['status'], newOrderIndex: number) {
-  const { data, error } = await supabase
+export async function moveTask(
+  id: string,
+  newStatus: Task['status'],
+  newOrderIndex: number,
+  client: SupabaseClient = supabase
+) {
+  const { data, error } = await client
     .from('tasks')
     .update({ 
       status: newStatus, 
@@ -520,8 +540,8 @@ export async function reorderTasks(taskUpdates: Array<{ id: string; order_index:
 /**
  * Get all comments for a specific task
  */
-export async function getTaskComments(taskId: string) {
-  const { data, error } = await supabase
+export async function getTaskComments(taskId: string, client: SupabaseClient = supabase) {
+  const { data, error } = await client
     .from('comments')
     .select('*')
     .eq('task_id', taskId)
@@ -612,8 +632,8 @@ export async function deleteComment(id: string) {
 /**
  * Get all subtasks for a specific task
  */
-export async function getTaskSubtasks(taskId: string) {
-  const { data, error } = await supabase
+export async function getTaskSubtasks(taskId: string, client: SupabaseClient = supabase) {
+  const { data, error } = await client
     .from('subtasks')
     .select('*')
     .eq('task_id', taskId)
@@ -733,8 +753,8 @@ export async function reorderSubtasks(subtaskUpdates: Array<{ id: string; order_
 /**
  * Get task completion statistics
  */
-export async function getTaskStats() {
-  const { data, error } = await supabase
+export async function getTaskStats(client: SupabaseClient = supabase) {
+  const { data, error } = await client
     .from('tasks')
     .select('status')
 
@@ -757,11 +777,11 @@ export async function getTaskStats() {
 /**
  * Get tasks completed in the last N days
  */
-export async function getRecentCompletions(days = 7) {
+export async function getRecentCompletions(days = 7, client: SupabaseClient = supabase) {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - days)
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('tasks')
     .select('*')
     .eq('status', 'done')
@@ -778,10 +798,10 @@ export async function getRecentCompletions(days = 7) {
 /**
  * Get overdue tasks
  */
-export async function getOverdueTasks() {
+export async function getOverdueTasks(client: SupabaseClient = supabase) {
   const now = new Date().toISOString()
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('tasks')
     .select('*')
     .neq('status', 'done')

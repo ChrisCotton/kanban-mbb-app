@@ -1,6 +1,16 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getTasks, createTask, Task } from '../../../../lib/database/kanban-queries'
 import { validateUUID } from '../../../../lib/utils/uuid'
+import {
+  createSupabaseUserClientFromBearer,
+  readBearerAuthorization,
+  tryKanbanUserDb,
+  verifyBearerMatchesBodyUserId,
+} from '../../../../lib/supabase-route-user'
+
+function jsonUnauthorized(res: NextApiResponse) {
+  return res.status(401).json({ error: 'Authentication required', success: false })
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -45,7 +55,10 @@ async function handleGetTasks(req: NextApiRequest, res: NextApiResponse) {
     goalId = goal_id;
   }
 
-  const tasks = await getTasks(status as Task['status'], goalId)
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
+
+  const tasks = await getTasks(status as Task['status'], goalId, db)
   
   return res.status(200).json({
     success: true,
@@ -77,6 +90,18 @@ async function handleCreateTask(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ 
       error: error.message 
     })
+  }
+
+  const authHeader = readBearerAuthorization(req.headers)
+  if (!(await verifyBearerMatchesBodyUserId(authHeader, user_id))) {
+    return res.status(401).json({ error: 'Invalid or missing authentication', success: false })
+  }
+
+  let db
+  try {
+    db = createSupabaseUserClientFromBearer(authHeader)
+  } catch {
+    return jsonUnauthorized(res)
   }
 
   // Validate optional fields
@@ -119,7 +144,7 @@ async function handleCreateTask(req: NextApiRequest, res: NextApiResponse) {
     user_id: user_id
   }
 
-  const newTask = await createTask(taskData)
+  const newTask = await createTask(taskData, db)
   
   return res.status(201).json({
     success: true,

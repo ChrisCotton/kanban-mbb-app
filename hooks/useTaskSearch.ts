@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Task } from '../lib/database/kanban-queries'
+import { kanbanAuthorizedFetch } from '../lib/kanban-client-fetch'
 import { SearchFilters } from '../components/kanban/SearchAndFilter'
 
 interface UseTaskSearchOptions {
@@ -33,7 +34,7 @@ export const useTaskSearch = (options: UseTaskSearchOptions = {}) => {
       if (filters.dateRange?.start) params.append('start_date', filters.dateRange.start)
       if (filters.dateRange?.end) params.append('end_date', filters.dateRange.end)
 
-      const response = await fetch(`/api/kanban/tasks/search?${params.toString()}`)
+      const response = await kanbanAuthorizedFetch(`/api/kanban/tasks/search?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error(`Search failed: ${response.statusText}`)

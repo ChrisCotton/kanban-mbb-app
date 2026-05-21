@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Task } from '../lib/database/kanban-queries'
+import { kanbanAuthorizedFetch } from '../lib/kanban-client-fetch'
 import { supabase } from '../lib/supabase'
 
 export interface TasksByStatus {
@@ -73,7 +74,7 @@ export const useKanban = (): UseKanbanReturn => {
         ? `/api/kanban/tasks?goal_id=${goalId}`
         : '/api/kanban/tasks';
       
-      const response = await fetch(url)
+      const response = await kanbanAuthorizedFetch(url)
       if (!response.ok) {
         throw new Error(`Failed to fetch tasks: ${response.statusText}`)
       }
@@ -130,7 +131,7 @@ export const useKanban = (): UseKanbanReturn => {
         user_id: user.id
       }
 
-      const response = await fetch('/api/kanban/tasks', {
+      const response = await kanbanAuthorizedFetch('/api/kanban/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +167,7 @@ export const useKanban = (): UseKanbanReturn => {
     try {
       setError(null)
 
-      const response = await fetch(`/api/kanban/tasks/${taskId}`, {
+      const response = await kanbanAuthorizedFetch(`/api/kanban/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -202,7 +203,7 @@ export const useKanban = (): UseKanbanReturn => {
     try {
       setError(null)
 
-      const response = await fetch(`/api/kanban/tasks/${taskId}`, {
+      const response = await kanbanAuthorizedFetch(`/api/kanban/tasks/${taskId}`, {
         method: 'DELETE'
       })
 
@@ -236,7 +237,7 @@ export const useKanban = (): UseKanbanReturn => {
     try {
       setError(null)
 
-      const response = await fetch(`/api/kanban/tasks/${taskId}/move`, {
+      const response = await kanbanAuthorizedFetch(`/api/kanban/tasks/${taskId}/move`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -281,7 +282,7 @@ export const useKanban = (): UseKanbanReturn => {
       setError(null)
 
       const url = `/api/kanban/tasks/${taskId}${includeDetails ? '?include_details=true' : ''}`
-      const response = await fetch(url)
+      const response = await kanbanAuthorizedFetch(url)
 
       if (!response.ok) {
         throw new Error('Failed to fetch task')

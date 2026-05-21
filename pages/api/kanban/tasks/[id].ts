@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getTask, updateTask, deleteTask, Task } from '../../../../lib/database/kanban-queries'
 import { validateUUID } from '../../../../lib/utils/uuid'
+import { tryKanbanUserDb } from '../../../../lib/supabase-route-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
@@ -43,8 +44,11 @@ async function handleGetTask(req: NextApiRequest, res: NextApiResponse, id: stri
   const { include_details } = req.query
   const includeDetails = include_details === 'true'
 
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
+
   try {
-    const task = await getTask(id, includeDetails)
+    const task = await getTask(id, includeDetails, db)
     
     return res.status(200).json({
       success: true,
@@ -141,10 +145,13 @@ async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: s
   if (order_index !== undefined) updates.order_index = order_index
   if (category_id !== undefined) updates.category_id = category_id
 
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
+
   console.log('💾 Update object:', updates)
 
   try {
-    const updatedTask = await updateTask(id, updates)
+    const updatedTask = await updateTask(id, updates, db)
     console.log('✅ Task updated in database:', {
       id: updatedTask.id,
       title: updatedTask.title,
@@ -169,8 +176,11 @@ async function handleUpdateTask(req: NextApiRequest, res: NextApiResponse, id: s
 }
 
 async function handleDeleteTask(req: NextApiRequest, res: NextApiResponse, id: string) {
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
+
   try {
-    await deleteTask(id)
+    await deleteTask(id, db)
     
     return res.status(200).json({
       success: true,

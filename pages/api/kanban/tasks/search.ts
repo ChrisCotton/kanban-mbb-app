@@ -1,10 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { searchTasks } from '../../../../lib/database/kanban-queries'
+import { tryKanbanUserDb } from '../../../../lib/supabase-route-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
 
   try {
     const {
@@ -52,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    const tasks = await searchTasks(searchParams)
+    const tasks = await searchTasks(searchParams, db)
     
     return res.status(200).json({
       success: true,

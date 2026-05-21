@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Task } from '../../lib/database/kanban-queries'
 import TaskCard from './TaskCard'
+import { kanbanAuthorizedFetch } from '../../lib/kanban-client-fetch'
+import { supabase } from '../../lib/supabase'
 
 interface SwimLaneProps {
   title: string
@@ -89,7 +91,12 @@ const SwimLane: React.FC<SwimLaneProps> = ({
           order_index: tasks.length
         })
       } else {
-        const response = await fetch('/api/kanban/tasks', {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          throw new Error('User not authenticated')
+        }
+
+        const response = await kanbanAuthorizedFetch('/api/kanban/tasks', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -97,8 +104,9 @@ const SwimLane: React.FC<SwimLaneProps> = ({
           body: JSON.stringify({
             title: newTaskTitle.trim(),
             status: status,
-            order_index: tasks.length
-          })
+            order_index: tasks.length,
+            user_id: user.id,
+          }),
         })
 
         if (!response.ok) {

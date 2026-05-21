@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getTaskStats, getRecentCompletions, getOverdueTasks } from '../../../lib/database/kanban-queries'
+import { tryKanbanUserDb } from '../../../lib/supabase-route-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -20,6 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function handleGetAnalytics(req: NextApiRequest, res: NextApiResponse) {
   const { days } = req.query
+
+  const db = tryKanbanUserDb(req, res)
+  if (!db) return
   
   // Validate days parameter
   let daysNumber = 7 // default
@@ -35,9 +39,9 @@ async function handleGetAnalytics(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Fetch all analytics data in parallel
     const [stats, recentCompletions, overdueTasks] = await Promise.all([
-      getTaskStats(),
-      getRecentCompletions(daysNumber),
-      getOverdueTasks()
+      getTaskStats(db),
+      getRecentCompletions(daysNumber, db),
+      getOverdueTasks(db)
     ])
 
     // Calculate additional metrics

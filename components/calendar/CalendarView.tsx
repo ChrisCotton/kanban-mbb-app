@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
-
-interface LinkedGoalSummary {
+import { kanbanAuthorizedFetch } from '../../lib/kanban-client-fetch'
   id: string
   title: string
   icon?: string | null
@@ -160,7 +159,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setError(null)
     
     try {
-      const response = await fetch('/api/kanban/tasks')
+      const response = await kanbanAuthorizedFetch('/api/kanban/tasks')
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

@@ -17,6 +17,7 @@ import { useMultiSelect } from '../../hooks/useMultiSelect'
 import { useTaskSearch } from '../../hooks/useTaskSearch'
 import { useGoalsStore } from '../../src/stores/goals.store'
 import { supabase } from '../../lib/supabase'
+import { kanbanAuthorizedFetch } from '../../lib/kanban-client-fetch'
 import SearchAndFilter, { SearchFilters } from './SearchAndFilter'
 import { useCategories } from '../../hooks/useCategories'
 
@@ -546,7 +547,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
         const url = activeGoalFilter 
           ? `/api/kanban/tasks?goal_id=${activeGoalFilter}`
           : '/api/kanban/tasks';
-        const response = await fetch(url);
+        const response = await kanbanAuthorizedFetch(url);
         if (response.ok) {
           const result = await response.json();
           if (result.success) {

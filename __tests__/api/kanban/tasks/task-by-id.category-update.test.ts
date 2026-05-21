@@ -4,6 +4,10 @@
  * Tests the HOTFIX for missing category_id field in task update endpoint
  */
 
+jest.mock('../../../../lib/supabase-route-user', () => ({
+  tryKanbanUserDb: jest.fn(() => ({ tag: 'mock-kanban-db' as const })),
+}))
+
 import { createMocks } from 'node-mocks-http'
 import handler from '../../../../pages/api/kanban/tasks/[id]'
 import * as kanbanQueries from '../../../../lib/database/kanban-queries'
@@ -58,7 +62,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
         mockTaskId,
         expect.objectContaining({
           category_id: mockCategoryId,
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
 
       const responseData = JSON.parse(res._getData())
@@ -85,7 +90,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
         mockTaskId,
         expect.objectContaining({
           category_id: null,
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
 
       const responseData = JSON.parse(res._getData())
@@ -121,7 +127,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
           title: 'Updated Title',
           priority: 'high',
           category_id: mockCategoryId,
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
     })
 
@@ -147,7 +154,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
         mockTaskId,
         expect.objectContaining({
           category_id: newCategoryId,
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
 
       const responseData = JSON.parse(res._getData())
@@ -226,7 +234,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
         mockTaskId,
         expect.objectContaining({
           title: 'New Title',
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
       
       // category_id should NOT be in the updates object
@@ -293,7 +302,8 @@ describe('API: PUT /api/kanban/tasks/[id] - Category Update', () => {
           priority: 'urgent',
           due_date: '2026-12-31',
           order_index: 5,
-        })
+        }),
+        { tag: 'mock-kanban-db' }
       )
     })
   })
