@@ -88,9 +88,12 @@ export function useCategories(): UseCategoriesReturn {
     setError(null)
     
     try {
-      // Get auth token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
+      // Get auth token from Supabase (safe against lock timeouts / undefined data)
+      const { data, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.warn('[useCategories] getSession warning:', sessionError.message)
+      }
+      const token = data?.session?.access_token
       if (!token) {
         // Public routes (e.g. /auth/login): no session yet — skip fetch, no error
         setCategories([])
@@ -155,8 +158,8 @@ export function useCategories(): UseCategoriesReturn {
     
     try {
       // Get auth token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
       
       if (!token) {
         throw new Error('Authentication required. Please sign in.')

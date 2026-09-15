@@ -3,7 +3,7 @@
  * Tests all database operations with proper mocking
  */
 
-jest.mock('@supabase/supabase-js', () => {
+jest.mock('../supabase', () => {
   const mockSupabaseClient: Record<string, jest.Mock> = {}
   const chain = () => mockSupabaseClient as unknown
   for (const m of [
@@ -25,7 +25,13 @@ jest.mock('@supabase/supabase-js', () => {
     mockSupabaseClient[m] = jest.fn(chain)
   }
   mockSupabaseClient.single = jest.fn()
-  return { createClient: jest.fn(() => mockSupabaseClient) }
+  return { supabase: mockSupabaseClient }
+})
+
+jest.mock('../supabase-api', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { supabase } = require('../supabase')
+  return { getApiSupabaseClient: jest.fn(() => supabase) }
 })
 
 import {
@@ -53,13 +59,17 @@ import {
   Subtask
 } from './kanban-queries'
 
-/** Same client instance kanban-queries binds at module load (must match mocked createClient). */
+/** Same client instance kanban-queries binds at module load. */
 const mockSupabaseClient = supabase as typeof supabase & {
   from: jest.Mock
   select: jest.Mock
-  in: jest.Mock
+  insert: jest.Mock
+  update: jest.Mock
   delete: jest.Mock
   eq: jest.Mock
+  neq: jest.Mock
+  not: jest.Mock
+  in: jest.Mock
   order: jest.Mock
   single: jest.Mock
 }

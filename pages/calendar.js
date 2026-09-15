@@ -16,35 +16,22 @@ const CalendarPage = () => {
   // Goals store for header strip
   const { goals, activeGoalFilter, setActiveGoalFilter, fetchGoals } = useGoalsStore()
 
+  // Auth only — never block the spinner on vision-board / goals (those can wait on auth locks).
   useEffect(() => {
     let cancelled = false
 
     const getUser = async () => {
       try {
-        const user = await getClientAuthUserForPageLoad()
+        const nextUser = await getClientAuthUserForPageLoad()
         if (cancelled) return
-        if (!user) {
+        if (!nextUser) {
           await router.replace('/auth/login')
           return
         }
-        setUser(user)
-
-        const { data: images, error: imagesError } = await supabase
-          .from('vision_board_images')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .order('display_order', { ascending: true })
-
-        if (imagesError) {
-          console.error('[Calendar] Vision board query failed:', imagesError)
-        }
-        if (!cancelled) {
-          setVisionBoardImages(images || [])
-        }
+        setUser(nextUser)
       } catch (e) {
         if (!cancelled) {
-          console.error('[Calendar] Failed to load user or images:', e)
+          console.error('[Calendar] Failed to load user:', e)
         }
       } finally {
         if (!cancelled) {
@@ -58,6 +45,45 @@ const CalendarPage = () => {
       cancelled = true
     }
   }, [router])
+
+  // Vision board images after auth — optional, timed so a stuck lock cannot blank the page.
+  useEffect(() => {
+    if (!user?.id) return
+    let cancelled = false
+
+    const loadImages = async () => {
+      try {
+        const result = await Promise.race([
+          supabase
+            .from('vision_board_images')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .order('display_order', { ascending: true }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('vision_board_images timed out')), 12_000)
+          ),
+        ])
+
+        const { data: images, error: imagesError } = result
+        if (imagesError) {
+          console.error('[Calendar] Vision board query failed:', imagesError)
+        }
+        if (!cancelled) {
+          setVisionBoardImages(images || [])
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('[Calendar] Vision board skipped:', e)
+        }
+      }
+    }
+
+    void loadImages()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   // Fetch goals on mount
   useEffect(() => {
@@ -119,4 +145,4 @@ const CalendarPage = () => {
   )
 }
 
-export default CalendarPage 
+export default CalendarPage

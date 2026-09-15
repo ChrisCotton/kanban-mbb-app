@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getClientAccessToken } from './get-client-access-token'
 
 /** Normalize HeadersInit into a mutable plain map (works in Jest/jsdom without a full Headers implementation). */
 function headersToPlainRecord(initHeaders: HeadersInit | undefined): Record<string, string> {
@@ -32,12 +32,10 @@ function headersToPlainRecord(initHeaders: HeadersInit | undefined): Record<stri
 /**
  * Sends the user's Supabase access token so Pages API handlers can scope DB calls
  * to auth.uid() (RLS policies on tasks and related reads).
+ * Uses cold-start retries so slow Vercel boots do not fail the first paint.
  */
 export async function kanbanAuthorizedFetch(input: string, init?: RequestInit): Promise<Response> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
+  const token = await getClientAccessToken()
   if (!token) {
     throw new Error('Not authenticated')
   }
@@ -47,5 +45,6 @@ export async function kanbanAuthorizedFetch(input: string, init?: RequestInit): 
     Authorization: `Bearer ${token}`,
   }
 
-  return fetch(input, { ...init, headers })
+  const { fetchWithColdStartRetry } = await import('./fetch-with-cold-start-retry')
+  return fetchWithColdStartRetry(input, { ...init, headers }, { attempts: 3, timeoutMs: 45_000 })
 }

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { parseLocalDate } from '../../lib/utils/date-helpers'
 import { kanbanAuthorizedFetch } from '../../lib/kanban-client-fetch'
+
+interface LinkedGoalSummary {
   id: string
   title: string
   icon?: string | null

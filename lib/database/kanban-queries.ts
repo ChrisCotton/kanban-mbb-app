@@ -1,6 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getApiSupabaseClient } from '../supabase-api'
+// Always reuse the shared client (processLock) — a second createClient() without
+// processLock was causing navigator.locks AbortError / cold-start hangs in the browser.
+import { supabase } from '../supabase'
+export { supabase }
 
 // Types for our database entities
 export interface Task {
@@ -82,12 +85,6 @@ export interface TaskWithDetails extends Task {
   comments?: Comment[]
   subtasks?: Subtask[]
 }
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 /**
  * Server-side enrichment must use the service-role client: `goal_tasks` RLS requires
