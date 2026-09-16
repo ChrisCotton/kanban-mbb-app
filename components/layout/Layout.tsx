@@ -7,6 +7,11 @@ import InspirationalQuotesStrip from '../quotes/InspirationalQuotesStrip'
 import Navigation from './Navigation'
 import MBBTimerSection from '../timer/MBBTimerSection'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
+import {
+  useCarouselFullscreenPreference,
+  COMPACT_CAROUSEL_HEIGHT,
+  FULLSCREEN_CAROUSEL_HEIGHT,
+} from '../../hooks/useCarouselFullscreenPreference'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -44,8 +49,8 @@ const Layout: React.FC<LayoutProps> = ({
   userId,
   onTaskSelect
 }) => {
-  // Get carousel preference from hook
   const { enabled: carouselEnabled } = useCarouselPreference()
+  const { enabled: carouselFullscreen } = useCarouselFullscreenPreference()
   
   return (
     <>
@@ -77,10 +82,10 @@ const Layout: React.FC<LayoutProps> = ({
           {/* Vision Board Carousel Header */}
           {/* Hook preference (carouselEnabled) AND showCarousel prop must both be true */}
           {showCarousel && carouselEnabled && (
-            <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10">
+            <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10 flex flex-col">
               <VisionBoardCarousel 
                 images={carouselImages}
-                height="h-[50vh] md:h-[60vh]"
+                height={carouselFullscreen ? FULLSCREEN_CAROUSEL_HEIGHT : COMPACT_CAROUSEL_HEIGHT}
                 autoAdvanceInterval={8000}
                 showControls={true}
                 showCounter={true}

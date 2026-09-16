@@ -8,6 +8,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { getClientAuthUserForPageLoad } from '../../lib/get-client-auth-user'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
+import { useCarouselFullscreenPreference } from '../../hooks/useCarouselFullscreenPreference'
 import { useGoalTextPreference } from '../../hooks/useGoalTextPreference'
 
 interface NavigationProps {
@@ -27,6 +28,8 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const router = useRouter()
   const { enabled: carouselEnabled, toggle: toggleCarousel } = useCarouselPreference()
+  const { enabled: carouselFullscreen, toggle: toggleCarouselFullscreen } =
+    useCarouselFullscreenPreference()
   const { enabled: goalTextEnabled, toggle: toggleGoalText } = useGoalTextPreference()
   
   // Load user and profile picture
@@ -247,6 +250,29 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                 )}
               </button>
 
+              {/* Fullscreen Carousel Toggle */}
+              <button
+                onClick={toggleCarouselFullscreen}
+                disabled={!carouselEnabled}
+                className="p-2 rounded-md bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors duration-200 border border-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Toggle fullscreen carousel"
+                title={
+                  carouselEnabled
+                    ? `Carousel fullscreen: ${carouselFullscreen ? 'On' : 'Off'}`
+                    : 'Enable carousel first'
+                }
+              >
+                {carouselFullscreen ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9h4.5M15 9V4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                  </svg>
+                )}
+              </button>
+
               {/* Goal Text Toggle Button */}
               <button
                 onClick={toggleGoalText}
@@ -366,6 +392,34 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                 <div>
                   <div className="font-medium">Vision Board Carousel</div>
                   <div className="text-xs text-white/50">Currently: {carouselEnabled ? 'On' : 'Off'}</div>
+                </div>
+              </button>
+
+              {/* Fullscreen Carousel Toggle in Mobile Menu */}
+              <button
+                onClick={toggleCarouselFullscreen}
+                disabled={!carouselEnabled}
+                className="w-full block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 flex items-center space-x-3 text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Toggle fullscreen carousel"
+              >
+                <span className="text-white/60">
+                  {carouselFullscreen ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9h4.5M15 9V4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                    </svg>
+                  )}
+                </span>
+                <div>
+                  <div className="font-medium">Fullscreen Carousel</div>
+                  <div className="text-xs text-white/50">
+                    {carouselEnabled
+                      ? `Currently: ${carouselFullscreen ? 'On' : 'Off'}`
+                      : 'Enable carousel first'}
+                  </div>
                 </div>
               </button>
 

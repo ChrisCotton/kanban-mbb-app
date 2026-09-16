@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import Layout from '../Layout'
 import * as useCarouselPreferenceModule from '../../../hooks/useCarouselPreference'
+import * as useCarouselFullscreenPreferenceModule from '../../../hooks/useCarouselFullscreenPreference'
 
 // Mock VisionBoardCarousel component
 jest.mock('../../vision-board/VisionBoardCarousel', () => {
@@ -32,10 +33,15 @@ jest.mock('../../timer/MBBTimerSection', () => {
 
 // Mock useCarouselPreference hook
 jest.mock('../../../hooks/useCarouselPreference')
+jest.mock('../../../hooks/useCarouselFullscreenPreference')
 
 const mockUseCarouselPreference = useCarouselPreferenceModule.useCarouselPreference as jest.MockedFunction<
   typeof useCarouselPreferenceModule.useCarouselPreference
 >
+const mockUseCarouselFullscreenPreference =
+  useCarouselFullscreenPreferenceModule.useCarouselFullscreenPreference as jest.MockedFunction<
+    typeof useCarouselFullscreenPreferenceModule.useCarouselFullscreenPreference
+  >
 
 describe('Layout - Carousel Integration', () => {
   const mockToggle = jest.fn()
@@ -49,6 +55,12 @@ describe('Layout - Carousel Integration', () => {
       enabled: false,
       toggle: mockToggle,
       setEnabled: mockSetEnabled
+    })
+
+    mockUseCarouselFullscreenPreference.mockReturnValue({
+      enabled: false,
+      toggle: jest.fn(),
+      setEnabled: jest.fn()
     })
   })
 
