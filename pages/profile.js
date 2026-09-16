@@ -36,6 +36,7 @@ const ProfilePage = () => {
     ai_image_provider: 'openai_dalle',
     ai_audio_journal_provider: 'openai_whisper',
     ai_journal_insight_provider: 'openai_gpt4',
+    goal_auto_archive_days: 90,
     nano_banana_api_key: null,
     google_ai_api_key: null,
     openai_api_key: null,
@@ -91,6 +92,10 @@ const ProfilePage = () => {
           ai_image_provider: result.data.ai_image_provider || 'openai_dalle',
           ai_audio_journal_provider: result.data.ai_audio_journal_provider || 'openai_whisper',
           ai_journal_insight_provider: result.data.ai_journal_insight_provider || 'openai_gpt4',
+          goal_auto_archive_days:
+            result.data.goal_auto_archive_days === undefined
+              ? 90
+              : result.data.goal_auto_archive_days,
           // Load all API keys
           nano_banana_api_key: result.data.nano_banana_api_key || null,
           google_ai_api_key: result.data.google_ai_api_key || null,
@@ -193,6 +198,10 @@ const ProfilePage = () => {
             ai_image_provider: reloadResult.data.ai_image_provider || 'openai_dalle',
             ai_audio_journal_provider: reloadResult.data.ai_audio_journal_provider || 'openai_whisper',
             ai_journal_insight_provider: reloadResult.data.ai_journal_insight_provider || 'openai_gpt4',
+            goal_auto_archive_days:
+              reloadResult.data.goal_auto_archive_days === undefined
+                ? prev.goal_auto_archive_days ?? 90
+                : reloadResult.data.goal_auto_archive_days,
             // Preserve API keys from previous state if server doesn't return them
             nano_banana_api_key: reloadResult.data.nano_banana_api_key || prev.nano_banana_api_key || null,
             google_ai_api_key: reloadResult.data.google_ai_api_key || prev.google_ai_api_key || null,
@@ -312,6 +321,7 @@ const ProfilePage = () => {
               aiImageProvider={profile.ai_image_provider}
               aiAudioJournalProvider={profile.ai_audio_journal_provider}
               aiJournalInsightProvider={profile.ai_journal_insight_provider}
+              goalAutoArchiveDays={profile.goal_auto_archive_days}
               nanoBananaApiKey={profile.nano_banana_api_key}
               googleAiApiKey={profile.google_ai_api_key}
               openaiApiKey={profile.openai_api_key}

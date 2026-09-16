@@ -23,6 +23,7 @@ interface GoalsState {
   updateGoal: (id: string, input: UpdateGoalInput) => Promise<Goal>;
   deleteGoal: (id: string) => Promise<void>;
   completeGoal: (id: string) => Promise<Goal>;
+  restoreGoal: (id: string) => Promise<Goal>;
   setActiveGoalFilter: (goalId: string | null) => void;
   reorderGoals: (goalIds: string[]) => Promise<void>;
   createMilestone: (goalId: string, title: string) => Promise<GoalMilestone>;
@@ -43,6 +44,7 @@ interface GoalsState {
   // Selectors
   getActiveGoals: () => Goal[];
   getCompletedGoals: () => Goal[];
+  getArchivedGoals: () => Goal[];
   getGoalById: (id: string) => Goal | undefined;
 }
 
@@ -334,6 +336,11 @@ export const useGoalsStore = create<GoalsState>()(
           set({ error: errorMessage });
           throw error;
         }
+      },
+
+      // Restore archived (or completed) goal back to active — keeps completed_at history
+      restoreGoal: async (id: string): Promise<Goal> => {
+        return get().updateGoal(id, { status: 'active' });
       },
 
       // Set active goal filter
@@ -1006,6 +1013,10 @@ export const useGoalsStore = create<GoalsState>()(
 
       getCompletedGoals: () => {
         return get().goals.filter((goal) => goal.status === 'completed');
+      },
+
+      getArchivedGoals: () => {
+        return get().goals.filter((goal) => goal.status === 'archived');
       },
 
       getGoalById: (id: string) => {

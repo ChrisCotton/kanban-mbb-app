@@ -8,6 +8,7 @@ import VisionBoardGalleryModal from '../components/vision-board/VisionBoardGalle
 import { ImageUploader } from '../components/vision-board/ImageUploader'
 import AIGenerator from '../components/vision-board/AIGenerator'
 import GoalsHeaderStrip from '../src/components/goals/GoalsHeaderStrip'
+import QuoteManager from '../components/quotes/QuoteManager'
 import { useGoalsStore } from '../src/stores/goals.store'
 
 const VisionBoardPage = () => {
@@ -358,6 +359,15 @@ const VisionBoardPage = () => {
               className="w-full"
               userId={user?.id}
             />
+          </div>
+
+          {/* Inspirational Quotes */}
+          <div className="mt-8 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-2">Inspirational Quotes</h2>
+            <p className="text-white/70 text-sm mb-6">
+              Quotes appear in the strip below your vision board carousel when the carousel is enabled.
+            </p>
+            {user && <QuoteManager userId={user.id} />}
           </div>
 
           {/* Gallery Modal */}

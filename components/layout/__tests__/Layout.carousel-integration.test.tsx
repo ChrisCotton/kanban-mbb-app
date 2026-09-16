@@ -10,6 +10,12 @@ jest.mock('../../vision-board/VisionBoardCarousel', () => {
   }
 })
 
+jest.mock('../../quotes/InspirationalQuotesStrip', () => {
+  return function MockInspirationalQuotesStrip() {
+    return <div data-testid="mock-quotes-strip">Inspirational Quotes Strip</div>
+  }
+})
+
 // Mock Navigation component
 jest.mock('../Navigation', () => {
   return function MockNavigation() {
@@ -79,6 +85,38 @@ describe('Layout - Carousel Integration', () => {
 
       const carousel = screen.getByTestId('mock-carousel')
       expect(carousel).toBeInTheDocument()
+    })
+
+    it('should render quotes strip when carousel is enabled', () => {
+      mockUseCarouselPreference.mockReturnValue({
+        enabled: true,
+        toggle: mockToggle,
+        setEnabled: mockSetEnabled
+      })
+
+      render(
+        <Layout userId="user-123">
+          <div>Test Content</div>
+        </Layout>
+      )
+
+      expect(screen.getByTestId('mock-quotes-strip')).toBeInTheDocument()
+    })
+
+    it('should NOT render quotes strip when carousel is disabled', () => {
+      mockUseCarouselPreference.mockReturnValue({
+        enabled: false,
+        toggle: mockToggle,
+        setEnabled: mockSetEnabled
+      })
+
+      render(
+        <Layout userId="user-123">
+          <div>Test Content</div>
+        </Layout>
+      )
+
+      expect(screen.queryByTestId('mock-quotes-strip')).not.toBeInTheDocument()
     })
 
     it('should render carousel when both showCarousel prop and hook are true', () => {

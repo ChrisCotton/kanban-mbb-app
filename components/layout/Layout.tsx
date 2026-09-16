@@ -3,6 +3,7 @@
 import React from 'react'
 import Head from 'next/head'
 import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
+import InspirationalQuotesStrip from '../quotes/InspirationalQuotesStrip'
 import Navigation from './Navigation'
 import MBBTimerSection from '../timer/MBBTimerSection'
 import { useCarouselPreference } from '../../hooks/useCarouselPreference'
@@ -84,6 +85,7 @@ const Layout: React.FC<LayoutProps> = ({
                 showControls={true}
                 showCounter={true}
               />
+              <InspirationalQuotesStrip userId={userId} />
             </div>
           )}
 

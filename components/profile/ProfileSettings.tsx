@@ -20,6 +20,7 @@ interface ProfileSettingsProps {
   aiImageProvider: string
   aiAudioJournalProvider: string
   aiJournalInsightProvider: string
+  goalAutoArchiveDays?: number | null
   nanoBananaApiKey?: string | null
   googleAiApiKey?: string | null
   openaiApiKey?: string | null
@@ -38,6 +39,7 @@ export interface ProfileSettingsData {
   ai_image_provider: string
   ai_audio_journal_provider: string
   ai_journal_insight_provider: string
+  goal_auto_archive_days?: number | null
   nano_banana_api_key?: string | null
   google_ai_api_key?: string | null
   openai_api_key?: string | null
@@ -54,6 +56,7 @@ export default function ProfileSettings({
   aiImageProvider,
   aiAudioJournalProvider,
   aiJournalInsightProvider,
+  goalAutoArchiveDays = 90,
   nanoBananaApiKey,
   googleAiApiKey,
   openaiApiKey,
@@ -74,6 +77,7 @@ export default function ProfileSettings({
     ai_image_provider: aiImageProvider,
     ai_audio_journal_provider: aiAudioJournalProvider,
     ai_journal_insight_provider: aiJournalInsightProvider,
+    goal_auto_archive_days: goalAutoArchiveDays === undefined ? 90 : goalAutoArchiveDays,
     nano_banana_api_key: nanoBananaApiKey || '',
     google_ai_api_key: googleAiApiKey || '',
     openai_api_key: openaiApiKey || '',
@@ -91,6 +95,7 @@ export default function ProfileSettings({
       ai_image_provider: aiImageProvider,
       ai_audio_journal_provider: aiAudioJournalProvider,
       ai_journal_insight_provider: aiJournalInsightProvider,
+      goal_auto_archive_days: goalAutoArchiveDays === undefined ? 90 : goalAutoArchiveDays,
       nano_banana_api_key: nanoBananaApiKey || '',
       google_ai_api_key: googleAiApiKey || '',
       openai_api_key: openaiApiKey || '',
@@ -100,7 +105,7 @@ export default function ProfileSettings({
       anthropic_claude_api_key: anthropicClaudeApiKey || '',
       google_gemini_api_key: googleGeminiApiKey || ''
     })
-  }, [defaultCategoryId, defaultTargetRevenue, aiImageProvider, aiAudioJournalProvider, aiJournalInsightProvider, nanoBananaApiKey, googleAiApiKey, openaiApiKey, googleSpeechApiKey, assemblyaiApiKey, deepgramApiKey, anthropicClaudeApiKey, googleGeminiApiKey])
+  }, [defaultCategoryId, defaultTargetRevenue, aiImageProvider, aiAudioJournalProvider, aiJournalInsightProvider, goalAutoArchiveDays, nanoBananaApiKey, googleAiApiKey, openaiApiKey, googleSpeechApiKey, assemblyaiApiKey, deepgramApiKey, anthropicClaudeApiKey, googleGeminiApiKey])
 
   const handleChange = (field: keyof ProfileSettingsData, value: string | number | null) => {
     const newSettings = { ...localSettings, [field]: value }
@@ -149,6 +154,37 @@ export default function ProfileSettings({
             className={styles.numberInput}
           />
         </div>
+      </div>
+
+      {/* Goal auto-archive */}
+      <div className={styles.settingGroup}>
+        <div className={styles.settingHeader}>
+          <label className={styles.label} htmlFor="goal-auto-archive-days">
+            Auto-archive completed goals
+          </label>
+          <span className={styles.hint}>
+            Move completed goals to Archived after this many days (or Off)
+          </span>
+        </div>
+        <select
+          id="goal-auto-archive-days"
+          value={
+            localSettings.goal_auto_archive_days === null ||
+            localSettings.goal_auto_archive_days === undefined
+              ? 'off'
+              : String(localSettings.goal_auto_archive_days)
+          }
+          onChange={(e) => {
+            const v = e.target.value
+            handleChange('goal_auto_archive_days', v === 'off' ? null : Number(v))
+          }}
+          className={styles.select}
+        >
+          <option value="off">Off</option>
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
       </div>
 
       <div className={styles.divider} />

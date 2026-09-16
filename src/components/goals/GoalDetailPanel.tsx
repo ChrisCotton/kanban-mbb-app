@@ -24,6 +24,7 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
   const {
     completeGoal,
     deleteGoal,
+    restoreGoal,
     updateGoal,
     createMilestone,
     updateMilestone,
@@ -95,6 +96,18 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
       onClose();
     } catch (error) {
       console.error('Error archiving goal:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsProcessing(true);
+    try {
+      await restoreGoal(goal.id);
+      onClose();
+    } catch (error) {
+      console.error('Error restoring goal:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -488,6 +501,15 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
                 className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
               >
                 Archive
+              </button>
+            )}
+            {goal.status === 'archived' && (
+              <button
+                onClick={handleRestore}
+                disabled={isProcessing}
+                className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg transition-colors font-medium"
+              >
+                {isProcessing ? 'Restoring...' : 'Restore to Active'}
               </button>
             )}
           </div>

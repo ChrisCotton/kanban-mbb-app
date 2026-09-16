@@ -23,6 +23,8 @@ export interface UserProfile {
   deepgram_api_key: string | null
   anthropic_claude_api_key: string | null
   google_gemini_api_key: string | null
+  /** null = Off; 30/60/90 days; default 90 */
+  goal_auto_archive_days: number | null
   created_at: string
   updated_at: string
 }
@@ -105,6 +107,7 @@ async function getProfile(req: NextApiRequest, res: NextApiResponse) {
         ai_image_provider: 'openai_dalle',
         ai_audio_journal_provider: 'openai_whisper',
         ai_journal_insight_provider: 'openai_gpt4',
+        goal_auto_archive_days: 90,
       },
       isNew: true
     })
@@ -168,6 +171,16 @@ async function updateProfile(req: NextApiRequest, res: NextApiResponse) {
   if (updateData.ai_journal_insight_provider && 
       !AI_JOURNAL_PROVIDERS.find(p => p.id === updateData.ai_journal_insight_provider)) {
     return res.status(400).json({ error: 'Invalid ai_journal_insight_provider' })
+  }
+
+  if (updateData.goal_auto_archive_days !== undefined) {
+    const allowed = [null, 30, 60, 90]
+    if (!allowed.includes(updateData.goal_auto_archive_days)) {
+      return res.status(400).json({
+        error: 'Invalid goal_auto_archive_days',
+        allowed: ['off/null', 30, 60, 90],
+      })
+    }
   }
 
   // Sanitize API keys - remove empty strings, keep null for unset

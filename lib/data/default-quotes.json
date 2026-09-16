@@ -1,0 +1,52 @@
+[
+  {
+    "id": "default-1",
+    "text": "The secret of getting ahead is getting started.",
+    "author": "Mark Twain"
+  },
+  {
+    "id": "default-2",
+    "text": "It does not matter how slowly you go as long as you do not stop.",
+    "author": "Confucius"
+  },
+  {
+    "id": "default-3",
+    "text": "Your time is limited, so don't waste it living someone else's life.",
+    "author": "Steve Jobs"
+  },
+  {
+    "id": "default-4",
+    "text": "The way to get started is to quit talking and begin doing.",
+    "author": "Walt Disney"
+  },
+  {
+    "id": "default-5",
+    "text": "Don't watch the clock; do what it does. Keep going.",
+    "author": "Sam Levenson"
+  },
+  {
+    "id": "default-6",
+    "text": "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    "author": "Winston Churchill"
+  },
+  {
+    "id": "default-7",
+    "text": "The future depends on what you do today.",
+    "author": "Mahatma Gandhi"
+  },
+  {
+    "id": "default-8",
+    "text": "Small daily improvements over time lead to stunning results.",
+    "author": "Robin Sharma"
+  },
+  {
+    "id": "default-9",
+    "text": "Focus on being productive instead of busy.",
+    "author": "Tim Ferriss"
+  },
+  {
+    "id": "default-10",
+    "text": "You don't have to be great to start, but you have to start to be great.",
+    "author": "Zig Ziglar"
+  }
+]
