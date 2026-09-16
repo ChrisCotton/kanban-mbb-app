@@ -10,8 +10,10 @@ export interface UseCarouselFullscreenPreferenceReturn {
 }
 
 export const COMPACT_CAROUSEL_HEIGHT = 'h-[50vh] md:h-[60vh]'
-/** Viewport minus fixed nav (~4rem) and quotes strip (h-14 / 3.5rem). */
-export const FULLSCREEN_CAROUSEL_HEIGHT = 'h-[calc(100vh-4rem-3.5rem)]'
+/** Fills remaining space in the immersive fullscreen flex column (below nav, above quotes). */
+export const IMMERSIVE_CAROUSEL_HEIGHT = 'flex-1 min-h-0 w-full'
+/** Fixed nav bar height in Tailwind (matches Navigation h-16). */
+export const CAROUSEL_NAV_OFFSET_CLASS = 'top-16'
 
 export const useCarouselFullscreenPreference = (): UseCarouselFullscreenPreferenceReturn => {
   const getInitialValue = (): boolean => {

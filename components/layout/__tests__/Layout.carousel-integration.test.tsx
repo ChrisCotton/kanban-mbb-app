@@ -115,6 +115,30 @@ describe('Layout - Carousel Integration', () => {
       expect(screen.getByTestId('mock-quotes-strip')).toBeInTheDocument()
     })
 
+    it('hides main content and shows immersive shell when fullscreen is enabled', () => {
+      mockUseCarouselPreference.mockReturnValue({
+        enabled: true,
+        toggle: mockToggle,
+        setEnabled: mockSetEnabled
+      })
+      mockUseCarouselFullscreenPreference.mockReturnValue({
+        enabled: true,
+        toggle: jest.fn(),
+        setEnabled: jest.fn()
+      })
+
+      render(
+        <Layout userId="user-123">
+          <div data-testid="page-content">Test Content</div>
+        </Layout>
+      )
+
+      expect(screen.getByTestId('immersive-carousel-shell')).toBeInTheDocument()
+      expect(screen.getByTestId('mock-carousel')).toBeInTheDocument()
+      expect(screen.getByTestId('mock-quotes-strip')).toBeInTheDocument()
+      expect(screen.queryByTestId('page-content')).not.toBeInTheDocument()
+    })
+
     it('should NOT render quotes strip when carousel is disabled', () => {
       mockUseCarouselPreference.mockReturnValue({
         enabled: false,

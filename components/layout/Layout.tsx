@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import Head from 'next/head'
 import VisionBoardCarousel from '../vision-board/VisionBoardCarousel'
 import InspirationalQuotesStrip from '../quotes/InspirationalQuotesStrip'
@@ -10,7 +10,8 @@ import { useCarouselPreference } from '../../hooks/useCarouselPreference'
 import {
   useCarouselFullscreenPreference,
   COMPACT_CAROUSEL_HEIGHT,
-  FULLSCREEN_CAROUSEL_HEIGHT,
+  IMMERSIVE_CAROUSEL_HEIGHT,
+  CAROUSEL_NAV_OFFSET_CLASS,
 } from '../../hooks/useCarouselFullscreenPreference'
 
 interface LayoutProps {
@@ -51,6 +52,23 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   const { enabled: carouselEnabled } = useCarouselPreference()
   const { enabled: carouselFullscreen } = useCarouselFullscreenPreference()
+
+  const showCompactCarousel = showCarousel && carouselEnabled && !carouselFullscreen
+  const showImmersiveCarousel = showCarousel && carouselEnabled && carouselFullscreen
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    if (showImmersiveCarousel) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showImmersiveCarousel])
   
   return (
     <>
@@ -79,13 +97,29 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
           )}
 
-          {/* Vision Board Carousel Header */}
-          {/* Hook preference (carouselEnabled) AND showCarousel prop must both be true */}
-          {showCarousel && carouselEnabled && (
-            <div className="w-full bg-black/20 backdrop-blur-sm border-b border-white/10 flex flex-col">
+          {/* Immersive fullscreen: nav + carousel + quotes only (no page content) */}
+          {showImmersiveCarousel && (
+            <div
+              data-testid="immersive-carousel-shell"
+              className={`fixed inset-x-0 ${CAROUSEL_NAV_OFFSET_CLASS} bottom-0 z-40 flex flex-col bg-black/20 backdrop-blur-sm`}
+            >
               <VisionBoardCarousel 
                 images={carouselImages}
-                height={carouselFullscreen ? FULLSCREEN_CAROUSEL_HEIGHT : COMPACT_CAROUSEL_HEIGHT}
+                height={IMMERSIVE_CAROUSEL_HEIGHT}
+                autoAdvanceInterval={8000}
+                showControls={true}
+                showCounter={true}
+              />
+              <InspirationalQuotesStrip userId={userId} className="flex-shrink-0 border-t border-white/10" />
+            </div>
+          )}
+
+          {/* Compact carousel header */}
+          {showCompactCarousel && (
+            <div className="w-full pt-16 bg-black/20 backdrop-blur-sm border-b border-white/10 flex flex-col">
+              <VisionBoardCarousel 
+                images={carouselImages}
+                height={COMPACT_CAROUSEL_HEIGHT}
                 autoAdvanceInterval={8000}
                 showControls={true}
                 showCounter={true}
@@ -94,13 +128,19 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
           )}
 
-          {/* Main Content Area - Flexible Height */}
-          <main className="flex-1">
-            {children}
-          </main>
+          {/* Main Content Area - hidden in immersive fullscreen */}
+          {!showImmersiveCarousel && (
+            <main
+              className={`flex-1 ${
+                showNavigation && !showCompactCarousel ? 'pt-16' : ''
+              }`}
+            >
+              {children}
+            </main>
+          )}
 
-          {/* MBB Timer Footer */}
-          {showTimer && (
+          {/* MBB Timer Footer - hidden in immersive fullscreen */}
+          {showTimer && !showImmersiveCarousel && (
             <MBBTimerSection 
               activeTask={activeTask}
               userId={userId}
@@ -113,4 +153,4 @@ const Layout: React.FC<LayoutProps> = ({
   )
 }
 
-export default Layout 
+export default Layout
