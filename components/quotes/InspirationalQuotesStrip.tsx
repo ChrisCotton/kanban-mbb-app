@@ -18,6 +18,17 @@ const DEFAULT_QUOTES: DisplayQuote[] = defaultQuotesData.map((q) => ({
   author: q.author,
 }))
 
+const normalizeQuoteText = (text: string) => text.trim().toLowerCase()
+
+/** Personal quotes first, then curated defaults (skipping duplicates by text). */
+export const mergeQuotesWithDefaults = (userQuotes: DisplayQuote[]): DisplayQuote[] => {
+  const seen = new Set(userQuotes.map((q) => normalizeQuoteText(q.text)))
+  const defaultsToAdd = DEFAULT_QUOTES.filter(
+    (q) => !seen.has(normalizeQuoteText(q.text))
+  )
+  return userQuotes.length > 0 ? [...userQuotes, ...defaultsToAdd] : DEFAULT_QUOTES
+}
+
 const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
   userId,
   quotes: quotesProp,
@@ -54,7 +65,7 @@ const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
             author: q.author,
           })
         )
-        setLoadedQuotes(userQuotes.length > 0 ? userQuotes : DEFAULT_QUOTES)
+        setLoadedQuotes(mergeQuotesWithDefaults(userQuotes))
       })
       .catch((err) => {
         if (!cancelled) {

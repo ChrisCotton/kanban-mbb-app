@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import InspirationalQuotesStrip from '../InspirationalQuotesStrip'
+import InspirationalQuotesStrip, { mergeQuotesWithDefaults } from '../InspirationalQuotesStrip'
 
 const mockQuotes = [
   { id: 'q1', text: 'First quote', author: 'Author One' },
@@ -39,7 +39,7 @@ describe('InspirationalQuotesStrip', () => {
     expect(await screen.findByText(/The secret of getting ahead/)).toBeInTheDocument()
   })
 
-  it('shows user quotes when available', async () => {
+  it('shows user quotes plus curated defaults when personal quotes exist', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       json: async () => ({
         success: true,
@@ -52,7 +52,17 @@ describe('InspirationalQuotesStrip', () => {
     })
 
     expect(await screen.findByText(/My custom quote/)).toBeInTheDocument()
-    expect(screen.queryByText(/The secret of getting ahead/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Go to quote 11')).toBeInTheDocument()
+  })
+
+  it('mergeQuotesWithDefaults keeps personal quotes first and appends defaults', () => {
+    const merged = mergeQuotesWithDefaults([
+      { id: 'u1', text: 'Neville quote', author: 'Neville Goddard' },
+    ])
+
+    expect(merged).toHaveLength(11)
+    expect(merged[0].text).toBe('Neville quote')
+    expect(merged.some((q) => q.text.includes('secret of getting ahead'))).toBe(true)
   })
 
   it('advances to next quote on next button click', () => {

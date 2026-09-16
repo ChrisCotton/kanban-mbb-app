@@ -151,7 +151,7 @@ const QuoteManager: React.FC<QuoteManagerProps> = ({ userId, className = '' }) =
 
       {quotes.length === 0 ? (
         <p className="text-white/60 text-sm py-4">
-          No personal quotes yet. Add one above, or default quotes will show in the carousel strip until you do.
+          No personal quotes yet. Add one above — curated defaults always rotate in the strip too.
         </p>
       ) : (
         <ul className="space-y-3">
