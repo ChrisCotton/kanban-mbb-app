@@ -132,7 +132,7 @@ const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
       )}
 
       <div className="flex-1 min-w-0 px-2 text-center">
-        <p className="text-white/90 italic text-sm truncate">
+        <p className="text-white/90 italic text-lg truncate">
           &ldquo;{currentQuote.text}&rdquo;
           {currentQuote.author && (
             <span className="not-italic text-white/60 ml-1">
