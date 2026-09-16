@@ -258,7 +258,9 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                 aria-label="Toggle fullscreen carousel"
                 title={
                   carouselEnabled
-                    ? `Carousel fullscreen: ${carouselFullscreen ? 'On' : 'Off'}`
+                    ? carouselFullscreen
+                      ? 'Exit monitor fullscreen (Esc)'
+                      : 'Enter monitor fullscreen'
                     : 'Enable carousel first'
                 }
               >
@@ -414,10 +416,12 @@ const Navigation: React.FC<NavigationProps> = ({ className = '' }) => {
                   )}
                 </span>
                 <div>
-                  <div className="font-medium">Fullscreen Carousel</div>
+                  <div className="font-medium">Monitor Fullscreen</div>
                   <div className="text-xs text-white/50">
                     {carouselEnabled
-                      ? `Currently: ${carouselFullscreen ? 'On' : 'Off'}`
+                      ? carouselFullscreen
+                        ? 'Exit with Esc or tap here'
+                        : 'Fills the entire monitor'
                       : 'Enable carousel first'}
                   </div>
                 </div>

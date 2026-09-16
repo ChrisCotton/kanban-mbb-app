@@ -11,7 +11,6 @@ import {
   useCarouselFullscreenPreference,
   COMPACT_CAROUSEL_HEIGHT,
   IMMERSIVE_CAROUSEL_HEIGHT,
-  CAROUSEL_NAV_OFFSET_CLASS,
 } from '../../hooks/useCarouselFullscreenPreference'
 
 interface LayoutProps {
@@ -51,7 +50,8 @@ const Layout: React.FC<LayoutProps> = ({
   onTaskSelect
 }) => {
   const { enabled: carouselEnabled } = useCarouselPreference()
-  const { enabled: carouselFullscreen } = useCarouselFullscreenPreference()
+  const { enabled: carouselFullscreen, setEnabled: setCarouselFullscreen } =
+    useCarouselFullscreenPreference()
 
   const showCompactCarousel = showCarousel && carouselEnabled && !carouselFullscreen
   const showImmersiveCarousel = showCarousel && carouselEnabled && carouselFullscreen
@@ -91,18 +91,29 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="relative z-10 flex flex-col min-h-screen">
           
           {/* Navigation Header - Fixed Overlay */}
-          {showNavigation && (
+          {showNavigation && !showImmersiveCarousel && (
             <div className="fixed top-0 inset-x-0 z-50">
               <Navigation />
             </div>
           )}
 
-          {/* Immersive fullscreen: nav + carousel + quotes only (no page content) */}
+          {/* Monitor fullscreen: carousel + quotes only. Exit via Esc or the button. */}
           {showImmersiveCarousel && (
             <div
               data-testid="immersive-carousel-shell"
-              className={`fixed inset-x-0 ${CAROUSEL_NAV_OFFSET_CLASS} bottom-0 z-40 flex flex-col bg-black/20 backdrop-blur-sm`}
+              className="fixed inset-0 z-[100] flex flex-col bg-black"
             >
+              <button
+                type="button"
+                onClick={() => {
+                  void setCarouselFullscreen(false)
+                }}
+                className="absolute top-4 right-4 z-[110] px-3 py-1.5 rounded-md bg-black/50 hover:bg-black/70 text-white text-sm border border-white/20 backdrop-blur-sm"
+                aria-label="Exit monitor fullscreen"
+                title="Exit monitor fullscreen (Esc)"
+              >
+                Exit fullscreen
+              </button>
               <VisionBoardCarousel 
                 images={carouselImages}
                 height={IMMERSIVE_CAROUSEL_HEIGHT}

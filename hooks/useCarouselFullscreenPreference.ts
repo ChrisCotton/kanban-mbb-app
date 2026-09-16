@@ -1,84 +1,89 @@
 import { useState, useEffect, useCallback } from 'react'
 
-const STORAGE_KEY = 'mbb-carousel-fullscreen'
-const CHANGE_EVENT = 'carousel-fullscreen-preference-changed'
-
 export interface UseCarouselFullscreenPreferenceReturn {
   enabled: boolean
-  toggle: () => void
-  setEnabled: (value: boolean) => void
+  toggle: () => Promise<void>
+  setEnabled: (value: boolean) => Promise<void>
 }
 
 export const COMPACT_CAROUSEL_HEIGHT = 'h-[50vh] md:h-[60vh]'
-/** Fills remaining space in the immersive fullscreen flex column (below nav, above quotes). */
+/** Fills remaining space in the monitor-fullscreen flex column (below nav, above quotes). */
 export const IMMERSIVE_CAROUSEL_HEIGHT = 'flex-1 min-h-0 w-full'
-/** Fixed nav bar height in Tailwind (matches Navigation h-16). */
-export const CAROUSEL_NAV_OFFSET_CLASS = 'top-16'
 
-export const useCarouselFullscreenPreference = (): UseCarouselFullscreenPreferenceReturn => {
-  const getInitialValue = (): boolean => {
-    if (typeof window === 'undefined') {
-      return false
-    }
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void>
+}
 
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored === null) {
-        return false
-      }
-      return stored === 'true'
-    } catch (error) {
-      console.error('Error loading carousel fullscreen preference from localStorage:', error)
-      return false
-    }
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void>
+}
+
+export const getFullscreenElement = (): Element | null => {
+  if (typeof document === 'undefined') return null
+  const doc = document as FullscreenDocument
+  return doc.fullscreenElement || doc.webkitFullscreenElement || null
+}
+
+export const requestMonitorFullscreen = async (element: HTMLElement = document.documentElement) => {
+  const el = element as FullscreenElement
+  if (el.requestFullscreen) {
+    await el.requestFullscreen()
+    return
   }
+  if (el.webkitRequestFullscreen) {
+    await el.webkitRequestFullscreen()
+  }
+}
 
-  const [enabled, setEnabledState] = useState<boolean>(getInitialValue)
+export const exitMonitorFullscreen = async () => {
+  if (typeof document === 'undefined') return
+  const doc = document as FullscreenDocument
+  if (doc.exitFullscreen && getFullscreenElement()) {
+    await doc.exitFullscreen()
+    return
+  }
+  if (doc.webkitExitFullscreen && getFullscreenElement()) {
+    await doc.webkitExitFullscreen()
+  }
+}
+
+/**
+ * Monitor-level fullscreen via the browser Fullscreen API.
+ * Must be invoked from a user gesture. Esc or the toggle exits.
+ */
+export const useCarouselFullscreenPreference = (): UseCarouselFullscreenPreferenceReturn => {
+  const [enabled, setEnabledState] = useState<boolean>(() => !!getFullscreenElement())
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof document === 'undefined') return
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue !== null) {
-        setEnabledState(e.newValue === 'true')
-      }
-    }
+    const sync = () => setEnabledState(!!getFullscreenElement())
 
-    const handleCustomStorageChange = ((e: CustomEvent) => {
-      setEnabledState(e.detail.enabled)
-    }) as EventListener
-
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener(CHANGE_EVENT, handleCustomStorageChange)
+    document.addEventListener('fullscreenchange', sync)
+    document.addEventListener('webkitfullscreenchange', sync)
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener(CHANGE_EVENT, handleCustomStorageChange)
+      document.removeEventListener('fullscreenchange', sync)
+      document.removeEventListener('webkitfullscreenchange', sync)
     }
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
+  const setEnabled = useCallback(async (value: boolean) => {
     try {
-      localStorage.setItem(STORAGE_KEY, String(enabled))
-      window.dispatchEvent(
-        new CustomEvent(CHANGE_EVENT, {
-          detail: { enabled },
-        })
-      )
+      if (value && !getFullscreenElement()) {
+        await requestMonitorFullscreen()
+      } else if (!value && getFullscreenElement()) {
+        await exitMonitorFullscreen()
+      }
     } catch (error) {
-      console.error('Error saving carousel fullscreen preference to localStorage:', error)
+      console.error('Error changing monitor fullscreen:', error)
     }
-  }, [enabled])
-
-  const toggle = useCallback(() => {
-    setEnabledState((prev) => !prev)
   }, [])
 
-  const setEnabled = useCallback((value: boolean) => {
-    setEnabledState(value)
-  }, [])
+  const toggle = useCallback(async () => {
+    await setEnabled(!getFullscreenElement())
+  }, [setEnabled])
 
   return {
     enabled,
