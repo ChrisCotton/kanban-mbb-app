@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import InspirationalQuotesStrip, { mergeQuotesWithDefaults } from '../InspirationalQuotesStrip'
+import InspirationalQuotesStrip from '../InspirationalQuotesStrip'
+import { mergeQuotesWithDefaults } from '../../../lib/quotes/merge-quotes-with-defaults'
 
 const mockQuotes = [
   { id: 'q1', text: 'First quote', author: 'Author One' },

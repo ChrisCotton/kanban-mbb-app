@@ -2,31 +2,19 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import defaultQuotesData from '../../lib/data/default-quotes.json'
 import type { DisplayQuote } from '../../lib/database/quotes-queries'
+import {
+  DEFAULT_QUOTES,
+  mergeQuotesWithDefaults,
+} from '../../lib/quotes/merge-quotes-with-defaults'
+
+export { mergeQuotesWithDefaults }
 
 interface InspirationalQuotesStripProps {
   userId?: string
   quotes?: DisplayQuote[]
   autoAdvanceInterval?: number
   className?: string
-}
-
-const DEFAULT_QUOTES: DisplayQuote[] = defaultQuotesData.map((q) => ({
-  id: q.id,
-  text: q.text,
-  author: q.author,
-}))
-
-const normalizeQuoteText = (text: string) => text.trim().toLowerCase()
-
-/** Personal quotes first, then curated defaults (skipping duplicates by text). */
-export const mergeQuotesWithDefaults = (userQuotes: DisplayQuote[]): DisplayQuote[] => {
-  const seen = new Set(userQuotes.map((q) => normalizeQuoteText(q.text)))
-  const defaultsToAdd = DEFAULT_QUOTES.filter(
-    (q) => !seen.has(normalizeQuoteText(q.text))
-  )
-  return userQuotes.length > 0 ? [...userQuotes, ...defaultsToAdd] : DEFAULT_QUOTES
 }
 
 const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
