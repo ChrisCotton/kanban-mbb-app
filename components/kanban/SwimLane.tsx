@@ -162,18 +162,42 @@ const SwimLane: React.FC<SwimLaneProps> = ({
         </div>
       </div>
 
-      {/* Lane Content with Droppable */}
-      <Droppable droppableId={status}>
+      {/* Lane Content with Droppable.
+          The scroll container is the droppable so the drag preview is not
+          clipped or remeasured inside a nested overflow parent. */}
+      <Droppable
+        droppableId={status}
+        renderClone={(provided, snapshot, rubric) => {
+          const task = tasks[rubric.source.index]
+          if (!task) return <div ref={provided.innerRef} {...provided.draggableProps} />
+          return (
+            <TaskCard
+              task={task}
+              index={rubric.source.index}
+              dragClone={{ provided, snapshot }}
+              onTaskMove={onTaskMove}
+              onTaskEdit={onTaskEdit}
+              onTaskView={onTaskView}
+              onTaskDelete={onTaskDelete}
+              isMultiSelectMode={isMultiSelectMode}
+              isSelected={selectedTaskIds.includes(task.id)}
+              onToggleSelection={onToggleTaskSelection}
+            />
+          )
+        }}
+      >
         {(provided, snapshot) => (
           <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`flex flex-col flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 transition-all duration-200 min-h-[100px] ${
+            className={`flex flex-col flex-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-b-lg border-l border-r border-b border-gray-200 dark:border-gray-700 min-h-[100px] transition-colors duration-150 ${
               snapshot.isDraggingOver ? colors.dropZone : ''
             }`}
           >
             {/* Tasks Container with Scrolling */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent py-2 px-1">
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent py-2 px-1"
+            >
               <div className="space-y-2 sm:space-y-3">
                 {tasks.map((task, index) => (
                   <TaskCard

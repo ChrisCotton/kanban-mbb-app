@@ -65,9 +65,12 @@ export const useKanban = (): UseKanbanReturn => {
    * Fetch all tasks and organize them by status
    * Optionally filter by goal_id
    */
-  const fetchTasks = useCallback(async (goalId?: string) => {
+  const fetchTasks = useCallback(async (goalId?: string, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
     try {
-      setIsLoading(true)
+      if (!silent) {
+        setIsLoading(true)
+      }
       setError(null)
 
       const url = goalId 
@@ -108,7 +111,9 @@ export const useKanban = (): UseKanbanReturn => {
       console.error('Error fetching tasks:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch tasks')
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
   }, [])
 
@@ -148,8 +153,7 @@ export const useKanban = (): UseKanbanReturn => {
         throw new Error(result.error || 'Failed to create task')
       }
 
-      // Refresh tasks to get the latest state
-      await fetchTasks()
+      await fetchTasks(undefined, { silent: true })
       
       return result.data
     } catch (err) {
@@ -184,8 +188,7 @@ export const useKanban = (): UseKanbanReturn => {
         throw new Error(result.error || 'Failed to update task')
       }
 
-      // Refresh tasks to get the latest state
-      await fetchTasks()
+      await fetchTasks(undefined, { silent: true })
       
       return result.data
     } catch (err) {
@@ -216,8 +219,7 @@ export const useKanban = (): UseKanbanReturn => {
         throw new Error(result.error || 'Failed to delete task')
       }
 
-      // Refresh tasks to get the latest state
-      await fetchTasks()
+      await fetchTasks(undefined, { silent: true })
     } catch (err) {
       console.error('Error deleting task:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete task'
@@ -260,7 +262,7 @@ export const useKanban = (): UseKanbanReturn => {
       // Schedule background refetch after a delay to ensure DB has fully propagated
       // The optimistic UI update will remain visible until the refetch completes with correct data
       setTimeout(() => {
-        fetchTasks()
+        fetchTasks(undefined, { silent: true })
       }, 1000)
       
       return result.data
@@ -268,8 +270,8 @@ export const useKanban = (): UseKanbanReturn => {
       console.error('Error moving task:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to move task'
       setError(errorMessage)
-      // On error, immediately refetch to revert optimistic update
-      fetchTasks()
+      // On error, immediately refetch to revert optimistic update without blanking the board
+      fetchTasks(undefined, { silent: true })
       throw err
     }
   }, [fetchTasks])

@@ -288,7 +288,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
 
   // Initialize drag and drop hook
   const {
-    dragDropState,
     handleDragStart,
     handleDragUpdate,
     handleDragEnd
@@ -596,8 +595,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
 
   const currentError = error || searchError
   const currentIsLoading = isLoading || isSearching
+  const boardAlreadyVisible = Object.values(tasks).some((column) => column.length > 0)
 
-  if (currentIsLoading && !isSearchMode) {
+  if (currentIsLoading && !isSearchMode && !boardAlreadyVisible) {
     return (
       <div className={`flex items-center justify-center min-h-96 ${className}`}>
         <div className="flex flex-col items-center space-y-4 p-6">
@@ -691,12 +691,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ className = '', onStartTiming
             </div>
           )}
           
-          {/* Drag status indicator */}
-          {dragDropState.isDragging && (
-            <div className="mt-2 text-xs sm:text-sm text-blue-600 dark:text-blue-400 animate-pulse">
-              Moving task from {dragDropState.sourceStatus} to {dragDropState.destinationStatus}...
-            </div>
-          )}
         </div>
 
         {/* Swim Lanes Grid */}

@@ -292,6 +292,37 @@ describe('useKanban', () => {
       });
     });
 
+    it('does not enter the loading state while refreshing after an update', async () => {
+      const updatedTask = { ...mockTasks[0], title: 'Updated Task' };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: mockTasks }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: updatedTask }),
+        })
+        .mockImplementationOnce(() => new Promise(() => {}));
+
+      const { result } = renderHook(() => useKanban());
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      act(() => {
+        void result.current.updateTask('1', { title: 'Updated Task' });
+      });
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
     it('handles update task error', async () => {
       mockFetch
         .mockResolvedValueOnce({
@@ -421,6 +452,43 @@ describe('useKanban', () => {
           body: JSON.stringify({ status: 'doing', order_index: 0 }),
         }),
       );
+    });
+
+    it('does not enter the loading state when the post-move refresh runs', async () => {
+      const movedTask = { ...mockTasks[0], status: 'doing' as const };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: mockTasks }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: movedTask }),
+        })
+        .mockImplementationOnce(() => new Promise(() => {}));
+
+      const { result } = renderHook(() => useKanban());
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      jest.useFakeTimers();
+      try {
+        await act(async () => {
+          await result.current.moveTask('1', 'doing', 0);
+        });
+
+        await act(async () => {
+          jest.advanceTimersByTime(1000);
+          await Promise.resolve();
+        });
+
+        expect(result.current.isLoading).toBe(false);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('handles move task error', async () => {

@@ -95,9 +95,10 @@
   overflow: hidden;
 }
 
-/* Smooth transitions */
+/* Smooth transitions. Transform is omitted: @hello-pangea/dnd moves cards by
+   updating transform every frame, and easing that property makes the card lag. */
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, filter, backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }

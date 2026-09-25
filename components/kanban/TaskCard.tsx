@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Draggable } from '@hello-pangea/dnd'
+import { Draggable, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Task, TaskWithCategory } from '../../lib/database/kanban-queries'
 import PrioritySelector from '../ui/PrioritySelector'
 import { formatCurrency } from '../../lib/utils/currency-formatter'
@@ -19,6 +19,11 @@ interface TaskCardProps {
   isMultiSelectMode?: boolean
   isSelected?: boolean
   onToggleSelection?: (taskId: string, shiftKey: boolean) => void
+  /** When set, render the drag preview clone instead of registering another Draggable. */
+  dragClone?: {
+    provided: DraggableProvided
+    snapshot: DraggableStateSnapshot
+  }
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -29,7 +34,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onTaskDelete,
   isMultiSelectMode = false,
   isSelected = false,
-  onToggleSelection
+  onToggleSelection,
+  dragClone
 }) => {
   // PERFORMANCE FIX: Use subtask counts from task object instead of fetching individually
   // This eliminates N+1 query problem (was making 1 API call per task!)
@@ -79,37 +85,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }
 
-  return (
-    <Draggable draggableId={task.id} index={index} isDragDisabled={isMultiSelectMode}>
-      {(provided, snapshot) => (
+  const renderSurface = (provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...(!isMultiSelectMode ? provided.dragHandleProps : {})}
           onClick={handleCardClick}
-          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border transition-all duration-200 select-none group relative ${
+          className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border transition-[color,background-color,border-color,box-shadow,opacity] duration-150 select-none group relative ${
             isSelected 
               ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 ring-opacity-30 bg-blue-50 dark:bg-blue-900/20' 
               : 'border-gray-200 dark:border-gray-600'
           } ${
             snapshot.isDragging 
-              ? 'opacity-90 rotate-1 scale-105 shadow-lg ring-2 ring-blue-400 ring-opacity-60' 
+              ? 'shadow-lg ring-2 ring-blue-400 ring-opacity-60' 
               : 'hover:shadow-md'
-          } ${
-            snapshot.isDropAnimating ? 'transition-transform duration-200' : ''
           } ${
             isMultiSelectMode 
               ? 'cursor-pointer hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' 
-              : 'cursor-move'
+              : 'cursor-grab active:cursor-grabbing'
           } ${
             !isMultiSelectMode && (onTaskView || onTaskEdit) ? 'hover:ring-1 hover:ring-blue-300 hover:ring-opacity-50' : ''
           } p-2 sm:p-3`}
-          style={{
-            ...provided.draggableProps.style,
-            transform: snapshot.isDragging 
-              ? `${provided.draggableProps.style?.transform} rotate(2deg)`
-              : provided.draggableProps.style?.transform
-          }}
+          style={provided.draggableProps.style}
         >
           {/* Multi-select checkbox */}
           {isMultiSelectMode && (
@@ -264,9 +261,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           )}
         </div>
-      )}
+  )
+
+  if (dragClone) {
+    return renderSurface(dragClone.provided, dragClone.snapshot)
+  }
+
+  return (
+    <Draggable draggableId={task.id} index={index} isDragDisabled={isMultiSelectMode}>
+      {(provided, snapshot) => renderSurface(provided, snapshot)}
     </Draggable>
   )
 }
 
-export default TaskCard
+export default React.memo(TaskCard)

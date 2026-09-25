@@ -66,11 +66,20 @@ export const useDragAndDrop = ({
    */
   const handleDragUpdate = useCallback((update: DragUpdate) => {
     const destinationColumn = update.destination?.droppableId as Task['status'] | null
-    
-    setDragDropState(prev => ({
-      ...prev,
-      destinationStatus: destinationColumn || prev.sourceStatus
-    }))
+
+    // onDragUpdate fires on every pointer move. Only re-render when the
+    // destination column actually changes, otherwise the whole board repaints
+    // under the cursor and the drag stutters.
+    setDragDropState(prev => {
+      const nextDestination = destinationColumn || prev.sourceStatus
+      if (nextDestination === prev.destinationStatus) {
+        return prev
+      }
+      return {
+        ...prev,
+        destinationStatus: nextDestination
+      }
+    })
   }, [])
 
   /**
