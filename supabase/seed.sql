@@ -1,0 +1,1 @@
+-- Local seed data. Loaded by supabase/config.toml on database reset.
