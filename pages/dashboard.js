@@ -85,24 +85,24 @@ export default function Dashboard() {
       // Note: showCarousel defaults to true, but actual visibility is controlled by
       // useCarouselPreference hook (defaults to OFF for performance)
     >
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <KanbanProvider>
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="w-full min-w-0 space-y-4 sm:space-y-6">
             <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+              <h1 className="page-title">
                 Mental Bank Balance Dashboard
               </h1>
-              <p className="text-white/70">
+              <p className="text-white/70 text-sm sm:text-base px-1">
                 Organize your tasks and track your virtual earnings
               </p>
             </div>
             
-            <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-              <KanbanBoard className="w-full" onStartTiming={handleStartTiming} />
+            <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 sm:p-6 min-w-0 overflow-x-clip">
+              <KanbanBoard className="w-full min-w-0" onStartTiming={handleStartTiming} />
             </div>
           </div>
         </KanbanProvider>
-      </main>
+      </div>
     </Layout>
   )
 }

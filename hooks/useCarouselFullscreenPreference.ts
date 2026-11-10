@@ -6,7 +6,8 @@ export interface UseCarouselFullscreenPreferenceReturn {
   setEnabled: (value: boolean) => Promise<void>
 }
 
-export const COMPACT_CAROUSEL_HEIGHT = 'h-[50vh] md:h-[60vh]'
+/** Shorter on phones so kanban content stays usable in portrait. */
+export const COMPACT_CAROUSEL_HEIGHT = 'h-[22vh] min-h-[120px] sm:h-[32vh] md:h-[50vh] lg:h-[60vh]'
 /** Fills remaining space in the monitor-fullscreen flex column (below nav, above quotes). */
 export const IMMERSIVE_CAROUSEL_HEIGHT = 'flex-1 min-h-0 w-full'
 

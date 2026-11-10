@@ -113,8 +113,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
     <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-3">
-          <div className="flex-1 relative">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-3">
+          <div className="flex-1 relative min-w-0 w-full">
             <input
               type="text"
               placeholder="Search tasks..."
@@ -135,9 +135,10 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             )}
           </div>
           
+          <div className="flex flex-wrap items-center gap-2 sm:contents">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
+            className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2 flex-shrink-0"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
@@ -153,11 +154,12 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
           {(hasActiveFilters || isSearchMode) && (
             <button
               onClick={handleClearAll}
-              className="px-3 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+              className="px-3 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors flex-shrink-0"
             >
               {isSearchMode ? '✕ Exit Search' : 'Clear'}
             </button>
           )}
+          </div>
         </div>
       </div>
 

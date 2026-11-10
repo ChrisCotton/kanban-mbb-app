@@ -287,10 +287,10 @@ const VisionBoardPage = () => {
 
   return (
     <Layout carouselImages={activeImages} userId={user?.id}>
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Vision Board Manager</h1>
+            <h1 className="page-title">Vision Board Manager</h1>
             <p className="text-white/70">
               Upload and manage your vision board images. Toggle images active/inactive to control which ones appear in the carousel header.
             </p>
@@ -424,7 +424,7 @@ const VisionBoardPage = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </Layout>
   )
 }

@@ -115,11 +115,11 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
 
   return (
     <div className={`w-full bg-black/30 backdrop-blur-sm border-t border-white/10 ${className}`}>
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 max-w-full min-w-0">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
           
           {/* Left Side - Total Earnings & Active Timers */}
-          <div className="flex items-center space-x-6">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-0 sm:space-x-6 w-full sm:w-auto justify-center lg:justify-start">
             <div className="flex items-center space-x-3">
               <div className="text-sm font-medium text-white">Session:</div>
               <div className="text-xl font-bold text-green-400" data-testid="session-total">
@@ -229,12 +229,12 @@ export const MBBTimerSection: React.FC<MBBTimerSectionProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full md:w-auto">
                   <div className="text-sm text-white/60">
                     {rate ? `${formatCurrency(rate)}/hr` : '--'}
                   </div>
                   <div
-                    className="text-lg font-mono text-white bg-black/40 px-3 py-1 rounded-md min-w-[90px] text-center"
+                    className="text-lg font-mono text-white bg-black/40 px-3 py-1 rounded-md min-w-[4.5rem] text-center"
                     data-testid={`timer-time-${timer.taskId}`}
                   >
                     {formatTime(timer.currentTime)}

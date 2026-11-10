@@ -115,7 +115,7 @@ const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
   return (
     <div
       data-testid="inspirational-quotes-strip"
-      className={`h-14 bg-black/30 backdrop-blur-md border-b border-white/10 flex items-center px-4 relative ${className}`}
+      className={`min-h-12 sm:h-14 bg-black/30 backdrop-blur-md border-b border-white/10 flex items-center px-2 sm:px-4 relative ${className}`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -131,7 +131,7 @@ const InspirationalQuotesStrip: React.FC<InspirationalQuotesStripProps> = ({
       )}
 
       <div className="flex-1 min-w-0 px-2 text-center">
-        <p className="text-white/90 italic text-lg truncate">
+        <p className="text-white/90 italic text-sm sm:text-lg truncate">
           &ldquo;{currentQuote.text}&rdquo;
           {currentQuote.author && (
             <span className="not-italic text-white/60 ml-1">

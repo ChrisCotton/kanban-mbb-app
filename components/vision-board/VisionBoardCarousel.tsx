@@ -43,7 +43,7 @@ const VisionBoardCarousel: React.FC<VisionBoardCarouselProps> = ({
   images = [],
   userId,
   autoAdvanceInterval = 8000, // 8 seconds default
-  height = 'h-[50vh] md:h-[60vh]',
+  height = 'h-[22vh] min-h-[120px] sm:h-[32vh] md:h-[50vh] lg:h-[60vh]',
   showControls = true,
   showCounter = true,
   className = '',

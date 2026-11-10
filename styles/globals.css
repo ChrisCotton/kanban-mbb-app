@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    overflow-x: clip;
+  }
+
+  body {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #__next {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@layer components {
+  .page-content-shell {
+    @apply flex-1 w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8;
+  }
+
+  .page-title {
+    @apply text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2;
+  }
+}
+
 /*
  * Next.js renders #__next first, then #modal-root (see pages/_document.js).
  * Without an explicit z-index, some browsers still interleave paints with

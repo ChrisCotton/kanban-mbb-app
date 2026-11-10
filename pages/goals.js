@@ -269,10 +269,10 @@ const GoalsPage = () => {
 
   return (
     <Layout carouselImages={visionBoardImages} userId={user?.id}>
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Goals</h1>
+            <h1 className="page-title">Goals</h1>
             <p className="text-white/70">
               Track your progress and achieve your objectives.
             </p>
@@ -580,7 +580,7 @@ const GoalsPage = () => {
             />
           )}
         </div>
-      </main>
+      </div>
     </Layout>
   );
 };

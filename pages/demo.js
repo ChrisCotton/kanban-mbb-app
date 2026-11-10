@@ -4,21 +4,21 @@ import Layout from '../components/layout/Layout'
 export default function Demo() {
   return (
     <Layout title="Kanban Board Demo - Mental Bank Balance">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">
+      <div className="page-content-shell">
+        <div className="text-center mb-4 sm:mb-8">
+          <h1 className="page-title">
             Mental Bank Balance Kanban Board
           </h1>
-          <p className="text-xl text-gray-300 mb-2">
+          <p className="text-base sm:text-xl text-gray-300 mb-2">
             Demo: Track your productivity and calculate virtual earnings
           </p>
-          <p className="text-gray-400">
+          <p className="text-sm sm:text-base text-gray-400">
             This is a live demo with sample data - try dragging tasks between columns!
           </p>
         </div>
         
-        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8">
-          <KanbanBoard className="w-full" />
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 sm:p-8 min-w-0 overflow-x-clip">
+          <KanbanBoard className="w-full min-w-0" />
         </div>
 
         <div className="mt-8 text-center">

@@ -179,7 +179,7 @@ const GoalsHeaderStrip: React.FC<GoalsHeaderStripProps> = ({
                       flex items-center gap-2 px-3 py-2 rounded-lg
                       bg-white/10 hover:bg-white/20 border-2
                       cursor-pointer transition-all duration-200
-                      min-w-[200px] flex-shrink-0
+                      min-w-[min(200px,75vw)] sm:min-w-[200px] flex-shrink-0
                       ${
                         isActive
                           ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-500/20'
