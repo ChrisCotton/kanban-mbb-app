@@ -366,11 +366,11 @@ const MBBPage = () => {
 
   return (
     <Layout carouselImages={visionBoardImages} userId={user?.id}>
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Mental Bank Balance</h1>
+            <h1 className="page-title">Mental Bank Balance</h1>
             <p className="text-white/70">
               Track your progress towards your financial goals and analyze your earning patterns.
             </p>
@@ -767,7 +767,7 @@ const MBBPage = () => {
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Set Target Modal */}
       {showTargetModal && (

@@ -100,11 +100,11 @@ const CategoriesPage = () => {
 
   return (
     <Layout carouselImages={visionBoardImages} userId={user?.id}>
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Task Categories</h1>
+              <h1 className="page-title">Task Categories</h1>
               <p className="text-white/70">
                 Manage your task categories and hourly rates for time tracking and billing.
               </p>
@@ -137,7 +137,7 @@ const CategoriesPage = () => {
             maxHeight="max-h-none"
           />
         </div>
-      </main>
+      </div>
 
       {/* CSV Upload Modal */}
       {showCSVUpload && (

@@ -92,10 +92,10 @@ const JournalPage = () => {
   return (
     <Layout carouselImages={visionBoardImages}>
       {/* Journal Content */}
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Audio Journal</h1>
+            <h1 className="page-title">Audio Journal</h1>
             <p className="text-white/70">
               Record your thoughts and ideas as audio entries. Your recordings will be automatically transcribed and you can edit the transcripts using markdown formatting.
             </p>
@@ -111,7 +111,7 @@ const JournalPage = () => {
           
           <JournalView userId={user?.id} />
         </div>
-      </main>
+      </div>
     </Layout>
   )
 }

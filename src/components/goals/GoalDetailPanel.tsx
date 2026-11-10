@@ -186,7 +186,7 @@ const GoalDetailPanel: React.FC<GoalDetailPanelProps> = ({
       {/* Slide-in Panel */}
       <div
         data-testid="goal-detail-panel"
-        className={`fixed top-0 right-0 h-full w-[480px] bg-white dark:bg-gray-800 shadow-2xl z-[80] transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full max-w-full sm:w-[480px] sm:max-w-[min(480px,100vw)] bg-white dark:bg-gray-800 shadow-2xl z-[80] transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

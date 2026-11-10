@@ -17,7 +17,7 @@ export default function Home() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen min-h-[100dvh] w-full max-w-[100vw] overflow-x-clip bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center relative">
       {/* Animated Background */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
@@ -35,7 +35,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-6xl md:text-8xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
+          className="text-4xl sm:text-6xl md:text-8xl font-bold text-white mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
         >
           Mental Bank Balance
         </motion.h1>
@@ -44,7 +44,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed"
+          className="text-base sm:text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed"
         >
           Track your productivity, calculate virtual earnings, and achieve your financial goals with our innovative Kanban board system.
         </motion.p>

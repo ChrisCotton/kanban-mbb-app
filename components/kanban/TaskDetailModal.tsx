@@ -319,9 +319,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-[80] flex items-start justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[80] flex items-start justify-center p-2 sm:p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
       <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] mt-4 mb-4 flex flex-col transition-all duration-150 ${
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[92dvh] sm:max-h-[85vh] mt-2 sm:mt-4 mb-2 sm:mb-4 flex flex-col transition-all duration-150 ${
           isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
         }`}
       >

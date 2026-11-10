@@ -118,10 +118,10 @@ const CalendarPage = () => {
   return (
     <Layout carouselImages={visionBoardImages} userId={user?.id}>
       {/* Calendar Content */}
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <div className="page-content-shell">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Task Calendar</h1>
+            <h1 className="page-title">Task Calendar</h1>
             <p className="text-white/70">
               View and manage your tasks and goals by their due dates. Click on any date to see items scheduled for that day.
             </p>
@@ -140,7 +140,7 @@ const CalendarPage = () => {
             goals={goals.filter((g) => g.status === 'active' && g.target_date)}
           />
         </div>
-      </main>
+      </div>
     </Layout>
   )
 }

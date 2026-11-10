@@ -38,9 +38,9 @@ const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
   ]
 
   return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 min-w-96">
-        <div className="flex items-center justify-between space-x-4">
+    <div className="fixed bottom-4 left-3 right-3 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-50 max-w-[100vw] pointer-events-none">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 w-full sm:w-auto sm:min-w-[24rem] max-w-full pointer-events-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-x-4">
           {/* Selection Info */}
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
@@ -64,7 +64,7 @@ const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2 sm:space-x-2">
             {/* Move Dropdown */}
             <div className="relative">
               <button
