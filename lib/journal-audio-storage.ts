@@ -5,6 +5,24 @@
 
 const ALLOWED_BASE_TYPES = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav']
 
+/**
+ * Storage and multipart uploads reject parameterized types such as
+ * `audio/webm;codecs=opus`. Safari may also label an audio-only take `video/mp4`.
+ */
+export function normalizeJournalAudioContentType(mimeType: string | null | undefined): string {
+  const raw = (mimeType || 'audio/webm').toLowerCase().trim()
+  const base = raw.split(';')[0].trim()
+
+  if (base === 'video/mp4' || base === 'audio/m4a' || base === 'audio/x-m4a' || base === 'audio/aac') {
+    return 'audio/mp4'
+  }
+  if (base === 'video/webm') return 'audio/webm'
+  if (base === 'audio/wave' || base === 'audio/x-wav') return 'audio/wav'
+  if (base === 'audio/mpeg3' || base === 'audio/x-mpeg-3' || base === 'audio/mp3') return 'audio/mpeg'
+  if (ALLOWED_BASE_TYPES.includes(base)) return base
+  return 'audio/webm'
+}
+
 export const ALLOWED_JOURNAL_AUDIO_TYPES = [
   'audio/webm',
   'audio/webm;codecs=opus',
@@ -27,11 +45,19 @@ export function isAllowedJournalAudioMimeType(mimeType: string | null | undefine
   const normalized = mimeType.toLowerCase().trim()
   if (ALLOWED_JOURNAL_AUDIO_TYPES.includes(normalized)) return true
   const baseType = normalized.split(';')[0].trim()
-  return ALLOWED_BASE_TYPES.includes(baseType)
+  if (ALLOWED_BASE_TYPES.includes(baseType)) return true
+  return (
+    baseType === 'video/mp4' ||
+    baseType === 'video/webm' ||
+    baseType === 'audio/m4a' ||
+    baseType === 'audio/x-m4a' ||
+    baseType === 'audio/aac' ||
+    baseType === 'audio/mp3'
+  )
 }
 
 export function getJournalAudioFileExtension(blobType: string): string {
-  const baseMimeType = (blobType || 'audio/webm').toLowerCase().split(';')[0].trim()
+  const baseMimeType = normalizeJournalAudioContentType(blobType)
   switch (baseMimeType) {
     case 'audio/webm':
       return '.webm'

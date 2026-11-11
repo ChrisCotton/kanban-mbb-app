@@ -6,6 +6,7 @@ import fs from 'fs'
 import {
   buildJournalAudioStoragePath,
   isAllowedJournalAudioMimeType,
+  normalizeJournalAudioContentType,
 } from '@/lib/journal-audio-storage'
 
 export const config = {
@@ -85,21 +86,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
+    const contentType = normalizeJournalAudioContentType(audioFile.mimetype)
+
     // Read file
     const fileBuffer = fs.readFileSync(audioFile.filepath)
     
     const fileName = buildJournalAudioStoragePath(
       userId,
       entryId || String(Date.now()),
-      audioFile.mimetype
+      contentType
     )
-    console.log('📁 Storage path:', { mimeType: audioFile.mimetype, fileName })
+    console.log('📁 Storage path:', { mimeType: audioFile.mimetype, contentType, fileName })
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage. Use a bare MIME type — storage rejects codec suffixes.
     const { data: uploadData, error: uploadError } = await getSupabase().storage
       .from('journal_audio')
       .upload(fileName, fileBuffer, {
-        contentType: audioFile.mimetype,
+        contentType,
         upsert: true
       })
 
