@@ -30,7 +30,7 @@ PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Project directory
-PROJECT_DIR="$HOME/Learn/AI/MBB_Kanban/MBB_Kanban_cursor/kanban-mbb-app"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default mode
 BACKGROUND_MODE=false
