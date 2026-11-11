@@ -37,6 +37,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null)
   const blobCreatedRef = useRef<boolean>(false)
   const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const recordingStateRef = useRef<RecordingState>(recordingState)
+  const discardOnStopRef = useRef(false)
+  const visualizationStreamRef = useRef<MediaStream | null>(null)
+  const stopFinalizeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    recordingStateRef.current = recordingState
+  }, [recordingState])
 
   // Check browser support
   useEffect(() => {
@@ -58,14 +67,28 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Get supported mime type
   const getSupportedMimeType = useCallback(() => {
-    const types = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg;codecs=opus',
-      'audio/ogg',
-      'audio/wav'
-    ]
+    const isIOS =
+      typeof navigator !== 'undefined' &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+    const types = isIOS
+      ? [
+          'audio/mp4',
+          'audio/aac',
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+          'audio/ogg',
+        ]
+      : [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/ogg;codecs=opus',
+          'audio/ogg',
+          'audio/wav',
+        ]
     
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
@@ -188,6 +211,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const startRecording = useCallback(async () => {
     try {
       setError(null)
+      discardOnStopRef.current = false
       setRecordingState('recording') // Set state immediately for visual feedback
       console.log('🎤 Starting recording...')
       
@@ -213,6 +237,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           // Removed sampleRate constraint - let browser choose optimal rate
         } 
       })
+
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
       
       console.log('✅ Got media stream')
       
@@ -277,17 +306,30 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       
       // Set up audio context for visualization AND audio detection
       try {
+        // Clone the stream so visualization does not starve MediaRecorder on mobile browsers
+        const visualizationStream =
+          typeof stream.clone === 'function' ? stream.clone() : stream
+        visualizationStreamRef.current =
+          visualizationStream !== stream ? visualizationStream : null
+
         audioContextRef.current = new AudioContext()
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume()
+        }
         analyserRef.current = audioContextRef.current.createAnalyser()
         analyserRef.current.fftSize = 256
         analyserRef.current.smoothingTimeConstant = 0.3 // Lower smoothing for faster detection
-        const source = audioContextRef.current.createMediaStreamSource(stream)
+        const source = audioContextRef.current.createMediaStreamSource(visualizationStream)
         source.connect(analyserRef.current)
         console.log('✅ Audio context created for visualization and audio detection')
         
         // CRITICAL: Test if audio is actually being captured BEFORE starting MediaRecorder
         // Wait a moment for audio context to initialize, then check audio levels
         await new Promise(resolve => setTimeout(resolve, 300))
+
+        if (!isMountedRef.current) {
+          return
+        }
         
         if (analyserRef.current) {
           const testArray = new Uint8Array(analyserRef.current.frequencyBinCount)
@@ -397,14 +439,25 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           clearInterval(healthCheckIntervalRef.current)
           healthCheckIntervalRef.current = null
         }
+
+        if (stopFinalizeTimeoutRef.current) {
+          clearTimeout(stopFinalizeTimeoutRef.current)
+          stopFinalizeTimeoutRef.current = null
+        }
+
+        const shouldDiscard = discardOnStopRef.current
+        discardOnStopRef.current = false
         
         // CRITICAL: Always try to create blob in onstop, even if chunks seem empty
         // Sometimes chunks are captured but not yet in the array when checked earlier
-        if (!blobCreatedRef.current) {
-          if (chunksRef.current.length > 0) {
-            const blobType = mimeType || 'audio/webm'
-            const blob = new Blob(chunksRef.current, { type: blobType })
-            console.log('✅ Blob created in onstop, size:', blob.size, 'from', chunksRef.current.length, 'chunks')
+        if (!shouldDiscard && !blobCreatedRef.current) {
+          const chunksWithData = chunksRef.current.filter((chunk) => chunk.size > 0)
+          const chunksToUse = chunksWithData.length > 0 ? chunksWithData : chunksRef.current
+
+          if (chunksToUse.length > 0) {
+            const blobType = mimeType || getSupportedMimeType() || 'audio/webm'
+            const blob = new Blob(chunksToUse, { type: blobType })
+            console.log('✅ Blob created in onstop, size:', blob.size, 'from', chunksToUse.length, 'chunks')
             
             // Verify blob has actual audio data
             if (blob.size === 0) {
@@ -414,21 +467,42 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
               setAudioBlob(blob)
               setAudioUrl(URL.createObjectURL(blob))
               blobCreatedRef.current = true
+              setError(null)
             }
           } else {
             console.error('❌ onstop fired but no chunks available - recording may have failed')
-            setError('Recording failed: No audio data was captured. Please check your microphone is working and try again.')
+            setError('Recording failed: No audio data captured. Please try again.')
           }
+        } else if (shouldDiscard) {
+          setAudioBlob(null)
+          setAudioUrl((prevUrl) => {
+            if (prevUrl) {
+              URL.revokeObjectURL(prevUrl)
+            }
+            return null
+          })
+          chunksRef.current = []
+          blobCreatedRef.current = false
         } else {
           console.log('ℹ️ Blob already created, skipping')
         }
         
-        setRecordingState('stopped')
+        setRecordingState(shouldDiscard ? 'idle' : 'stopped')
+        if (shouldDiscard) {
+          setDuration(0)
+        }
+        
+        mediaRecorderRef.current = null
         
         // Clean up stream
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop())
           streamRef.current = null
+        }
+
+        if (visualizationStreamRef.current) {
+          visualizationStreamRef.current.getTracks().forEach((track) => track.stop())
+          visualizationStreamRef.current = null
         }
         
         // Clean up audio context
@@ -583,15 +657,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Helper function to create blob from chunks
   const createBlobFromChunks = useCallback(() => {
-    if (chunksRef.current.length > 0 && !blobCreatedRef.current) {
+    const chunksWithData = chunksRef.current.filter((chunk) => chunk.size > 0)
+    const chunksToUse = chunksWithData.length > 0 ? chunksWithData : chunksRef.current
+    if (chunksToUse.length > 0 && !blobCreatedRef.current) {
       try {
         const mimeType = getSupportedMimeType() || 'audio/webm'
-        const blob = new Blob(chunksRef.current, { type: mimeType })
-        console.log('✅ Blob created from chunks, size:', blob.size, 'chunks:', chunksRef.current.length)
+        const blob = new Blob(chunksToUse, { type: mimeType })
+        console.log('✅ Blob created from chunks, size:', blob.size, 'chunks:', chunksToUse.length)
+        if (blob.size === 0) {
+          return false
+        }
         setAudioBlob(blob)
         setAudioUrl(URL.createObjectURL(blob))
         setRecordingState('stopped')
         blobCreatedRef.current = true
+        setError(null)
         return true
       } catch (err) {
         console.error('❌ Error creating blob from chunks:', err)
@@ -603,15 +683,16 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Stop recording
   const stopRecording = useCallback(() => {
-    console.log('🛑 stopRecording called, state:', recordingState, 'mediaRecorder state:', mediaRecorderRef.current?.state, 'chunks:', chunksRef.current.length)
+    const currentState = recordingStateRef.current
+    console.log('🛑 stopRecording called, state:', currentState, 'mediaRecorder state:', mediaRecorderRef.current?.state, 'chunks:', chunksRef.current.length)
     
     // Prevent multiple calls
-    if (recordingState === 'stopped' || recordingState === 'idle') {
+    if (currentState === 'stopped' || currentState === 'idle') {
       console.log('⚠️ Already stopped, ignoring stopRecording call')
       return
     }
     
-    if (mediaRecorderRef.current && (recordingState === 'recording' || recordingState === 'paused')) {
+    if (mediaRecorderRef.current && (currentState === 'recording' || currentState === 'paused')) {
       try {
         // Stop the media recorder
         const currentState = mediaRecorderRef.current.state
@@ -658,16 +739,26 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           createBlobFromChunks()
         }
         
-        // Fallback: if onstop doesn't fire and blob wasn't created, try again
-        setTimeout(() => {
-          if (chunksRef.current.length > 0 && !blobCreatedRef.current) {
-            console.log('⚠️ onstop callback didn\'t fire after timeout, creating blob manually')
-            createBlobFromChunks()
-          } else if (chunksRef.current.length === 0) {
-            console.error('❌ Still no chunks after timeout - recording may have failed')
-            setError('Recording failed: No audio data captured. Please try again.')
+        // Fallback: wait for onstop / final chunks (mobile browsers can be slow)
+        if (stopFinalizeTimeoutRef.current) {
+          clearTimeout(stopFinalizeTimeoutRef.current)
+        }
+        stopFinalizeTimeoutRef.current = setTimeout(() => {
+          stopFinalizeTimeoutRef.current = null
+          if (blobCreatedRef.current) {
+            return
           }
-        }, 500)
+          if (chunksRef.current.length > 0) {
+            console.log('⚠️ onstop callback didn\'t finalize in time, creating blob manually')
+            createBlobFromChunks()
+            return
+          }
+          if (recordingStateRef.current === 'recording' || recordingStateRef.current === 'paused') {
+            return
+          }
+          console.error('❌ Still no chunks after timeout - recording may have failed')
+          setError('Recording failed: No audio data captured. Please try again.')
+        }, 2000)
       } catch (err: any) {
         console.error('❌ Error stopping media recorder:', err?.message || err)
         // Try to create blob from existing chunks as fallback
@@ -749,32 +840,55 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   // Reset recording
   const resetRecording = useCallback(() => {
     console.log('🔄 Resetting recording, stopping MediaRecorder...')
+    setError(null)
+
+    if (stopFinalizeTimeoutRef.current) {
+      clearTimeout(stopFinalizeTimeoutRef.current)
+      stopFinalizeTimeoutRef.current = null
+    }
     
     // Clear health check interval
     if (healthCheckIntervalRef.current) {
       clearInterval(healthCheckIntervalRef.current)
       healthCheckIntervalRef.current = null
     }
-    
-    // CRITICAL: Stop the MediaRecorder FIRST before cleaning up
-    if (mediaRecorderRef.current) {
-      try {
-        if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
-          console.log('🛑 Stopping MediaRecorder in reset, state:', mediaRecorderRef.current.state)
-          mediaRecorderRef.current.stop()
-        }
-      } catch (err) {
-        console.error('❌ Error stopping MediaRecorder in reset:', err)
-      }
-      // Clear the ref AFTER stopping
-      mediaRecorderRef.current = null
+
+    stopTimer()
+    setVolume(0)
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
     }
     
-    stopTimer()
+    const recorder = mediaRecorderRef.current
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+      discardOnStopRef.current = true
+      try {
+        console.log('🛑 Stopping MediaRecorder in reset, state:', recorder.state)
+        recorder.stop()
+      } catch (err) {
+        console.error('❌ Error stopping MediaRecorder in reset:', err)
+        discardOnStopRef.current = false
+        mediaRecorderRef.current = null
+        chunksRef.current = []
+        blobCreatedRef.current = false
+        setAudioBlob(null)
+        if (audioUrl) {
+          URL.revokeObjectURL(audioUrl)
+          setAudioUrl(null)
+        }
+        setRecordingState('idle')
+        setDuration(0)
+      }
+      console.log('✅ Recording reset deferred until MediaRecorder onstop')
+      return
+    }
+
+    mediaRecorderRef.current = null
     setRecordingState('idle')
     setDuration(0)
     setAudioBlob(null)
-    setVolume(0)
     blobCreatedRef.current = false
     
     if (audioUrl) {
@@ -782,23 +896,18 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setAudioUrl(null)
     }
     
-    // Stop stream tracks (this stops the actual recording)
     if (streamRef.current) {
       try {
-        console.log('🛑 Stopping stream tracks...')
-        streamRef.current.getTracks().forEach(track => {
-          track.stop()
-          console.log('✅ Track stopped:', track.kind, track.readyState)
-        })
+        streamRef.current.getTracks().forEach((track) => track.stop())
       } catch (err) {
         console.warn('Error stopping stream tracks in reset:', err)
       }
       streamRef.current = null
     }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
+
+    if (visualizationStreamRef.current) {
+      visualizationStreamRef.current.getTracks().forEach((track) => track.stop())
+      visualizationStreamRef.current = null
     }
     
     if (audioContextRef.current) {
@@ -812,7 +921,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       audioContextRef.current = null
     }
     
-    // Clear chunks
     chunksRef.current = []
     console.log('✅ Recording reset complete')
   }, [stopTimer, audioUrl])
@@ -883,7 +991,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Clean up on unmount
   useEffect(() => {
+    isMountedRef.current = true
     return () => {
+      isMountedRef.current = false
       resetRecording()
       if (audioContextRef.current) {
         try {
