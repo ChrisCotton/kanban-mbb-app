@@ -141,11 +141,16 @@ class MockMediaStream {
   getTracks(): MediaStreamTrack[] {
     return this.audioTracks
   }
+
+  clone(): MockMediaStream {
+    return new MockMediaStream()
+  }
 }
 
 // Mock AudioContext
 class MockAudioContext {
   state: AudioContextState = 'running'
+  resume = jest.fn().mockResolvedValue(undefined)
   createAnalyser = jest.fn(() => ({
     fftSize: 256,
     frequencyBinCount: 128,
@@ -442,7 +447,7 @@ describe('AudioRecorder - Stop Recording Regression Test', () => {
         expect(() => {
           fireEvent.click(stopButton)
         }).not.toThrow()
-        jest.advanceTimersByTime(200)
+        jest.advanceTimersByTime(2100)
       })
 
       // Should show error message but not crash
