@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import JournalView from './JournalView';
+import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -342,6 +343,47 @@ describe('JournalView', () => {
     await waitFor(() => {
       const titleInput = screen.getByTestId('transcript-editor-title') as HTMLInputElement;
       expect(titleInput.value).toMatch(/^Journal Entry - \d{1,2}\/\d{1,2}\/\d{4}$/);
+    });
+  });
+
+  it('falls back to the API when a signed-in storage upload fails', async () => {
+    const upload = jest.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'mime type audio/webm;codecs=opus is not supported' },
+    });
+    ;(supabase.storage.from as jest.Mock).mockReturnValueOnce({
+      upload,
+      createSignedUrl: jest.fn(),
+      getPublicUrl: jest.fn(() => ({ data: { publicUrl: '' } })),
+    });
+    ;(supabase.auth.getSession as jest.Mock).mockResolvedValueOnce({
+      data: { session: { access_token: 'session' } },
+      error: null,
+    });
+
+    await act(async () => {
+      render(<JournalView userId="test-user" />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading journal entries...')).not.toBeInTheDocument();
+    });
+
+    fetchSpy.mockClear();
+    await act(async () => {
+      fireEvent.click(screen.getByText('Record New Entry'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Complete Recording'));
+    });
+
+    await waitFor(() => {
+      expect(upload).toHaveBeenCalled();
+      expect(upload.mock.calls[0][2].contentType).toBe('audio/webm');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/journal/audio',
+        expect.objectContaining({ method: 'POST' })
+      );
     });
   });
 

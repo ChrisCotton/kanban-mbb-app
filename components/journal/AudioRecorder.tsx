@@ -25,6 +25,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [volume, setVolume] = useState(0)
   const [hasDetectedAudio, setHasDetectedAudio] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -398,29 +399,28 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           healthCheckIntervalRef.current = null
         }
         
-        // CRITICAL: Always try to create blob in onstop, even if chunks seem empty
-        // Sometimes chunks are captured but not yet in the array when checked earlier
-        if (!blobCreatedRef.current) {
-          if (chunksRef.current.length > 0) {
-            const blobType = mimeType || 'audio/webm'
-            const blob = new Blob(chunksRef.current, { type: blobType })
-            console.log('✅ Blob created in onstop, size:', blob.size, 'from', chunksRef.current.length, 'chunks')
-            
-            // Verify blob has actual audio data
-            if (blob.size === 0) {
-              console.error('❌ Blob created but size is 0 - no audio data captured')
-              setError('Recording failed: No audio data was captured. Please check your microphone and try again.')
-            } else {
-              setAudioBlob(blob)
-              setAudioUrl(URL.createObjectURL(blob))
-              blobCreatedRef.current = true
-            }
+        // Always rebuild from every chunk. An earlier snapshot can miss the final
+        // cluster and leave a blob storage then rejects as empty or too small.
+        const recordedChunks = chunksRef.current.filter((chunk) => chunk && chunk.size > 0)
+        if (recordedChunks.length > 0) {
+          const blobType = mediaRecorder.mimeType || mimeType || 'audio/webm'
+          const blob = new Blob(recordedChunks, { type: blobType })
+          console.log('✅ Blob created in onstop, size:', blob.size, 'from', recordedChunks.length, 'chunks')
+
+          if (blob.size === 0) {
+            console.error('❌ Blob created but size is 0 - no audio data captured')
+            setError('Recording failed: No audio data was captured. Please check your microphone and try again.')
           } else {
-            console.error('❌ onstop fired but no chunks available - recording may have failed')
-            setError('Recording failed: No audio data was captured. Please check your microphone is working and try again.')
+            setAudioUrl((previousUrl) => {
+              if (previousUrl) URL.revokeObjectURL(previousUrl)
+              return URL.createObjectURL(blob)
+            })
+            setAudioBlob(blob)
+            blobCreatedRef.current = true
           }
-        } else {
-          console.log('ℹ️ Blob already created, skipping')
+        } else if (!blobCreatedRef.current) {
+          console.error('❌ onstop fired but no chunks available - recording may have failed')
+          setError('Recording failed: No audio data was captured. Please check your microphone is working and try again.')
         }
         
         setRecordingState('stopped')
@@ -618,40 +618,19 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         if (currentState !== 'inactive') {
           console.log('🛑 Stopping MediaRecorder, current state:', currentState)
           
-          // CRITICAL: Request final data chunk before stopping
-          // This ensures we get all recorded data
-          if (currentState === 'recording' || currentState === 'paused') {
-            try {
-              // Request the final data chunk
-              mediaRecorderRef.current.requestData()
-              console.log('📤 Requested final data chunk')
-            } catch (reqErr: any) {
-              console.warn('⚠️ Could not request final data chunk:', reqErr?.message || reqErr)
-              // Continue anyway - stop() will still trigger final chunk
-            }
-          }
-          
-          // Now stop the recorder (this will trigger onstop callback)
+          // stop() flushes the final chunk and fires onstop. requestData() throws
+          // on Safari and can drop that final chunk on Chrome if called first.
           try {
             mediaRecorderRef.current.stop()
             console.log('✅ MediaRecorder.stop() called successfully')
           } catch (stopErr: any) {
             console.error('❌ Error calling MediaRecorder.stop():', stopErr?.message || stopErr)
-            // Try to recover by creating blob from existing chunks
             if (chunksRef.current.length > 0) {
               console.log('🔄 Attempting recovery: creating blob from existing chunks')
               createBlobFromChunks()
+            } else {
+              setError('Error stopping recording: ' + (stopErr?.message || 'Unknown error'))
             }
-            throw stopErr
-          }
-          
-          // Immediately try to create blob if chunks exist (don't wait for onstop)
-          // This handles cases where onstop doesn't fire properly
-          if (chunksRef.current.length > 0) {
-            console.log('📦 Chunks available, creating blob immediately...')
-            createBlobFromChunks()
-          } else {
-            console.warn('⚠️ No chunks available yet, will wait for onstop callback')
           }
         } else {
           console.log('⚠️ MediaRecorder already inactive, creating blob from existing chunks')
@@ -818,7 +797,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   }, [stopTimer, audioUrl])
 
   // Handle save
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
+    if (isSaving) return
     console.log('💾 Save clicked, audioBlob:', !!audioBlob, 'size:', audioBlob?.size, 'type:', audioBlob?.type, 'duration:', duration, 'chunks:', chunksRef.current.length)
     
     let blobToSave = audioBlob
@@ -826,11 +806,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     // If no blob but we have chunks, create one
     if (!blobToSave && chunksRef.current.length > 0) {
       console.log('🔄 No blob but chunks exist, creating blob from chunks...')
-      const mimeType = getSupportedMimeType() || 'audio/webm'
+      const mimeType = mediaRecorderRef.current?.mimeType || getSupportedMimeType() || 'audio/webm'
       try {
-        blobToSave = new Blob(chunksRef.current, { type: mimeType })
+        blobToSave = new Blob(chunksRef.current.filter((chunk) => chunk.size > 0), { type: mimeType })
         console.log('✅ Blob created from chunks, size:', blobToSave.size, 'type:', blobToSave.type)
-        // Update state so UI reflects the blob
         setAudioBlob(blobToSave)
         if (!audioUrl) {
           setAudioUrl(URL.createObjectURL(blobToSave))
@@ -844,12 +823,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     
     if (blobToSave && blobToSave.size > 0) {
       console.log('✅ Calling onRecordingComplete with blob size:', blobToSave.size, 'type:', blobToSave.type)
-      onRecordingComplete(blobToSave, duration)
+      setIsSaving(true)
+      setError(null)
+      try {
+        await Promise.resolve(onRecordingComplete(blobToSave, duration))
+      } catch (err: any) {
+        console.error('❌ Save threw:', err)
+        setError(err?.message || 'Failed to save recording')
+      } finally {
+        setIsSaving(false)
+      }
     } else {
       console.error('❌ Cannot save - no valid audio data')
       setError('Cannot save: No audio data recorded. Please record audio before saving.')
     }
-  }, [audioBlob, audioUrl, duration, onRecordingComplete, getSupportedMimeType])
+  }, [audioBlob, audioUrl, duration, isSaving, onRecordingComplete, getSupportedMimeType])
 
   // Debug: Log state changes
   useEffect(() => {
@@ -1225,15 +1213,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         
         <button
           onClick={handleSave}
-          disabled={!audioBlob && chunksRef.current.length === 0}
+          disabled={isSaving || (!audioBlob && chunksRef.current.length === 0)}
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            (audioBlob || chunksRef.current.length > 0)
+            !isSaving && (audioBlob || chunksRef.current.length > 0)
               ? 'bg-blue-500 hover:bg-blue-600 text-white'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
           title={audioBlob ? 'Save recording' : chunksRef.current.length > 0 ? 'Save recording (will create from chunks)' : 'No recording available'}
         >
-          Save Recording
+          {isSaving ? 'Saving...' : 'Save Recording'}
         </button>
       </div>
 
